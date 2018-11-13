@@ -91,6 +91,473 @@ def get_clave(self, url, tipo_documento, numeracion, sucursal, terminal, situaci
     return {'resp': {'length': len(clave), 'clave': clave, 'consecutivo': consecutivo}}
 
 
+def _get_consecutivo(invoice):
+    # A) sucursal
+    sucursal = str(invoice.journal_id.sucursal or 1).zfill(3)
+
+    # B) terminal
+    terminal = str(invoice.journal_id.terminal or 1).zfill(5)
+
+    # C) tipo de comprobante o documento
+    if invoice.type == 'out_invoice':
+        tipo_documento = '01'  # Factura Electrónica
+    elif invoice.type == 'out_refund':
+        tipo_documento = '03'  # Nota de Crédito
+
+    # D) numeracion
+    numeracion = re.sub('[^0-9]', '', invoice.number)
+    if len(numeracion) != 10:
+        raise UserError('La numeración debe de tener 10 dígitos')
+
+    consecutivo = sucursal + terminal + tipo_documento + numeracion
+
+    if len(consecutivo) != 20:
+        raise UserError('Algo anda mal con el consecutivo :(')
+
+    return consecutivo
+
+
+def _get_clave(invoice):
+    # a) código de pais
+    codigo_de_pais = '506'
+
+    # b) día, c) mes y d) año
+    fecha = datetime.datetime.strptime(invoice.date_invoice, '%Y-%m-%d')
+    dia = fecha.strftime('%d')
+    mes = fecha.strftime('%m')
+    anio = fecha.strftime('%y')
+
+    # e) número de identificación
+    identificacion = re.sub('[^0-9]', '', invoice.company_id.vat)
+
+    if not invoice.company_id.identification_id:
+        raise UserError('Seleccione el tipo de identificación del emisor en el perfil de la compañía')
+    elif invoice.company_id.identification_id.code == '01' and len(identificacion) != 9:
+        raise UserError('La Cédula Física del emisor debe de tener 9 dígitos')
+    elif invoice.company_id.identification_id.code == '02' and len(identificacion) != 10:
+        raise UserError('La Cédula Jurídica del emisor debe de tener 10 dígitos')
+    elif invoice.company_id.identification_id.code == '03' and (len(identificacion) != 11 or len(identificacion) != 12):
+        raise UserError('La identificación DIMEX del emisor debe de tener 11 o 12 dígitos')
+    elif invoice.company_id.identification_id.code == '04' and len(identificacion) != 10:
+        raise UserError('La identificación NITE del emisor debe de tener 10 dígitos')
+
+    identificacion = identificacion.zfill(12)
+
+    # f) numeración consecutiva
+    consecutivo = invoice.number
+    # consecutivo = _get_consecutivo(invoice)
+
+    # g) situacion del comprobante electrónico
+    situacion = '1'
+
+    # h) código de seguridad
+    codigo_de_seguridad = str(random.randint(1, 99999999)).zfill(8)
+
+    clave = codigo_de_pais + dia + mes + anio + identificacion + consecutivo + situacion + codigo_de_seguridad
+
+    if len(clave) != 50:
+        raise UserError('Algo anda mal con la clave :(')
+
+    return clave
+
+
+def _make_xml_invoice(invoice):
+    emisor = invoice.company_id
+    receptor = invoice.partner_id
+
+    # FacturaElectronica 4.2
+    FacturaElectronica = etree.Element('FacturaElectronica')
+
+    # Clave
+    Clave = etree.Element('Clave')
+    Clave.text = _get_clave(invoice)
+    FacturaElectronica.append(Clave)
+
+    # NumeroConsecutivo
+    NumeroConsecutivo = etree.Element('NumeroConsecutivo')
+    NumeroConsecutivo.text = invoice.number
+    FacturaElectronica.append(NumeroConsecutivo)
+
+    # FechaEmision
+    now_utc = datetime.datetime.now(pytz.timezone('UTC'))
+    now_cr = now_utc.astimezone(pytz.timezone('America/Costa_Rica'))
+    FechaEmision = etree.Element('FechaEmision')
+    FechaEmision.text = now_cr.strftime("%Y-%m-%dT%H:%M:%S")
+    FacturaElectronica.append(FechaEmision)
+
+    # Emisor
+    Emisor = etree.Element('Emisor')
+
+    Nombre = etree.Element('Nombre')
+    Nombre.text = emisor.name
+    Emisor.append(Nombre)
+
+    identificacion = re.sub('[^0-9]', '', emisor.vat)
+
+    if not emisor.identification_id:
+        raise UserError('Seleccione el tipo de identificación del emisor en el perfil de la compañía')
+    elif emisor.identification_id.code == '01' and len(identificacion) != 9:
+        raise UserError('La Cédula Física del emisor debe de tener 9 dígitos')
+    elif emisor.identification_id.code == '02' and len(identificacion) != 10:
+        raise UserError('La Cédula Jurídica del emisor debe de tener 10 dígitos')
+    elif emisor.identification_id.code == '03' and (len(identificacion) != 11 or len(identificacion) != 12):
+        raise UserError('La identificación DIMEX del emisor debe de tener 11 o 12 dígitos')
+    elif emisor.identification_id.code == '04' and len(identificacion) != 10:
+        raise UserError('La identificación NITE del emisor debe de tener 10 dígitos')
+
+    Identificacion = etree.Element('Identificacion')
+
+    Tipo = etree.Element('Tipo')
+    Tipo.text = emisor.identification_id.code
+    Identificacion.append(Tipo)
+
+    Numero = etree.Element('Numero')
+    Numero.text = identificacion
+    Identificacion.append(Numero)
+
+    Emisor.append(Identificacion)
+
+    if emisor.commercial_name:
+        NombreComercial = etree.Element('NombreComercial')
+        NombreComercial.text = emisor.commercial_name
+        Emisor.append(NombreComercial)
+
+    if not emisor.state_id:
+        raise UserError('La dirección del emisor está incompleta, no se ha seleccionado la Provincia')
+    if not emisor.county_id:
+        raise UserError('La dirección del emisor está incompleta, no se ha seleccionado el Cantón')
+    if not emisor.district_id:
+        raise UserError('La dirección del emisor está incompleta, no se ha seleccionado el Distrito')
+
+    Ubicacion = etree.Element('Ubicacion')
+
+    Provincia = etree.Element('Provincia')
+    Provincia.text = emisor.partner_id.state_id.code
+    Ubicacion.append(Provincia)
+
+    Canton = etree.Element('Canton')
+    Canton.text = emisor.county_id.code
+    Ubicacion.append(Canton)
+
+    Distrito = etree.Element('Distrito')
+    Distrito.text = emisor.district_id.code
+    Ubicacion.append(Distrito)
+
+    if emisor.partner_id.neighborhood_id:
+        Barrio = etree.Element('Barrio')
+        Barrio.text = emisor.neighborhood_id.code
+        Ubicacion.append(Barrio)
+
+    OtrasSenas = etree.Element('OtrasSenas')
+    OtrasSenas.text = emisor.street
+    Ubicacion.append(OtrasSenas)
+
+    Emisor.append(Ubicacion)
+
+    telefono = emisor.phone or emisor.mobile
+    if telefono and len(re.sub('[^0-9]', '', telefono)) <= 20:
+        Telefono = etree.Element('Telefono')
+
+        CodigoPais = etree.Element('CodigoPais')
+        CodigoPais.text = '506'
+        Telefono.append(CodigoPais)
+
+        NumTelefono = etree.Element('NumTelefono')
+        NumTelefono.text = re.sub('[^0-9]', '', telefono)[:8]
+
+        Telefono.append(NumTelefono)
+
+        Emisor.append(Telefono)
+
+    if not emisor.email or not re.match('^[(a-z0-9\_\-\.)]+@[(a-z0-9\_\-\.)]+\.[(a-z)]{2,15}$', emisor.email.lower()):
+        raise UserError('El correo electrónico del emisor es inválido.')
+
+    CorreoElectronico = etree.Element('CorreoElectronico')
+    CorreoElectronico.text = emisor.email.lower()
+    Emisor.append(CorreoElectronico)
+
+    FacturaElectronica.append(Emisor)
+
+    # Receptor
+    if receptor:
+
+        Receptor = etree.Element('Receptor')
+
+        Nombre = etree.Element('Nombre')
+        Nombre.text = receptor.name
+        Receptor.append(Nombre)
+
+        if receptor.identification_id and receptor.vat:
+            identificacion = re.sub('[^0-9]', '', receptor.vat)
+
+            if receptor.identification_id.code == '01' and len(identificacion) != 9:
+                raise UserError('La Cédula Física del cliente debe de tener 9 dígitos')
+            elif receptor.identification_id.code == '02' and len(identificacion) != 10:
+                raise UserError('La Cédula Jurídica del cliente debe de tener 10 dígitos')
+            elif receptor.identification_id.code == '03' and (len(identificacion) != 11 or len(identificacion) != 12):
+                raise UserError('La identificación DIMEX del cliente debe de tener 11 o 12 dígitos')
+            elif receptor.identification_id.code == '04' and len(identificacion) != 10:
+                raise UserError('La identificación NITE del cliente debe de tener 10 dígitos')
+
+            Identificacion = etree.Element('Identificacion')
+
+            Tipo = etree.Element('Tipo')
+            Tipo.text = receptor.identification_id.code
+            Identificacion.append(Tipo)
+
+            Numero = etree.Element('Numero')
+            Numero.text = identificacion
+            Identificacion.append(Numero)
+
+            Receptor.append(Identificacion)
+
+        if receptor.state_id and receptor.county_id and receptor.district_id and receptor.street:
+            Ubicacion = etree.Element('Ubicacion')
+
+            Provincia = etree.Element('Provincia')
+            Provincia.text = receptor.state_id.code
+            Ubicacion.append(Provincia)
+
+            Canton = etree.Element('Canton')
+            Canton.text = receptor.county_id.code
+            Ubicacion.append(Canton)
+
+            Distrito = etree.Element('Distrito')
+            Distrito.text = receptor.district_id.code
+            Ubicacion.append(Distrito)
+
+            if receptor.partner_id.neighborhood_id:
+                Barrio = etree.Element('Barrio')
+                Barrio.text = receptor.neighborhood_id.code
+                Ubicacion.append(Barrio)
+
+            OtrasSenas = etree.Element('OtrasSenas')
+            OtrasSenas.text = receptor.street
+            Ubicacion.append(OtrasSenas)
+
+            Receptor.append(Ubicacion)
+
+        telefono = receptor.phone or receptor.mobile
+        if telefono and len(re.sub('[^0-9]', '', telefono)) <= 20:
+            Telefono = etree.Element('Telefono')
+
+            CodigoPais = etree.Element('CodigoPais')
+            CodigoPais.text = '506'
+            Telefono.append(CodigoPais)
+
+            NumTelefono = etree.Element('NumTelefono')
+            NumTelefono.text = re.sub('[^0-9]', '', telefono)[:8]
+            Telefono.append(NumTelefono)
+
+            Receptor.append(Telefono)
+
+        if receptor.email:
+            CorreoElectronico = etree.Element('CorreoElectronico')
+            CorreoElectronico.text = receptor.email
+            Receptor.append(CorreoElectronico)
+
+        FacturaElectronica.append(Receptor)
+
+    # Condicion Venta
+    CondicionVenta = etree.Element('CondicionVenta')
+    if invoice.payment_term_id:
+        CondicionVenta.text = '02'
+        FacturaElectronica.append(CondicionVenta)
+
+        PlazoCredito = etree.Element('PlazoCredito')
+        datetime.timedelta(7)
+        fecha_de_factura = datetime.datetime.strptime(invoice.date_invoice, '%Y-%m-%d')
+        fecha_de_vencimiento = datetime.datetime.strptime(invoice.date_due, '%Y-%m-%d')
+        PlazoCredito.text = str((fecha_de_factura - fecha_de_vencimiento).days)
+        FacturaElectronica.append(PlazoCredito)
+    else:
+        CondicionVenta.text = '01'
+        FacturaElectronica.append(CondicionVenta)
+
+    # MedioPago
+    MedioPago = etree.Element('MedioPago')
+    MedioPago.text = '01'
+    FacturaElectronica.append(MedioPago)
+
+    # DetalleServicio
+    DetalleServicio = etree.Element('DetalleServicio')
+
+    totalServiciosGravados = 0
+    totalServiciosExentos = 0
+    totalMercanciasGravadas = 0
+    totalMercanciasExentas = 0
+
+    for indice, linea in enumerate(invoice.invoice_line_ids):
+        LineaDetalle = etree.Element('LineaDetalle')
+
+        NumeroLinea = etree.Element('NumeroLinea')
+        NumeroLinea.text = '%s' % (indice + 1)
+        LineaDetalle.append(NumeroLinea)
+
+        if linea.product_id.default_code:
+            Codigo = etree.Element('Codigo')
+
+            Tipo = etree.Element('Tipo')
+            if linea.product_id.type == 'product' or linea.product_id.type == 'consu':
+                Tipo.text = '01'
+            elif linea.product_id.type == 'service':
+                Tipo.text = '02'
+            Codigo.append(Tipo)
+
+            Codigo2 = etree.Element('Codigo')
+            Codigo2.text = linea.product_id.default_code
+            Codigo.append(Codigo2)
+
+            LineaDetalle.append(Codigo)
+
+        Cantidad = etree.Element('Cantidad')
+        Cantidad.text = str(linea.quantity)
+        LineaDetalle.append(Cantidad)
+
+        UnidadMedida = etree.Element('UnidadMedida')
+        if linea.product_id.type == 'product' or linea.product_id.type == 'consu':
+            UnidadMedida.text = 'Unid'
+        elif linea.product_id.type == 'service':
+            UnidadMedida.text = 'Sp'
+        LineaDetalle.append(UnidadMedida)
+
+        Detalle = etree.Element('Detalle')
+        Detalle.text = linea.name
+        LineaDetalle.append(Detalle)
+
+        PrecioUnitario = etree.Element('PrecioUnitario')
+        PrecioUnitario.text = str(linea.price_unit)
+        LineaDetalle.append(PrecioUnitario)
+
+        MontoTotal = etree.Element('MontoTotal')
+        # MontoTotal.text = str(linea.price_total)
+        montoTotal = linea.price_unit * linea.quantity
+        MontoTotal.text = str(montoTotal)
+
+        LineaDetalle.append(MontoTotal)
+
+        if linea.discount:
+            MontoDescuento = etree.Element('MontoDescuento')
+            MontoDescuento.text = str(montoTotal * linea.discount / 100)
+            LineaDetalle.append(MontoDescuento)
+
+            NaturalezaDescuento = etree.Element('NaturalezaDescuento')
+            NaturalezaDescuento.text = linea.discount_note
+            LineaDetalle.append(NaturalezaDescuento)
+
+        SubTotal = etree.Element('SubTotal')
+        SubTotal.text = str(linea.price_subtotal)
+        LineaDetalle.append(SubTotal)
+
+        if linea.invoice_line_tax_ids:
+            for impuesto in linea.invoice_line_tax_ids:
+
+                Impuesto = etree.Element('Impuesto')
+
+                Codigo = etree.Element('Codigo')
+                Codigo.text = impuesto.code
+                Impuesto.append(Codigo)
+
+                if linea.product_id.type == 'service' and impuesto.code != '07':
+                    raise UserError('No se puede aplicar impuesto de ventas a los servicios')
+
+                Tarifa = etree.Element('Tarifa')
+                Tarifa.text = str(impuesto.amount)
+                Impuesto.append(Tarifa)
+
+                Monto = etree.Element('Monto')
+                Monto.text = str(linea.price_subtotal * impuesto.amount / 100)
+                Impuesto.append(Monto)
+
+                LineaDetalle.append(Impuesto)
+
+                if linea.product_id.type == 'product' or linea.product_id.type == 'consu':
+                    totalMercanciasGravadas += linea.price_subtotal
+                elif linea.product_id.type == 'service':
+                    totalServiciosGravados += linea.price_subtotal
+        else:
+            if linea.product_id.type == 'product' or linea.product_id.type == 'consu':
+                totalMercanciasExentas += linea.price_subtotal
+            elif linea.product_id.type == 'service':
+                totalServiciosExentos += linea.price_subtotal
+
+        MontoTotalLinea = etree.Element('MontoTotalLinea')
+        MontoTotalLinea.text = str(linea.price_total)
+        # MontoTotalLinea.text = str(linea.price_unit * linea.quantity)
+        LineaDetalle.append(MontoTotalLinea)
+
+        DetalleServicio.append(LineaDetalle)
+
+    FacturaElectronica.append(DetalleServicio)
+
+    # ResumenFactura
+    ResumenFactura = etree.Element('ResumenFactura')
+
+    if totalServiciosGravados:
+        TotalServGravados = etree.Element('TotalServGravados')
+        TotalServGravados.text = str(totalServiciosGravados)
+        ResumenFactura.append(TotalServGravados)
+
+    if totalServiciosExentos:
+        TotalServExentos = etree.Element('TotalServExentos')
+        TotalServExentos.text = str(totalServiciosExentos)
+        ResumenFactura.append(TotalServExentos)
+
+    if totalMercanciasGravadas:
+        TotalMercanciasGravadas = etree.Element('TotalMercanciasGravadas')
+        TotalMercanciasGravadas.text = str(totalMercanciasGravadas)
+        ResumenFactura.append(TotalMercanciasGravadas)
+
+    if totalMercanciasExentas:
+        TotalMercanciasExentas = etree.Element('TotalMercanciasExentas')
+        TotalMercanciasExentas.text = str(totalMercanciasExentas)
+        ResumenFactura.append(TotalMercanciasExentas)
+
+    if totalServiciosGravados + totalMercanciasGravadas:
+        TotalGravado = etree.Element('TotalGravado')
+        TotalGravado.text = str(totalServiciosGravados + totalMercanciasGravadas)
+        ResumenFactura.append(TotalGravado)
+
+    if totalServiciosExentos + totalMercanciasExentas:
+        TotalExento = etree.Element('TotalExento')
+        TotalExento.text = str(totalServiciosExentos + totalMercanciasExentas)
+        ResumenFactura.append(TotalExento)
+
+    TotalVenta = etree.Element('TotalVenta')
+    TotalVenta.text = str(invoice.amount_untaxed)
+    ResumenFactura.append(TotalVenta)
+
+    TotalVentaNeta = etree.Element('TotalVentaNeta')
+    TotalVentaNeta.text = str(invoice.amount_untaxed)
+    ResumenFactura.append(TotalVentaNeta)
+
+    if invoice.amount_tax:
+        TotalImpuesto = etree.Element('TotalImpuesto')
+        TotalImpuesto.text = str(invoice.amount_tax)
+        ResumenFactura.append(TotalImpuesto)
+
+    TotalComprobante = etree.Element('TotalComprobante')
+    TotalComprobante.text = str(invoice.amount_total)
+    ResumenFactura.append(TotalComprobante)
+
+    FacturaElectronica.append(ResumenFactura)
+
+    # Normativa
+    Normativa = etree.Element('Normativa')
+
+    NumeroResolucion = etree.Element('NumeroResolucion')
+    NumeroResolucion.text = 'DGT-R-48-2016'
+    Normativa.append(NumeroResolucion)
+
+    FechaResolucion = etree.Element('FechaResolucion')
+    FechaResolucion.text = '07-10-2016 08:00:00'
+    Normativa.append(FechaResolucion)
+
+    FacturaElectronica.append(Normativa)
+
+    return etree.tostring(FacturaElectronica, pretty_print=True).decode()
+
+
 def make_xml_invoice(inv, tipo_documento, consecutivo, date, sale_conditions, medio_pago, total_servicio_gravado,
                      total_servicio_exento, total_mercaderia_gravado, total_mercaderia_exento, base_total, lines,
                      tipo_documento_referencia, numero_documento_referencia, fecha_emision_referencia,
