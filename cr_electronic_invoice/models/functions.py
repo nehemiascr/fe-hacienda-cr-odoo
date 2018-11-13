@@ -110,6 +110,7 @@ def _get_consecutivo(invoice):
         raise UserError('La numeración debe de tener 10 dígitos')
 
     consecutivo = sucursal + terminal + tipo_documento + numeracion
+    _logger.info('consecutivo %s' % consecutivo)
 
     if len(consecutivo) != 20:
         raise UserError('Algo anda mal con el consecutivo :(')
@@ -145,7 +146,7 @@ def _get_clave(invoice):
 
     # f) numeración consecutiva
     consecutivo = invoice.number
-    # consecutivo = _get_consecutivo(invoice)
+    consecutivo = _get_consecutivo(invoice)
 
     # g) situacion del comprobante electrónico
     situacion = '1'
@@ -154,6 +155,8 @@ def _get_clave(invoice):
     codigo_de_seguridad = str(random.randint(1, 99999999)).zfill(8)
 
     clave = codigo_de_pais + dia + mes + anio + identificacion + consecutivo + situacion + codigo_de_seguridad
+
+    _logger.info('consecutivo %s' % consecutivo)
 
     if len(clave) != 50:
         raise UserError('Algo anda mal con la clave :(')
@@ -455,7 +458,8 @@ def _make_xml_invoice(invoice):
                 Impuesto = etree.Element('Impuesto')
 
                 Codigo = etree.Element('Codigo')
-                Codigo.text = impuesto.code
+                # Codigo.text = impuesto.code
+                Codigo.text = '01'
                 Impuesto.append(Codigo)
 
                 if linea.product_id.type == 'service' and impuesto.code != '07':

@@ -813,6 +813,7 @@ class AccountInvoiceElectronic(models.Model):
 
                             lines[str(line_number)] = line
 
+                        _logger.info('xml %s' % functions._make_xml_invoice(inv))
                         response_json = functions.make_xml_invoice(inv, tipo_documento, consecutivo, date_cr,
                                                                    sale_conditions, medio_pago, round(total_servicio_gravado, 2),
                                                                    round(total_servicio_exento, 2), round(total_mercaderia_gravado, 2),
