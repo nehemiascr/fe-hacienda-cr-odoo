@@ -5,6 +5,19 @@
      <t t-call="web.external_layout">
         <t t-set="o" t-value="o.with_context({'lang':o.partner_id.lang})"/>
         <div class="page">
+
+            <div class="row">
+                <div class="col-xs-3 mb4">
+                    <img t-if="o.company_id.logo" t-att-src="'data:image/png;base64,%s' % to_text(o.company_id.logo)" style="max-height: 45px;"/>
+                </div>
+                <div class="col-xs-9 text-right" style="margin-top:22px;" t-field="o.company_id.report_header" name="moto"/>
+
+            </div>
+
+            <h3 t-field="o.company_id.commercial_name"/>
+            <h4 t-field="o.company_id.name"/>
+            <h4 t-field="o.company_id.vat"/>
+
           <div style="float:right; margin-right:100px ">
             <div name="invoice_address">
               <address t-field="o.partner_id" t-options="{&quot;widget&quot;: &quot;contact&quot;, &quot;fields&quot;: [&quot;address&quot;, &quot;name&quot;], &quot;no_marker&quot;: True}"/>
