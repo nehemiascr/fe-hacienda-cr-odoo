@@ -7,15 +7,15 @@ from odoo.exceptions import UserError
 
 import base64
 from lxml import etree
-=======
 import datetime
 import pytz
-
+import os
+import subprocess
 
 _logger = logging.getLogger(__name__)
 
 
-def get_clave(self, url, tipo_documento, numeracion, sucursal, terminal, situacion='normal'):
+def get_clave(invoice, url, tipo_documento, numeracion, sucursal, terminal, situacion='normal'):
 
     # tipo de documento
     tipos_de_documento = { 'FE'  : '01', # Factura Electrónica
@@ -44,19 +44,19 @@ def get_clave(self, url, tipo_documento, numeracion, sucursal, terminal, situaci
     terminal = re.sub('[^0-9]', '', str(terminal)).zfill(5)
 
     # tipo de identificación
-    if not self.company_id.identification_id:
+    if not invoice.company_id.identification_id:
         raise UserError('Seleccione el tipo de identificación del emisor en el perfil de la compañía')
 
     # identificación
-    identificacion = re.sub('[^0-9]', '', self.company_id.vat)
+    identificacion = re.sub('[^0-9]', '', invoice.company_id.vat)
 
-    if self.company_id.identification_id.code == '01' and len(identificacion) != 9:
+    if invoice.company_id.identification_id.code == '01' and len(identificacion) != 9:
         raise UserError('La Cédula Física del emisor debe de tener 9 dígitos')
-    elif self.company_id.identification_id.code == '02' and len(identificacion) != 10:
+    elif invoice.company_id.identification_id.code == '02' and len(identificacion) != 10:
         raise UserError('La Cédula Jurídica del emisor debe de tener 10 dígitos')
-    elif self.company_id.identification_id.code == '03' and (len(identificacion) != 11 or len(identificacion) != 12):
+    elif invoice.company_id.identification_id.code == '03' and (len(identificacion) != 11 or len(identificacion) != 12):
         raise UserError('La identificación DIMEX del emisor debe de tener 11 o 12 dígitos')
-    elif self.company_id.identification_id.code == '04' and len(identificacion) != 10:
+    elif invoice.company_id.identification_id.code == '04' and len(identificacion) != 10:
         raise UserError('La identificación NITE del emisor debe de tener 10 dígitos')
 
     identificacion = identificacion.zfill(12)
@@ -89,7 +89,10 @@ def get_clave(self, url, tipo_documento, numeracion, sucursal, terminal, situaci
     # clave
     clave = codigo_de_pais + dia + mes + anio + identificacion + consecutivo + situacion + codigo_de_seguridad
 
-    return {'resp': {'length': len(clave), 'clave': clave, 'consecutivo': consecutivo}}
+
+    respuesta = {'resp': {'length': len(clave), 'clave': clave, 'consecutivo': consecutivo}}
+    _logger.info('get_clave returning %s' % respuesta)
+    return respuesta
 
 
 def make_xml_invoice(inv, tipo_documento, consecutivo, date, sale_conditions, medio_pago, total_servicio_gravado,
@@ -110,7 +113,7 @@ def make_xml_invoice(inv, tipo_documento, consecutivo, date, sale_conditions, me
     payload['emisor_nombre'] = inv.company_id.name
     payload['emisor_tipo_indetif'] = inv.company_id.identification_id.code
     payload['emisor_num_identif'] = inv.company_id.vat
-    payload['nombre_comercial'] = inv.company_id.commercial_name or ''
+    payload['nombre_comercial'] = inv.company_id.commercial_name or inv.company_id.name
     payload['emisor_provincia'] = inv.company_id.state_id.code
     payload['emisor_canton'] = inv.company_id.county_id.code
     payload['emisor_distrito'] = inv.company_id.district_id.code
@@ -130,7 +133,8 @@ def make_xml_invoice(inv, tipo_documento, consecutivo, date, sale_conditions, me
     payload['receptor_tel'] = re.sub('[^0-9]+', '', inv.partner_id.phone or '')
     payload['receptor_email'] = inv.partner_id.email or ''
     payload['condicion_venta'] = sale_conditions
-    payload['plazo_credito'] = inv.partner_id.property_payment_term_id.line_ids[0].days or '0'
+    plazo_credito = str((datetime.datetime.strptime(inv.date_invoice,'%Y-%m-%d') - datetime.datetime.strptime(inv.date_due, '%Y-%m-%d')).days)
+    payload['plazo_credito'] = plazo_credito
     payload['medio_pago'] = medio_pago
     payload['cod_moneda'] = inv.currency_id.name
     payload['tipo_cambio'] = currency_rate
@@ -156,14 +160,24 @@ def make_xml_invoice(inv, tipo_documento, consecutivo, date, sale_conditions, me
         payload['infoRefeCodigo'] = codigo_referencia
         payload['infoRefeRazon'] = razon_referencia
 
+    _logger.info('requesting xml with %s' % payload)
+
     response = requests.request("POST", url, data=payload, headers=headers)
+    _logger.info('response %s' % response)
+    _logger.info('response %s' % response.__dict__)
     response_json = response.json()
+
+    _logger.info('make_xml_invoice returning %s' % response_json)
+
     return response_json
 
 
 def token_hacienda(inv, env, url):
 
-    url = 'https://idp.comprobanteselectronicos.go.cr/auth/realms/rut-stag/protocol/openid-connect/token'
+    if env == 'api-stag':
+        url = 'https://idp.comprobanteselectronicos.go.cr/auth/realms/rut-stag/protocol/openid-connect/token'
+    elif env == 'api-prod':
+        url = 'https://idp.comprobanteselectronicos.go.cr/auth/realms/rut/protocol/openid-connect/token'
 
     data = {
         'client_id': env,
@@ -179,7 +193,10 @@ def token_hacienda(inv, env, url):
         _logger.error('Exception %s' % e)
         raise Exception(e)
 
-    return {'resp': response.json()}
+    respuesta = {'resp': response.json()}
+    _logger.info('token_hacienda returning %s' % respuesta)
+
+    return respuesta
 
 
 def sign_xml(inv, tipo_documento, url, xml):
@@ -195,6 +212,40 @@ def sign_xml(inv, tipo_documento, url, xml):
     response = requests.request("POST", url, data=payload, headers=headers)
     response_json = response.json()
     return response_json
+
+    _logger.info('sign_xml returning %s' % response_json)
+
+    return response_json
+
+
+def _sign_xml(invoice, xml):
+
+    xml = base64.b64decode(xml).decode('utf-8')
+    # directorio donde se encuentra el firmador de johann04 https://github.com/johann04/xades-signer-cr
+    path = os.path.dirname(os.path.realpath(__file__))[:-6] + 'bin/'
+    # nombres de archivos
+    signer_filename = 'xadessignercr.jar'
+    firma_filename = 'firma.p12'
+    factura_filename = 'factura.xml'
+    # El firmador es un ejecutable de java que necesita la firma y la factura en un archivo
+    # 1) escribimos el xml de la factura en un archivo
+    with open(path + factura_filename, 'w+') as file:
+        file.write(xml)
+    # 2) escribimos la firma en un archivo
+    with open(path + firma_filename, 'w+b') as file:
+        file.write(base64.b64decode(invoice.company_id.signature))
+    # 3) firmamos el archivo con el signer
+    subprocess.check_output(['java', '-jar', path + signer_filename, 'sign', path + firma_filename, invoice.company_id.frm_pin, path + factura_filename, path + factura_filename])
+    # 4) leemos el archivo firmado
+    with open(path + factura_filename, 'r') as file:
+        xml = file.read()
+    # quitamos la codificación del archivo
+    xml = xml.replace('<?xml version="1.0" encoding="UTF-8" standalone="no"?>', '')
+
+    respuesta = {'resp': {'xmlFirmado': base64.b64encode(bytes(xml, 'utf-8')).decode('utf-8')}}
+    _logger.info('_sign_xml returning %s' % respuesta)
+
+    return respuesta
 
 
 def send_file(inv, token, date, xml, env, url):
@@ -236,10 +287,24 @@ def send_file(inv, token, date, xml, env, url):
         _logger.info('Exception %s' % e)
         raise Exception(e)
 
-    return {'resp': {'Status': response.status_code, 'text': response.text}}
+    respuesta = {'resp': {'Status': response.status_code, 'text': response.text}}
+    _logger.info('send_file returning %s' % respuesta)
+
+    return respuesta
+
+def _consultar_documentos(invoice):
+
+    if invoice.company_id.frm_ws_ambiente == 'api-stag':
+        url = 'https://api.comprobanteselectronicos.go.cr/recepcion-sandbox/v1/recepcion/'
+    elif invoice.company_id.frm_ws_ambiente == 'api-prod':
+        url = 'https://api.comprobanteselectronicos.go.cr/recepcion/v1/recepcion/'
+
+
+
 
 
 def consulta_documentos(self, inv, env, token_m_h, url, date_cr, xml_firmado):
+    _logger.info('consulta_documentos')
     payload = {}
     headers = {}
     payload['w'] = 'consultar'
@@ -248,8 +313,23 @@ def consulta_documentos(self, inv, env, token_m_h, url, date_cr, xml_firmado):
     payload['token'] = token_m_h
     payload['clave'] = inv.number_electronic
     response = requests.request("POST", url, data=payload, headers=headers)
+    _logger.info('response %s' % response.__dict__)
     response_json = response.json()
+
+    if 'resp' not in response_json or 'ind-estado' not in response_json.get('resp'):
+        _logger.info('error de comunicación %s' % response.__dict__)
+        return
+
+    if not date_cr:
+        now_utc = datetime.datetime.now(pytz.timezone('UTC'))
+        now_cr = now_utc.astimezone(pytz.timezone('America/Costa_Rica'))
+        date_cr = now_cr.strftime("%Y-%m-%dT%H:%M:%S-06:00")
+
+    if not xml_firmado:
+        xml_firmado = inv.xml_comprobante
+
     estado_m_h = response_json.get('resp').get('ind-estado')
+    _logger.info('estado de %s es %s' % (inv.number_electronic, estado_m_h))
 
     # Siempre sin importar el estado se actualiza la fecha de acuerdo a la devuelta por Hacienda y
     # se carga el xml devuelto por Hacienda
