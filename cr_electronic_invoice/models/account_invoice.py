@@ -326,6 +326,33 @@ class AccountInvoiceElectronic(models.Model):
 			for invoice in self:
 				self.env['facturacion_electronica'].consulta_documento(invoice)
 
+	@api.multi
+	def action_enviar_email(self):
+		if self.company_id.frm_ws_ambiente != 'disabled':
+
+			for invoice in self:
+				if self.env['facturacion_electronica'].consulta_documento(invoice):
+					email_template = self.env.ref('account.email_template_edi_invoice', False)
+					attachment = self.env['ir.attachment'].search(
+						[('res_model', '=', 'account.invoice'), ('res_id', '=', invoice.id),
+						 ('res_field', '=', 'xml_comprobante')], limit=1)
+					attachment.name = invoice.fname_xml_comprobante
+					attachment.datas_fname = invoice.fname_xml_comprobante
+
+					attachment_resp = self.env['ir.attachment'].search(
+						[('res_model', '=', 'account.invoice'), ('res_id', '=', invoice.id),
+						 ('res_field', '=', 'xml_respuesta_tributacion')], limit=1)
+					attachment_resp.name = invoice.fname_xml_respuesta_tributacion
+					attachment_resp.datas_fname = invoice.fname_xml_respuesta_tributacion
+
+					email_template.attachment_ids = [(6, 0, [attachment.id, attachment_resp.id])]
+
+					email_template.with_context(type='binary', default_type='binary').send_mail(invoice.id,
+																								raise_exception=False,
+																								force_send=True)  # default_type='binary'
+
+					email_template.attachment_ids = [(5)]
+
 
 	@api.multi
 	def action_invoice_open(self):
@@ -521,7 +548,8 @@ class AccountInvoiceElectronic(models.Model):
 						inv.date_issuance = date_cr
 
 						if self.env['facturacion_electronica'].enviar_xml(xml_firmado):
-							self.env['facturacion_electronica'].consulta_documento(inv)
+							if self.env['facturacion_electronica'].consulta_documento(inv):
+								self.env['facturacion_electronica'].enviar_email(inv)
 
 					else:
 						raise UserError('Debe configurar correctamente la secuencia del documento')

@@ -585,9 +585,40 @@ class FacturacionElectronica(models.TransientModel):
 		if response.status_code == 202:
 			_logger.info('factura recibida por hacienda %s' % response.__dict__)
 			return True
+		elif response.status_code == 301:
+			_logger.info('Error 301 %s' % response.headers['X-Error-Cause'])
+			return False
+		elif response.status_code == 400:
+			_logger.info('Error 400 %s' % response.headers['X-Error-Cause'])
+			return False
 		else:
 			_logger.info('no vamos a continuar, algo inesperado sucedió %s' % response.__dict__)
+			if (response.headers and 'X-Error-Cause' in response.headers):
+				_logger.info('Error %s : %s' % (response.status_code, response.headers['X-Error-Cause']))
 			return False
+
+	def enviar_email(self, invoice):
+		if invoice.state_tributacion == 'aceptado':
+			email_template = self.env.ref('account.email_template_edi_invoice', False)
+			attachment = self.env['ir.attachment'].search(
+				[('res_model', '=', 'account.invoice'), ('res_id', '=', invoice.id),
+				 ('res_field', '=', 'xml_comprobante')], limit=1)
+			attachment.name = invoice.fname_xml_comprobante
+			attachment.datas_fname = invoice.fname_xml_comprobante
+
+			attachment_resp = self.env['ir.attachment'].search(
+				[('res_model', '=', 'account.invoice'), ('res_id', '=', invoice.id),
+				 ('res_field', '=', 'xml_respuesta_tributacion')], limit=1)
+			attachment_resp.name = invoice.fname_xml_respuesta_tributacion
+			attachment_resp.datas_fname = invoice.fname_xml_respuesta_tributacion
+
+			email_template.attachment_ids = [(6, 0, [attachment.id, attachment_resp.id])]
+
+			email_template.with_context(type='binary', default_type='binary').send_mail(invoice.id,
+																						raise_exception=False,
+																						force_send=True)  # default_type='binary'
+
+			email_template.attachment_ids = [(5)]
 
 
 	def consulta_documento(self, invoice):
@@ -627,7 +658,13 @@ class FacturacionElectronica(models.TransientModel):
 			_logger.info('no vamos a continuar, Exception %s' % e)
 			return False
 
-		if response.status_code != 200:
+		if response.status_code == 301:
+			_logger.info('Error 301 %s' % response.headers['X-Error-Cause'])
+			return False
+		elif response.status_code == 400:
+			_logger.info('Error 400 %s' % response.headers['X-Error-Cause'])
+			return False
+		elif response.status_code != 200:
 			_logger.info('no vamos a continuar, algo inesperado sucedió %s' % response.__dict__)
 			return False
 

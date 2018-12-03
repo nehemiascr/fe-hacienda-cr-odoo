@@ -210,6 +210,10 @@ def sign_xml(inv, tipo_documento, url, xml):
     payload['tipodoc'] = tipo_documento
 
     response = requests.request("POST", url, data=payload, headers=headers)
+
+    _logger.info('response\n%s\ndict\n%s\n' % (response, response.__dict__))
+
+
     response_json = response.json()
     return response_json
 
