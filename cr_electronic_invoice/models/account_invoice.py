@@ -8,11 +8,11 @@ import re
 import datetime
 import pytz
 import requests
-import json
 from dateutil.parser import parse
 from . import functions
-
 import logging
+
+_logger = logging.getLogger(__name__)
 
 
 class AccountInvoiceElectronic(models.Model):
@@ -20,6 +20,7 @@ class AccountInvoiceElectronic(models.Model):
 
 	number_electronic = fields.Char(string="Número electrónico", required=False, copy=False, index=True)
 	date_issuance = fields.Char(string="Fecha de emisión", required=False, copy=False)
+	fecha = fields.Datetime('Fecha de Emisión', readonly=True, default=fields.Datetime.now())
 	state_send_invoice = fields.Selection([('aceptado', 'Aceptado'), ('rechazado', 'Rechazado'), ],
 										  'Estado FE Proveedor')
 	state_tributacion = fields.Selection(
@@ -36,6 +37,8 @@ class AccountInvoiceElectronic(models.Model):
 											  attachment=True)
 	fname_xml_respuesta_tributacion = fields.Char(string="Nombre de archivo XML Respuesta Tributación", required=False,
 												  copy=False)
+
+	respuesta_tributacion = fields.Text(string="Mensaje en la Respuesta de Tributación", readonly=True )
 	xml_comprobante = fields.Binary(string="Comprobante XML", required=False, copy=False, attachment=True)
 	fname_xml_comprobante = fields.Char(string="Nombre de archivo Comprobante XML", required=False, copy=False,
 										attachment=True)
@@ -82,7 +85,7 @@ class AccountInvoiceElectronic(models.Model):
 				return {'value': {'xml_supplier_approval': False}, 'warning': {'title': 'Atención',
 																			   'message': 'No se puede localizar el nodo TotalComprobante. Por favor cargue un archivo con el formato correcto.'}}
 
-	# self.fname_xml_supplier_approval = 'comrpobante_proveedor.xml'
+
 
 	@api.multi
 	def charge_xml_data(self):
@@ -247,6 +250,7 @@ class AccountInvoiceElectronic(models.Model):
 											  journal_id=journal_id)
 				values.update({'invoice_id': invoice_id, 'reference_code_id': reference_code_id})
 				refund_invoice = self.create(values)
+
 				invoice_type = {
 					'out_invoice': ('customer invoices refund'),
 					'in_invoice': ('vendor bill refund')
@@ -264,292 +268,48 @@ class AccountInvoiceElectronic(models.Model):
 		super(AccountInvoiceElectronic, self)._onchange_partner_id()
 		self.payment_methods_id = self.partner_id.payment_methods_id
 
-	@api.model
-	def _consultahacienda(self):  # cron
-		invoices = self.env['account.invoice'].search(
-			[('type', 'in', ('out_invoice', 'out_refund')), ('state', 'in', ('open', 'paid')),
-			 ('state_tributacion', 'in', ('recibido', 'procesando'))])
-		for i in invoices:
-			url = i.company_id.frm_callback_url
-
-			response_json = functions.token_hacienda(i, i.company_id.frm_ws_ambiente, url)
-
-			token_m_h = response_json.get('resp').get('access_token')
-			if i.number_electronic and len(i.number_electronic) == 50:
-				headers = {}
-				payload = {}
-				payload['w'] = 'consultar'
-				payload['r'] = 'consultarCom'
-				payload['client_id'] = i.company_id.frm_ws_ambiente
-				payload['token'] = token_m_h
-				payload['clave'] = i.number_electronic
-				response = requests.request("POST", url, data=payload, headers=headers)
-				responsejson = response.json()
-				estado_m_h = responsejson.get('resp').get('ind-estado')
-				if estado_m_h == 'aceptado':
-					i.state_tributacion = estado_m_h
-					i.fname_xml_respuesta_tributacion = 'respuesta_' + i.number_electronic + '.xml'
-					i.xml_respuesta_tributacion = responsejson.get('resp').get('respuesta-xml')
-					if not i.partner_id.opt_out:
-						email_template = self.env.ref('account.email_template_edi_invoice', False)
-						attachment = self.env['ir.attachment'].search(
-							[('res_model', '=', 'account.invoice'), ('res_id', '=', i.id),
-							 ('res_field', '=', 'xml_comprobante')], limit=1)
-						attachment.name = i.fname_xml_comprobante
-						attachment.datas_fname = i.fname_xml_comprobante
-
-						attachment_resp = self.env['ir.attachment'].search(
-							[('res_model', '=', 'account.invoice'), ('res_id', '=', i.id),
-							 ('res_field', '=', 'xml_respuesta_tributacion')], limit=1)
-						attachment_resp.name = i.fname_xml_respuesta_tributacion
-						attachment_resp.datas_fname = i.fname_xml_respuesta_tributacion
-
-						email_template.attachment_ids = [(6, 0, [attachment.id, attachment_resp.id])]
-
-						email_template.with_context(type='binary', default_type='binary').send_mail(i.id,
-																									raise_exception=False,
-																									force_send=True)  # default_type='binary'
-
-						email_template.attachment_ids = [(5)]
-
-				elif estado_m_h == 'rechazado':
-					i.state_tributacion = estado_m_h
-					i.fname_xml_respuesta_tributacion = 'respuesta_' + i.number_electronic + '.xml'
-					i.xml_respuesta_tributacion = responsejson.get('resp').get('respuesta-xml')
-				elif estado_m_h == 'error':
-					i.state_tributacion = estado_m_h
-
 	@api.multi
 	def action_consultar_hacienda(self):
 		if self.company_id.frm_ws_ambiente != 'disabled':
 
 			for invoice in self:
-				self.env['facturacion_electronica'].consulta_documento(invoice)
-
-	@api.multi
-	def action_enviar_email(self):
-		if self.company_id.frm_ws_ambiente != 'disabled':
-
-			for invoice in self:
-				if self.env['facturacion_electronica'].consulta_documento(invoice):
-					email_template = self.env.ref('account.email_template_edi_invoice', False)
-					attachment = self.env['ir.attachment'].search(
-						[('res_model', '=', 'account.invoice'), ('res_id', '=', invoice.id),
-						 ('res_field', '=', 'xml_comprobante')], limit=1)
-					attachment.name = invoice.fname_xml_comprobante
-					attachment.datas_fname = invoice.fname_xml_comprobante
-
-					attachment_resp = self.env['ir.attachment'].search(
-						[('res_model', '=', 'account.invoice'), ('res_id', '=', invoice.id),
-						 ('res_field', '=', 'xml_respuesta_tributacion')], limit=1)
-					attachment_resp.name = invoice.fname_xml_respuesta_tributacion
-					attachment_resp.datas_fname = invoice.fname_xml_respuesta_tributacion
-
-					email_template.attachment_ids = [(6, 0, [attachment.id, attachment_resp.id])]
-
-					email_template.with_context(type='binary', default_type='binary').send_mail(invoice.id,
-																								raise_exception=False,
-																								force_send=True)  # default_type='binary'
-
-					email_template.attachment_ids = [(5)]
-
+				self.env['facturacion_electronica'].consultar_factura(invoice)
 
 	@api.multi
 	def action_invoice_open(self):
 		super(AccountInvoiceElectronic, self).action_invoice_open()
 
-		# Revisamos si el ambiente para Hacienda está habilitado
 		if self.company_id.frm_ws_ambiente != 'disabled':
 
-			url = self.company_id.frm_callback_url
-			now_utc = datetime.datetime.now(pytz.timezone('UTC'))
-			now_cr = now_utc.astimezone(pytz.timezone('America/Costa_Rica'))
-			date_cr = now_cr.strftime("%Y-%m-%dT%H:%M:%S-06:00")
+			for invoice in self:
 
-			for inv in self:
-				if (inv.journal_id.type == 'sale'):
+				now_utc = datetime.datetime.now(pytz.timezone('UTC'))
+				now_cr = now_utc.astimezone(pytz.timezone('America/Costa_Rica'))
 
-					if inv.number.isdigit() and (len(inv.number) <= 10):
-						tipo_documento = ''
-						tipo_documento_referencia = ''
-						numero_documento_referencia = ''
-						fecha_emision_referencia = ''
-						codigo_referencia = ''
-						razon_referencia = ''
-						medio_pago = inv.payment_methods_id.sequence or '01'
-						next_number = inv.number
+				invoice.fecha = now_cr.strftime('%Y-%m-%d %H:%M:%S')
+				invoice.date_issuance = now_cr.strftime("%Y-%m-%dT%H:%M:%S-06:00")
 
-						# Es Factura de cliente o nota de débito
-						if inv.type == 'out_invoice':
-							if inv.invoice_id and inv.journal_id and inv.journal_id.nd:
-								tipo_documento = 'ND'
-								tipo_documento_referencia = inv.invoice_id.number_electronic[29:31]
-								numero_documento_referencia = inv.invoice_id.number_electronic
-								fecha_emision_referencia = inv.invoice_id.date_issuance
-								codigo_referencia = inv.reference_code_id.code
-								razon_referencia = inv.reference_code_id.name
-								medio_pago = ''
-							else:
-								tipo_documento = 'FE'
+				consecutivo = self.env['facturacion_electronica'].get_consecutivo(invoice)
+				if not consecutivo:
+					raise UserError('Error con el consecutivo de la factura %s' % consecutivo)
+				invoice.number = consecutivo
 
-						# Si es Nota de Crédito
-						elif inv.type == 'out_refund':
-							if inv.invoice_id.journal_id.nd:
-								tipo_documento_referencia = '02'
-							else:
-								tipo_documento_referencia = '01'
+				clave = self.env['facturacion_electronica'].get_clave(invoice)
+				if not clave:
+					raise UserError('Error con la clave de la factura %s' % clave)
+				invoice.number_electronic = clave
 
-							tipo_documento = 'NC'
-							numero_documento_referencia = inv.invoice_id.number_electronic
-							fecha_emision_referencia = inv.invoice_id.date_issuance
-							codigo_referencia = inv.reference_code_id.code
-							razon_referencia = inv.reference_code_id.name
+				comprobante = self.env['facturacion_electronica'].get_xml(invoice)
 
-						if inv.payment_term_id:
-							if inv.payment_term_id.id:
-								sale_conditions = '0' + str(inv.payment_term_id.id) or '01'
-							else:
-								raise UserError(
-									'No se pudo Crear la factura electrónica: \n Debe configurar condiciones de pago para ' +
-									inv.partner_id.name)
-						else:
-							sale_conditions = '01'
+				if comprobante:
+					invoice.xml_comprobante = comprobante
+					invoice.fname_xml_comprobante = 'comprobante_' + invoice.number_electronic + '.xml'
 
-						# Validate if invoice currency is the same as the company currency
-						if inv.currency_id.name == self.company_id.currency_id.name:
-							currency_rate = 1
-						else:
-							# If the invoice currency is different it is going to use exchnge rate
-							# for Costa Rica exchange rate uses the value of 1 USD. But, Odoo uses the value of 1 CRC in USD.
-							# So the Module Currency Costa Rica Adapter adds some fields to store the original rate value and use it where it is needed.
-							if inv.currency_id.rate_ids and (len(inv.currency_id.rate_ids) > 0):
-								currency_rate = inv.currency_id.rate_ids[0].original_rate
-							else:
-								raise UserError(
-									'No hay tipo de cambio registrado para la moneda ' + inv.currency_id.name)
+					token = self.env['facturacion_electronica'].get_token()
 
-						# Generando la clave como la especifica Hacienda
-						response_json = functions.get_clave(self, url, tipo_documento, next_number,
-															inv.journal_id.terminal,
-															inv.journal_id.terminal)
-
-						inv.number_electronic = response_json.get('resp').get('clave')
-						consecutivo = response_json.get('resp').get('consecutivo')
-
-						# Generamos las líneas de la factura
-						lines = dict()
-						base_total = 0.0
-						line_number = 0
-						total_servicio_gravado = 0.0
-						total_servicio_exento = 0.0
-						total_mercaderia_gravado = 0.0
-						total_mercaderia_exento = 0.0
-
-						for inv_line in inv.invoice_line_ids:
-							impuestos_acumulados = 0.0
-							line_number += 1
-							base_total += inv_line.price_unit * inv_line.quantity
-							descuento = round((inv_line.quantity * inv_line.price_unit - inv_line.price_subtotal), 2)
-
-							line = dict()
-							line["cantidad"] = str(int(inv_line.quantity))
-							line["unidadMedida"] = inv_line.product_id.uom_id.code or 'Sp'
-							line["detalle"] = inv_line.product_id.display_name
-							line["precioUnitario"] = str(round(inv_line.price_unit, 2))
-							line["montoTotal"] = str(round(inv_line.quantity * inv_line.price_unit, 2))
-							line["subtotal"] = str(round(inv_line.price_subtotal, 2))
-
-							if descuento != 0:
-								line["montoDescuento"] = str(descuento)
-								line["naturalezaDescuento"] = round(inv_line.discount_note, 2) or 'Descuento de cliente'
-
-							# Se generan los impuestos
-							taxes = dict()
-							if inv_line.invoice_line_tax_ids:
-								tax_index = 0
-								for i in inv_line.invoice_line_tax_ids:
-									if i.tax_code != '00':
-										tax_index += 1
-										tax_amount = round(i.amount / 100 * inv_line.price_subtotal, 2)
-
-										tax = dict()
-										tax["codigo"] = str(i.tax_code or '01')
-										tax["tarifa"] = str(round(i.amount, 2))
-										tax["monto"] = str(tax_amount)
-
-										# Se genera la exoneración si existe para este impuesto
-										if inv_line.exoneration_id:
-											exoneration = dict()
-											exoneration["tipoDocumento"] = inv_line.exoneration_id.type
-											exoneration["numeroDocumento"] = str(
-												inv_line.exoneration_id.exoneration_number)
-											exoneration["nombreInstitucion"] = inv_line.exoneration_id.name_institution
-											exoneration["fechaEmision"] = str(
-												inv_line.exoneration_id.date) + 'T00:00:00-06:00'
-											exoneration["montoImpuesto"] = str(
-												round(tax_amount * inv_line.exoneration_id.percentage_exoneration / 100,
-													  2))
-											exoneration["porcentajeCompra"] = str(
-												int(inv_line.exoneration_id.percentage_exoneration))
-
-											tax["exoneracion"] = exoneration
-
-										taxes[str(tax_index)] = tax
-
-										impuestos_acumulados += i.amount / 100 * inv_line.price_subtotal
-
-							line["impuesto"] = taxes
-
-							# Todo: analizar bien esta lógica de impuestos acumulados, parece que todos los if hacen lo mismo
-							if inv_line.product_id:
-								if inv_line.product_id.type == 'service':
-									if impuestos_acumulados:
-										total_servicio_gravado += inv_line.quantity * inv_line.price_unit
-									else:
-										total_servicio_exento += inv_line.quantity * inv_line.price_unit
-								else:
-									if impuestos_acumulados == 0.0:
-										total_mercaderia_gravado += inv_line.quantity * inv_line.price_unit
-									else:
-										total_mercaderia_exento += inv_line.quantity * inv_line.price_unit
-							else:  # se asume que si no tiene producto se trata como un type product
-								if impuestos_acumulados:
-									total_mercaderia_gravado += inv_line.quantity * inv_line.price_unit
-								else:
-									total_mercaderia_exento += inv_line.quantity * inv_line.price_unit
-
-							line["montoTotalLinea"] = str(round(inv_line.price_subtotal + impuestos_acumulados, 2))
-
-							lines[str(line_number)] = line
-
-						response_json = functions.make_xml_invoice(inv, tipo_documento, consecutivo, date_cr,
-																   sale_conditions, medio_pago,
-																   round(total_servicio_gravado, 2),
-																   round(total_servicio_exento, 2),
-																   round(total_mercaderia_gravado, 2),
-																   round(total_mercaderia_exento, 2), base_total,
-																   json.dumps(lines, ensure_ascii=False),
-																   tipo_documento_referencia,
-																   numero_documento_referencia,
-																   fecha_emision_referencia,
-																   codigo_referencia, razon_referencia, url,
-																   currency_rate)
-
-						xml = response_json.get('resp').get('xml')
-						clave = response_json.get('resp').get('clave')
-
-						response_json = functions.sign_xml(inv, tipo_documento, url, xml)
-						xml_firmado = response_json.get('resp').get('xmlFirmado')
-
-						inv.xml_comprobante = xml_firmado
-						inv.fname_xml_comprobante = 'comprobante_' + clave + '.xml'
-						inv.number_electronic = clave
-						inv.number = consecutivo
-						inv.date_issuance = date_cr
-
-						if self.env['facturacion_electronica'].enviar_xml(xml_firmado):
-							if self.env['facturacion_electronica'].consulta_documento(inv):
-								self.env['facturacion_electronica'].enviar_email(inv)
-
-					else:
-						raise UserError('Debe configurar correctamente la secuencia del documento')
+					if token:
+						if self.env['facturacion_electronica'].enviar_factura(invoice):
+							if self.env['facturacion_electronica'].consultar_factura(invoice):
+								self.env['facturacion_electronica'].enviar_email(invoice)
+				else:
+					_logger.info('Error generando comprobante %s' % comprobante)

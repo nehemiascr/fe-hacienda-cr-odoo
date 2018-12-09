@@ -21,6 +21,7 @@
 	         'data/sale.conditions.csv',
 	         'data/product.uom.csv',
 			 'data/mail_template_data.xml',
+			 'data/sequence.xml',
 			 'views/account_journal_views.xml',
 			 'views/electronic_invoice_views.xml',
 	         'security/ir.model.access.csv',

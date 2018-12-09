@@ -15,7 +15,9 @@ import subprocess
 _logger = logging.getLogger(__name__)
 
 
-def get_clave(invoice, url, tipo_documento, numeracion, sucursal, terminal, situacion='normal'):
+def get_clave(invoice, url, tipo_documento, numeracion, sucursal=1, terminal=1, situacion='normal'):
+    _logger.info('aqui')
+    _logger.info('get_clave con %s %s %s %s %s %s %s' % (invoice, url, tipo_documento, numeracion, sucursal, terminal, situacion))
 
     # tipo de documento
     tipos_de_documento = { 'FE'  : '01', # Factura Electrónica
@@ -25,6 +27,8 @@ def get_clave(invoice, url, tipo_documento, numeracion, sucursal, terminal, situ
                            'CCE' : '05', # Confirmación Comprobante Electrónico
                            'CPCE': '06', # Confirmación Parcial Comprobante Electrónico
                            'RCE' : '07'} # Rechazo Comprobante Electrónico
+
+    _logger.info('tipo %s' % tipos_de_documento[tipo_documento])
 
     if tipo_documento not in tipos_de_documento:
         raise UserError('No se encuentra tipo de documento')
@@ -48,7 +52,7 @@ def get_clave(invoice, url, tipo_documento, numeracion, sucursal, terminal, situ
         raise UserError('Seleccione el tipo de identificación del emisor en el perfil de la compañía')
 
     # identificación
-    identificacion = re.sub('[^0-9]', '', invoice.company_id.vat)
+    identificacion = re.sub('[^0-9]', '', invoice.company_id.vat or '')
 
     if invoice.company_id.identification_id.code == '01' and len(identificacion) != 9:
         raise UserError('La Cédula Física del emisor debe de tener 9 dígitos')
@@ -96,7 +100,9 @@ def get_clave(invoice, url, tipo_documento, numeracion, sucursal, terminal, situ
 
 
 def make_xml_invoice(inv, tipo_documento, consecutivo, date, sale_conditions, medio_pago, total_servicio_gravado,
-                     total_servicio_exento, total_mercaderia_gravado, total_mercaderia_exento, base_total, lines,
+                     total_servicio_exento, total_mercaderia_gravado, total_mercaderia_exento, base_total,
+
+                    lines,
                      tipo_documento_referencia, numero_documento_referencia, fecha_emision_referencia,
                      codigo_referencia, razon_referencia, url, currency_rate):
     headers = {}
@@ -112,7 +118,7 @@ def make_xml_invoice(inv, tipo_documento, consecutivo, date, sale_conditions, me
     payload['fecha_emision'] = date
     payload['emisor_nombre'] = inv.company_id.name
     payload['emisor_tipo_indetif'] = inv.company_id.identification_id.code
-    payload['emisor_num_identif'] = inv.company_id.vat
+    payload['emisor_num_identif'] = re.sub('[^0-9]+', '', inv.company_id.vat)
     payload['nombre_comercial'] = inv.company_id.commercial_name or inv.company_id.name
     payload['emisor_provincia'] = inv.company_id.state_id.code
     payload['emisor_canton'] = inv.company_id.county_id.code
@@ -148,7 +154,25 @@ def make_xml_invoice(inv, tipo_documento, consecutivo, date, sale_conditions, me
     payload['total_descuentos'] = round(base_total - inv.amount_untaxed, 2)
     payload['total_ventas_neta'] = round((total_servicio_gravado + total_mercaderia_gravado + total_servicio_exento + total_mercaderia_exento) - \
                                    (base_total - inv.amount_untaxed), 2)
-    payload['total_impuestos'] = round(inv.amount_tax, 2)
+
+    calculated = 0.0
+    lines_json = json.loads(lines)
+    _logger.info('lines %s' % lines)
+    for line in lines_json:
+        _logger.info('line %s' % lines_json[line])
+        if '1' in lines_json[line]['impuesto']:
+            _logger.info('line %s' % lines_json[line]['impuesto']['1']['monto'])
+            calculated += float(lines_json[line]['impuesto']['1']['monto'])
+
+    _logger.info('calculated %s' % calculated)
+    _logger.info('amount_tax %s' % inv.amount_tax)
+    _logger.info('amount_tax rounded %s' % round(inv.amount_tax, 2))
+    # raise UserError('suave')
+
+
+
+    payload['total_impuestos'] = calculated
+    # payload['total_impuestos'] = round(inv.amount_tax, 2)
     payload['total_comprobante'] = round(inv.amount_total, 2)
     payload['otros'] = ''
     payload['detalles'] = lines
@@ -171,8 +195,11 @@ def make_xml_invoice(inv, tipo_documento, consecutivo, date, sale_conditions, me
 
     return response_json
 
+def _token_hacienda(invoice):
+    return token_hacienda(invoice, invoice.company_id.frm_ws_ambiente, invoice.company_id.frm_callback_url)
 
-def token_hacienda(inv, env, url):
+
+def token_hacienda(inv, env, url=None):
 
     if env == 'api-stag':
         url = 'https://idp.comprobanteselectronicos.go.cr/auth/realms/rut-stag/protocol/openid-connect/token'
@@ -191,7 +218,7 @@ def token_hacienda(inv, env, url):
 
     except requests.exceptions.RequestException as e:
         _logger.error('Exception %s' % e)
-        raise Exception(e)
+        return False
 
     respuesta = {'resp': response.json()}
     _logger.info('token_hacienda returning %s' % respuesta)
@@ -205,51 +232,19 @@ def sign_xml(inv, tipo_documento, url, xml):
     payload['w'] = 'signXML'
     payload['r'] = 'signFE'
     payload['p12Url'] = inv.company_id.frm_apicr_signaturecode
+    payload['inXml'] = base64.b64encode(bytes(xml, 'utf-8')).decode('utf-8')
     payload['inXml'] = xml
     payload['pinP12'] = inv.company_id.frm_pin
     payload['tipodoc'] = tipo_documento
 
     response = requests.request("POST", url, data=payload, headers=headers)
 
-    _logger.info('response\n%s\ndict\n%s\n' % (response, response.__dict__))
-
-
     response_json = response.json()
     return response_json
 
-    _logger.info('sign_xml returning %s' % response_json)
 
-    return response_json
-
-
-def _sign_xml(invoice, xml):
-
-    xml = base64.b64decode(xml).decode('utf-8')
-    # directorio donde se encuentra el firmador de johann04 https://github.com/johann04/xades-signer-cr
-    path = os.path.dirname(os.path.realpath(__file__))[:-6] + 'bin/'
-    # nombres de archivos
-    signer_filename = 'xadessignercr.jar'
-    firma_filename = 'firma.p12'
-    factura_filename = 'factura.xml'
-    # El firmador es un ejecutable de java que necesita la firma y la factura en un archivo
-    # 1) escribimos el xml de la factura en un archivo
-    with open(path + factura_filename, 'w+') as file:
-        file.write(xml)
-    # 2) escribimos la firma en un archivo
-    with open(path + firma_filename, 'w+b') as file:
-        file.write(base64.b64decode(invoice.company_id.signature))
-    # 3) firmamos el archivo con el signer
-    subprocess.check_output(['java', '-jar', path + signer_filename, 'sign', path + firma_filename, invoice.company_id.frm_pin, path + factura_filename, path + factura_filename])
-    # 4) leemos el archivo firmado
-    with open(path + factura_filename, 'r') as file:
-        xml = file.read()
-    # quitamos la codificación del archivo
-    xml = xml.replace('<?xml version="1.0" encoding="UTF-8" standalone="no"?>', '')
-
-    respuesta = {'resp': {'xmlFirmado': base64.b64encode(bytes(xml, 'utf-8')).decode('utf-8')}}
-    _logger.info('_sign_xml returning %s' % respuesta)
-
-    return respuesta
+def _send_file(invoice, token, xml_firmado):
+    return send_file(invoice, token, invoice.date_issuance, xml_firmado, invoice.company_id.frm_ws_ambiente, invoice.company_id.frm_callback_url)
 
 
 def send_file(inv, token, date, xml, env, url):
@@ -295,16 +290,6 @@ def send_file(inv, token, date, xml, env, url):
     _logger.info('send_file returning %s' % respuesta)
 
     return respuesta
-
-def _consultar_documentos(invoice):
-
-    if invoice.company_id.frm_ws_ambiente == 'api-stag':
-        url = 'https://api.comprobanteselectronicos.go.cr/recepcion-sandbox/v1/recepcion/'
-    elif invoice.company_id.frm_ws_ambiente == 'api-prod':
-        url = 'https://api.comprobanteselectronicos.go.cr/recepcion/v1/recepcion/'
-
-
-
 
 
 def consulta_documentos(self, inv, env, token_m_h, url, date_cr, xml_firmado):
@@ -388,3 +373,6 @@ def consulta_documentos(self, inv, env, token_m_h, url, date_cr, xml_firmado):
 
                 # limpia el template de los attachments
                 email_template.attachment_ids = [(5)]
+
+def findwholeword(word, search):
+    return word.find(search)
