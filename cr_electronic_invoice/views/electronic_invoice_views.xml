@@ -389,7 +389,7 @@
 					<field name="state_tributacion" readonly="1"/>
 					<field name="fname_xml_respuesta_tributacion" invisible="1" readonly="1"/>
 					<field name="xml_respuesta_tributacion" filename="fname_xml_respuesta_tributacion"/>
-					<!--<field name="respuesta_tributacion" default="Nada aún"/>-->
+					<field name="respuesta_tributacion" default="Nada aún"/>
 					<field name="state_invoice_partner" invisible="1"/>
 					<field name="state_send_invoice" invisible="1"/>
 					<field name="fname_xml_comprobante" invisible="1" readonly="1"/>
