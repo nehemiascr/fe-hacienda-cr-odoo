@@ -454,6 +454,8 @@ class FacturacionElectronica(models.TransientModel):
 		emisor = invoice.company_id
 		receptor = invoice.partner_id
 
+		# FacturaElectronica 4.2
+
 		if invoice.type == 'out_invoice':
 			documento = 'FacturaElectronica' # Factura Electrónica
 			xmlns = 'https://tribunet.hacienda.go.cr/docs/esquemas/2017/v4.2/facturaElectronica'
@@ -464,7 +466,6 @@ class FacturacionElectronica(models.TransientModel):
 			xmlns = 'https://tribunet.hacienda.go.cr/docs/esquemas/2017/v4.2/notaCreditoElectronica'
 			schemaLocation = 'https://tribunet.hacienda.go.cr/docs/esquemas/2017/v4.2/notaCreditoElectronica  https://tribunet.hacienda.go.cr/docs/esquemas/2017/v4.2/NotaCreditoElectronica_V4.2.xsd'
 
-		# FacturaElectronica 4.2
 		xsi = 'http://www.w3.org/2001/XMLSchema-instance'
 		xsd = 'http://www.w3.org/2001/XMLSchema'
 		ds = 'http://www.w3.org/2000/09/xmldsig#'
@@ -532,6 +533,8 @@ class FacturacionElectronica(models.TransientModel):
 			raise UserError('La dirección del emisor está incompleta, no se ha seleccionado el Cantón')
 		if not emisor.district_id:
 			raise UserError('La dirección del emisor está incompleta, no se ha seleccionado el Distrito')
+		if not emisor.street:
+			raise UserError('La dirección del emisor está incompleta, no se han digitado las señas de la dirección')
 
 		Ubicacion = etree.Element('Ubicacion')
 
@@ -553,7 +556,7 @@ class FacturacionElectronica(models.TransientModel):
 			Ubicacion.append(Barrio)
 
 		OtrasSenas = etree.Element('OtrasSenas')
-		OtrasSenas.text = emisor.street
+		OtrasSenas.text = emisor.street or 'Sin otras señas'
 		Ubicacion.append(OtrasSenas)
 
 		Emisor.append(Ubicacion)
@@ -656,7 +659,7 @@ class FacturacionElectronica(models.TransientModel):
 
 				Receptor.append(Telefono)
 
-			if receptor.email:
+			if receptor.email and re.match('^[(a-z0-9\_\-\.)]+@[(a-z0-9\_\-\.)]+\.[(a-z)]{2,15}$', receptor.email.lower()):
 				CorreoElectronico = etree.Element('CorreoElectronico')
 				CorreoElectronico.text = receptor.email
 				Receptor.append(CorreoElectronico)
@@ -681,7 +684,7 @@ class FacturacionElectronica(models.TransientModel):
 
 		# MedioPago
 		MedioPago = etree.Element('MedioPago')
-		MedioPago.text = '01'
+		MedioPago.text = invoice.payment_methods_id.sequence
 		Documento.append(MedioPago)
 
 		# DetalleServicio
@@ -691,6 +694,8 @@ class FacturacionElectronica(models.TransientModel):
 		totalServiciosExentos = 0
 		totalMercanciasGravadas = 0
 		totalMercanciasExentas = 0
+		totalImpuesto = 0
+		totalComprobante = 0
 
 		for indice, linea in enumerate(invoice.invoice_line_ids):
 			LineaDetalle = etree.Element('LineaDetalle')
@@ -771,7 +776,9 @@ class FacturacionElectronica(models.TransientModel):
 					Impuesto.append(Tarifa)
 
 					Monto = etree.Element('Monto')
-					Monto.text = str(round(linea.price_subtotal * impuesto.amount / 100, 2))
+					monto = round(linea.price_subtotal * impuesto.amount / 100.0, 2)
+					totalImpuesto += monto
+					Monto.text = str(monto)
 					Impuesto.append(Monto)
 
 					LineaDetalle.append(Impuesto)
@@ -837,7 +844,8 @@ class FacturacionElectronica(models.TransientModel):
 
 		if invoice.amount_tax:
 			TotalImpuesto = etree.Element('TotalImpuesto')
-			TotalImpuesto.text = str(round(invoice.amount_tax, 2))
+			# TotalImpuesto.text = str(round(invoice.amount_tax, 2))
+			TotalImpuesto.text = str(round(totalImpuesto, 2))
 			ResumenFactura.append(TotalImpuesto)
 
 		TotalComprobante = etree.Element('TotalComprobante')

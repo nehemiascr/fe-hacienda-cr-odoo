@@ -20,16 +20,16 @@ class AccountInvoiceElectronic(models.Model):
 
 	number_electronic = fields.Char(string="Número electrónico", required=False, copy=False, index=True)
 	date_issuance = fields.Char(string="Fecha de emisión", required=False, copy=False)
-	fecha = fields.Datetime('Fecha de Emisión', readonly=True, default=fields.Datetime.now())
+	fecha = fields.Datetime('Fecha de Emisión', readonly=True, default=fields.Datetime.now(), copy=False)
 	state_send_invoice = fields.Selection([('aceptado', 'Aceptado'), ('rechazado', 'Rechazado'), ],
-										  'Estado FE Proveedor')
+										  'Estado FE Proveedor', copy=False)
 	state_tributacion = fields.Selection(
 		[('aceptado', 'Aceptado'), ('rechazado', 'Rechazado'), ('recibido', 'Recibido'),
 		 ('error', 'Error'), ('procesando', 'Procesando')], 'Estado FE',
 		copy=False)
 	state_invoice_partner = fields.Selection([('1', 'Aceptado'), ('3', 'Rechazado'), ('2', 'Aceptacion parcial')],
-											 'Respuesta del Cliente')
-	reference_code_id = fields.Many2one(comodel_name="reference.code", string="Código de referencia", required=False, )
+											 'Respuesta del Cliente', copy=False)
+	reference_code_id = fields.Many2one(comodel_name="reference.code", string="Código de referencia", required=False, copy=False )
 	payment_methods_id = fields.Many2one(comodel_name="payment.methods", string="Métodos de Pago", required=False, )
 	invoice_id = fields.Many2one(comodel_name="account.invoice", string="Documento de referencia", required=False,
 								 copy=False)
@@ -38,7 +38,7 @@ class AccountInvoiceElectronic(models.Model):
 	fname_xml_respuesta_tributacion = fields.Char(string="Nombre de archivo XML Respuesta Tributación", required=False,
 												  copy=False)
 
-	respuesta_tributacion = fields.Text(string="Mensaje en la Respuesta de Tributación", readonly=True )
+	respuesta_tributacion = fields.Text(string="Mensaje en la Respuesta de Tributación", readonly=True, copy=False )
 	xml_comprobante = fields.Binary(string="Comprobante XML", required=False, copy=False, attachment=True)
 	fname_xml_comprobante = fields.Char(string="Nombre de archivo Comprobante XML", required=False, copy=False,
 										attachment=True)
