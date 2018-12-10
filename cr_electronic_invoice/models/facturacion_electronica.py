@@ -4,7 +4,6 @@ from odoo import fields, models, api
 from odoo.exceptions import UserError
 import requests
 import json
-import copy
 import datetime
 from lxml import etree
 import logging
@@ -13,8 +12,6 @@ import random
 import os
 import subprocess
 import base64
-import pytz
-from . import functions
 
 _logger = logging.getLogger(__name__)
 

@@ -1,12 +1,6 @@
 # -*- coding: utf-8 -*-
 
 import logging
-import re
-import datetime
-import pytz
-import requests
-import json
-from dateutil.parser import parse
 from odoo import models, fields, api, _
 from odoo.exceptions import UserError
 from odoo.tools.safe_eval import safe_eval
@@ -20,10 +14,6 @@ class IdentificationType(models.Model):
 	code = fields.Char(string="Código", required=False, )
 	name = fields.Char(string="Nombre", required=False, )
 	notes = fields.Text(string="Notas", required=False, )
-
-
-
-
 
 
 class CodeTypeProduct(models.Model):

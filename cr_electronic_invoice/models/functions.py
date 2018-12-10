@@ -9,8 +9,6 @@ import base64
 from lxml import etree
 import datetime
 import pytz
-import os
-import subprocess
 
 _logger = logging.getLogger(__name__)
 
