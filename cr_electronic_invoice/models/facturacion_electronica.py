@@ -346,15 +346,7 @@ class FacturacionElectronica(models.TransientModel):
 		with open(path + factura_filename, 'rb') as file:
 			xml = file.read()
 
-		# _logger.info('xml frimado from file %s' % xml)
-
 		xml_encoded = base64.b64encode(xml).decode('utf-8')
-
-		# _logger.info('xml firmado encoded\n%s' % xml_encoded)
-		#
-		# _logger.info('xml firmado decoded to show\n%s' % base64.b64decode(xml_encoded))
-		#
-		# _logger.info('xml firmado decoded2\n%s' % base64.b64decode(xml_encoded).decode())
 
 		return xml_encoded
 
@@ -694,6 +686,7 @@ class FacturacionElectronica(models.TransientModel):
 		totalServiciosExentos = 0
 		totalMercanciasGravadas = 0
 		totalMercanciasExentas = 0
+		totalDescuentos = 0
 		totalImpuesto = 0
 		totalComprobante = 0
 
@@ -747,7 +740,9 @@ class FacturacionElectronica(models.TransientModel):
 
 			if linea.discount:
 				MontoDescuento = etree.Element('MontoDescuento')
-				MontoDescuento.text = str(round(montoTotal * linea.discount / 100, 2))
+				montoDescuento = round(montoTotal * linea.discount / 100, 2)
+				totalDescuentos += montoDescuento
+				MontoDescuento.text = str(montoDescuento)
 				LineaDetalle.append(MontoDescuento)
 
 				NaturalezaDescuento = etree.Element('NaturalezaDescuento')
@@ -838,8 +833,13 @@ class FacturacionElectronica(models.TransientModel):
 		TotalVenta.text = str(round(invoice.amount_untaxed, 2))
 		ResumenFactura.append(TotalVenta)
 
+		if totalDescuentos:
+			TotalDescuentos = etree.Element('TotalDescuentos')
+			TotalDescuentos.text = str(round(totalDescuentos, 2))
+			ResumenFactura.append(TotalDescuentos)
+
 		TotalVentaNeta = etree.Element('TotalVentaNeta')
-		TotalVentaNeta.text = str(round(invoice.amount_untaxed, 2))
+		TotalVentaNeta.text = str(round(invoice.amount_untaxed - totalDescuentos, 2))
 		ResumenFactura.append(TotalVentaNeta)
 
 		if invoice.amount_tax:
@@ -849,7 +849,8 @@ class FacturacionElectronica(models.TransientModel):
 			ResumenFactura.append(TotalImpuesto)
 
 		TotalComprobante = etree.Element('TotalComprobante')
-		TotalComprobante.text = str(round(invoice.amount_total, 2))
+		totalComprobante = round(invoice.amount_untaxed - totalDescuentos + totalImpuesto, 2)
+		TotalComprobante.text = str(totalComprobante)
 		ResumenFactura.append(TotalComprobante)
 
 		Documento.append(ResumenFactura)
