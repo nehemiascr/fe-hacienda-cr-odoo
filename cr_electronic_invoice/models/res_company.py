@@ -44,6 +44,3 @@ class CompanyElectronic(models.Model):
 	frm_apicr_password = fields.Char(string="Password de Api", required=False, )
 	frm_apicr_signaturecode = fields.Char(string="Codigo para Firmar API", required=False, )
 
-	@api.onchange('email')
-	def _onchange_email(self):
-		pass
