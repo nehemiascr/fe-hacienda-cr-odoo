@@ -403,7 +403,8 @@ class FacturacionElectronica(models.TransientModel):
 			current_invoice += 1
 			_logger.error('Consulta Hacienda - Invoice %s / %s', current_invoice, total_invoices)
 
-			self.consultar_factura(invoice)
+			if self.consultar_factura(invoice):
+				self.enviar_email(invoice)
 
 		_logger.error('Consulta Hacienda - Finalizado Exitosamente')
 
