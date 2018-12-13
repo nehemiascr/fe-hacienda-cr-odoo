@@ -47,7 +47,6 @@
 					<field name="fname_xml_comprobante" invisible="1" readonly="1"/>
 					<field name="xml_comprobante" filename="fname_xml_comprobante"/>
 
-					<!--<field name="electronic_invoice_return_message" readonly="1"/>-->
 				</field>
 				<xpath expr="//field[@name='invoice_line_ids']//tree//field[@name='discount']" position="after">
 					<field name="discount_note"/>
@@ -56,8 +55,6 @@
 				<xpath expr="//button[@name='action_invoice_cancel']" position="after">
 					<button name="charge_xml_data" type="object" string="Cargar datos desde XMLs" colspan="2" attrs="{'invisible':['|', ('state_tributacion','!=', False), '|', ('xml_comprobante', '=', False), ('xml_respuesta_tributacion', '=', False)]}" />
 					<button name="action_consultar_hacienda" type="object" string="Consultar Hacienda" colspan="2" attrs="{'invisible':[('state_tributacion','=', False)]}"/>
-					<button name="action_enviar_email" type="object" string="Enviar email con xml" colspan="2" attrs="{'invisible':[('state_tributacion','=', False)]}"/>
-					<button name="action_generar_xml" type="object" string="Generar xml" colspan="2" attrs="{'invisible':['|', ('state','=', 'draft'), ('xml_comprobante', '!=', False)]}" />
 				</xpath>
 			</field>
 		</record>

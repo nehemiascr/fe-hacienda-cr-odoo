@@ -162,6 +162,10 @@ class FacturacionElectronica(models.TransientModel):
 		elif self.env.user.company_id.frm_ws_ambiente == 'api-prod':
 			url = 'https://api.comprobanteselectronicos.go.cr/recepcion/v1/recepcion/'
 
+		if invoice.state_tributacion:
+			_logger.info('Se esta intentando enviar una factura que ya parece haber sido enviada, no la vamos a enviar, pero vamos a decir que lo hicimos')
+			return True
+
 		xml = base64.b64decode(invoice.xml_comprobante)
 		_logger.info('xml %s' % xml)
 
@@ -202,6 +206,7 @@ class FacturacionElectronica(models.TransientModel):
 
 		if response.status_code == 202:
 			_logger.info('factura recibida por hacienda %s' % response.__dict__)
+			invoice.state_tributacion = 'recibido'
 			return True
 		elif response.status_code == 301:
 			_logger.info('Error 301 %s' % response.headers['X-Error-Cause'])
