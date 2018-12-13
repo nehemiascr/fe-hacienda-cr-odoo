@@ -199,6 +199,7 @@ class FacturacionElectronica(models.TransientModel):
 
 		try:
 			response = requests.post(url, data=json.dumps(comprobante), headers=headers)
+			_logger.info('Respuesta de hacienda\n%s' % response.__dict__)
 
 		except requests.exceptions.RequestException as e:
 			_logger.info('Exception %s' % e)
@@ -213,6 +214,7 @@ class FacturacionElectronica(models.TransientModel):
 			return False
 		elif response.status_code == 400:
 			_logger.info('Error 400 %s' % response.headers['X-Error-Cause'])
+			invoice.state_tributacion = 'error'
 			return False
 		else:
 			_logger.info('no vamos a continuar, algo inesperado sucedió %s' % response.__dict__)
