@@ -631,7 +631,7 @@ class FacturacionElectronica(models.TransientModel):
 				Distrito.text = receptor.district_id.code
 				Ubicacion.append(Distrito)
 
-				if receptor.partner_id.neighborhood_id:
+				if receptor.neighborhood_id:
 					Barrio = etree.Element('Barrio')
 					Barrio.text = receptor.neighborhood_id.code
 					Ubicacion.append(Barrio)
