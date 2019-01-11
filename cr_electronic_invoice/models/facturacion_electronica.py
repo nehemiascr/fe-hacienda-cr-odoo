@@ -357,6 +357,11 @@ class FacturacionElectronica(models.TransientModel):
 
 	@api.model
 	def _validahacienda(self, max_invoices=10):  # cron
+
+		if self.env.user.company_id.frm_ws_ambiente == 'disabled':
+			_logger.info('Facturación Electrónica deshabilitada, nada que validar')
+			return
+
 		invoices = self.env['account.invoice'].search([('type', 'in', ('out_invoice', 'out_refund')),
 													   ('state', 'in', ('open', 'paid')),
 													   ('date_invoice', '>=', '2018-10-01'),
@@ -396,6 +401,10 @@ class FacturacionElectronica(models.TransientModel):
 
 	@api.model
 	def _consultahacienda(self, max_invoices=10):  # cron
+
+		if self.env.user.company_id.frm_ws_ambiente == 'disabled':
+			_logger.info('Facturación Electrónica deshabilitada, nada que consultar')
+			return
 
 		invoices = self.env['account.invoice'].search(
 			[('type', 'in', ('out_invoice', 'out_refund')), ('state', 'in', ('open', 'paid')),
