@@ -416,11 +416,6 @@ class FacturacionElectronica(models.TransientModel):
 		_logger.error('Consulta Hacienda - Finalizado Exitosamente')
 
 
-	# @api.model
-	# def validar_xml(self, invoice):
-	# 	etree.fromstring(base64.b64decode(invoice.xml_comprobante))
-
-
 
 	@api.model
 	def get_xml(self, invoice):
@@ -564,8 +559,7 @@ class FacturacionElectronica(models.TransientModel):
 		Emisor.append(Ubicacion)
 
 		telefono = emisor.partner_id.phone or emisor.partner_id.mobile
-		telefono = re.sub('[^0-9]', '', telefono)
-		if telefono and len(telefono) >= 8 and len(telefono) <= 20:
+		if telefono and len(re.sub('[^0-9]', '', telefono)) <= 20:
 			Telefono = etree.Element('Telefono')
 
 			CodigoPais = etree.Element('CodigoPais')
@@ -573,7 +567,7 @@ class FacturacionElectronica(models.TransientModel):
 			Telefono.append(CodigoPais)
 
 			NumTelefono = etree.Element('NumTelefono')
-			NumTelefono.text = telefono[:8]
+			NumTelefono.text = re.sub('[^0-9]', '', telefono)[:8]
 
 			Telefono.append(NumTelefono)
 
@@ -649,8 +643,7 @@ class FacturacionElectronica(models.TransientModel):
 				Receptor.append(Ubicacion)
 
 			telefono = receptor.phone or receptor.mobile
-			telefono = re.sub('[^0-9]', '', telefono)
-			if telefono and len(telefono) >= 8 and len(telefono) <= 20:
+			if telefono and len(re.sub('[^0-9]', '', telefono)) <= 20:
 				Telefono = etree.Element('Telefono')
 
 				CodigoPais = etree.Element('CodigoPais')
@@ -658,7 +651,7 @@ class FacturacionElectronica(models.TransientModel):
 				Telefono.append(CodigoPais)
 
 				NumTelefono = etree.Element('NumTelefono')
-				NumTelefono.text = telefono[:8]
+				NumTelefono.text = re.sub('[^0-9]', '', telefono)[:8]
 				Telefono.append(NumTelefono)
 
 				Receptor.append(Telefono)
