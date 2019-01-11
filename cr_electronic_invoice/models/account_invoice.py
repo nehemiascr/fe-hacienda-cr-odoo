@@ -11,6 +11,7 @@ import requests
 from dateutil.parser import parse
 from . import functions
 import logging
+from lxml import etree
 
 _logger = logging.getLogger(__name__)
 
@@ -89,6 +90,10 @@ class AccountInvoiceElectronic(models.Model):
 
 	@api.multi
 	def charge_xml_data(self):
+		for invoice in self:
+			_logger.info('invoice type is %s' % invoice.type)
+			_logger.info('invoice xml_supplier_approval is %s' % invoice.xml_supplier_approval)
+
 		if (self.type == 'out_invoice' or self.type == 'out_refund') and self.xml_comprobante:
 			# remove any character not a number digit in the invoice number
 			self.number = re.sub(r"[^0-9]+", "", self.number)
@@ -121,6 +126,63 @@ class AccountInvoiceElectronic(models.Model):
 			root = ET.fromstring(
 				re.sub(' xmlns="[^"]+"', '', base64.b64decode(self.xml_supplier_approval).decode("utf-8"),
 					   count=1))  # quita el namespace de los elementos
+
+			_logger.info('factura de proveedor\n%s' % base64.b64decode(self.xml_supplier_approval).decode("utf-8") )
+
+			xml = base64.b64decode(self.xml_supplier_approval)
+			factura = etree.tostring(etree.fromstring(xml)).decode()
+			factura = etree.fromstring(re.sub(' xmlns="[^"]+"', '', factura, count=1))
+
+
+			_logger.info('factura\n%s' % factura)
+
+			FacturaElectronica = factura.find('FacturaElectronica')
+			_logger.info('FacturaElectronica %s' % FacturaElectronica)
+
+			DetalleServicio = factura.find('DetalleServicio')
+			_logger.info('DetalleServicio %s' % DetalleServicio)
+
+			for LineaDetalle in DetalleServicio.findall('LineaDetalle'):
+				_logger.info('linea %s' % LineaDetalle)
+				for detalle in LineaDetalle:
+					_logger.info('detalle %s' % detalle)
+
+
+
+				Codigo = LineaDetalle.find('Codigo')
+				Tipo = Codigo.find('Tipo')
+				Codigo = Codigo.find('Codigo')
+
+				Cantidad = LineaDetalle.find('Cantidad')
+				Detalle = LineaDetalle.find('Detalle')
+
+				PrecioUnitario = LineaDetalle.find('PrecioUnitario')
+				MontoTotal = LineaDetalle.find('MontoTotal')
+
+				_logger.info('%s %s %s %s %s %s' % (Tipo.text, Codigo.text, Cantidad.text, Detalle.text, PrecioUnitario.text, MontoTotal.text))
+
+				if Tipo.text == '04':
+					product = self.env['product.product'].search([('default_code', '=ilike', Codigo.text)], limit=1)
+					if product:
+						_logger.info('existe %s' % product)
+					else:
+						_logger.info('no existe %s' % product)
+
+				product_id = self.env['product.product'].browse(2)
+
+				line_values = {
+					'product_id': product_id,
+					'price_unit': PrecioUnitario.text,
+					'invoice_id': self.id,
+				}
+				# create a record in cache, apply onchange then revert back to a dictionnary
+				invoice_line = self.env['account.invoice.line'].new(line_values)
+				invoice_line._onchange_product_id()
+				line_values = invoice_line._convert_to_write({name: invoice_line[name] for name in invoice_line._cache})
+				line_values['price_unit'] = PrecioUnitario.text
+				self.write({'invoice_line_ids': [(0, 0, line_values)]})
+
+
 
 			self.number_electronic = root.findall('Clave')[0].text
 			self.date_issuance = root.findall('FechaEmision')[0].text
