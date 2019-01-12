@@ -12,6 +12,7 @@ import random
 import os
 import subprocess
 import base64
+import pytz, ast
 
 _logger = logging.getLogger(__name__)
 
@@ -19,7 +20,9 @@ _logger = logging.getLogger(__name__)
 class FacturacionElectronica(models.TransientModel):
 	_name = 'facturacion_electronica'
 
-	token = fields.Text('token de sesión con el sistema del Ministerio de Hacienda')
+	token = fields.Text('token de sesión para el sistema de recepción de comprobantes del Ministerio de Hacienda')
+	timestamp = fields.Datetime('Hora en que fue recibido el token actua', readonly=True)
+	ttl = fields.Integer('Tiempo de validez del token')
 
 	@api.model
 	def conexion_con_hacienda(self):
@@ -28,6 +31,24 @@ class FacturacionElectronica(models.TransientModel):
 	@api.model
 	def get_token(self):
 
+		if self.env.user.company_id.token:
+			token = ast.literal_eval(self.env.user.company_id.token)
+
+			token_timestamp = datetime.datetime.strptime(token['timestamp'], '%Y-%m-%d %H:%M:%S')
+
+			token_expires_on = token_timestamp + datetime.timedelta(seconds=token['expires_in'])
+
+			now = datetime.datetime.now()
+
+			if token_expires_on > (now - datetime.timedelta(seconds=10)):
+				_logger.info('token actual con ttl %s' % (token_expires_on - now).total_seconds())
+				return token['access_token']
+			else:
+				_logger.info('token vencido hace %s' % (now - token_expires_on).total_seconds())
+				return self.refresh_token()
+
+	@api.model
+	def refresh_token(self):
 		if self.env.user.company_id.frm_ws_ambiente == 'api-stag':
 			url = 'https://idp.comprobanteselectronicos.go.cr/auth/realms/rut-stag/protocol/openid-connect/token'
 		elif self.env.user.company_id.frm_ws_ambiente == 'api-prod':
@@ -46,6 +67,11 @@ class FacturacionElectronica(models.TransientModel):
 
 			respuesta = response.json()
 
+			respuesta['timestamp'] = datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+
+			_logger.info('response respuesta %s' % respuesta)
+			self.env.user.company_id.token = respuesta
+
 			return respuesta['access_token']
 
 		except requests.exceptions.RequestException as e:
@@ -59,6 +85,7 @@ class FacturacionElectronica(models.TransientModel):
 		except Exception as e:
 			_logger.info('Exception\n%s' % e)
 			return False
+
 
 	@api.model
 	def get_consecutivo(self, invoice):
@@ -76,7 +103,16 @@ class FacturacionElectronica(models.TransientModel):
 		if invoice.type == 'out_invoice':
 			tipo = '01' # Factura Electrónica
 		elif invoice.type == 'out_refund':
-			tipo = '03' # Nota de Crédito
+			tipo = '03' # Nota Crédito
+		elif invoice.type == 'in_invoice':
+			if invoice.state_invoice_partner == '1':
+				tipo = '05'  # Aceptado
+			elif invoice.state_invoice_partner == '2':
+				tipo = '06'  # Aceptado Parcialmente
+			elif invoice.state_invoice_partner == '3':
+				tipo = '07'  # Rechazado
+			else:
+				raise UserError('Aviso!.\nDebe primero seleccionar el tipo de respuesta para el archivo cargado.')
 		else:
 			return False
 
@@ -152,6 +188,82 @@ class FacturacionElectronica(models.TransientModel):
 
 		_logger.info('se genera la clave %s para invoice id %s' % (clave, invoice.id))
 		return clave
+
+
+	@api.multi
+	def enviar_mensaje(self, invoice):
+
+		if self.env.user.company_id.frm_ws_ambiente == 'api-stag':
+			url = 'https://api.comprobanteselectronicos.go.cr/recepcion-sandbox/v1/recepcion/'
+		elif self.env.user.company_id.frm_ws_ambiente == 'api-prod':
+			url = 'https://api.comprobanteselectronicos.go.cr/recepcion/v1/recepcion/'
+
+		if invoice.state_tributacion:
+			_logger.info('Se esta intentando enviar una factura que ya parece haber sido enviada, no la vamos a enviar, pero vamos a decir que lo hicimos')
+			return True
+
+		xml = base64.b64decode(invoice.xml_supplier_approval)
+		_logger.info('xml %s' % xml)
+
+		factura = etree.tostring(etree.fromstring(xml)).decode()
+		factura = etree.fromstring(re.sub(' xmlns="[^"]+"', '', factura, count=1))
+
+		Clave = factura.find('Clave')
+		FechaEmision = factura.find('FechaEmision')
+		Emisor = factura.find('Emisor')
+		Receptor = factura.find('Receptor')
+
+		comprobante = {}
+		comprobante['clave'] = Clave.text
+		comprobante["fecha"] = FechaEmision.text
+		comprobante['emisor'] = {}
+		comprobante['emisor']['tipoIdentificacion'] = Receptor.find('Identificacion').find('Tipo').text
+		comprobante['emisor']['numeroIdentificacion'] = Receptor.find('Identificacion').find('Numero').text
+		if Emisor is not None and Emisor.find('Identificacion') is not None:
+			comprobante['receptor'] = {}
+			comprobante['receptor']['tipoIdentificacion'] = Emisor.find('Identificacion').find('Tipo').text
+			comprobante['receptor']['numeroIdentificacion'] = Emisor.find('Identificacion').find('Numero').text
+
+
+		comprobante['consecutivoReceptor'] = invoice.number
+
+		xml2 = base64.b64decode(invoice.xml_comprobante)
+
+		comprobante['comprobanteXml'] = base64.b64encode(xml2).decode('utf-8')
+
+		token = self.get_token()
+		if not token:
+			_logger.info('No hay conexión con hacienda')
+			return False
+
+		headers = {'Content-Type': 'application/json', 'Authorization': 'Bearer {}'.format(token)}
+
+		try:
+			response = requests.post(url, data=json.dumps(comprobante), headers=headers)
+			_logger.info('Respuesta de hacienda\n%s' % response.__dict__)
+
+		except requests.exceptions.RequestException as e:
+			_logger.info('Exception %s' % e)
+			raise Exception(e)
+
+		if response.status_code == 202:
+			_logger.info('factura recibida por hacienda %s' % response.__dict__)
+			invoice.state_tributacion = 'recibido'
+			return True
+		elif response.status_code == 301:
+			_logger.info('Error 301 %s' % response.headers['X-Error-Cause'])
+			return False
+		elif response.status_code == 400:
+			_logger.info('Error 400 %s' % response.headers['X-Error-Cause'])
+			invoice.state_tributacion = 'error'
+			return False
+		else:
+			_logger.info('no vamos a continuar, algo inesperado sucedió %s' % response.__dict__)
+			if (response.headers and 'X-Error-Cause' in response.headers):
+				_logger.info('Error %s : %s' % (response.status_code, response.headers['X-Error-Cause']))
+			return False
+
+
 
 
 	@api.multi
@@ -281,6 +393,9 @@ class FacturacionElectronica(models.TransientModel):
 
 		headers = {'Content-Type': 'application/json', 'Authorization': 'Bearer {}'.format(token)}
 
+		if invoice.type == 'in_invoice':
+			clave += '-' + invoice.number
+
 		try:
 			_logger.info('preguntando a %s por %s' % (url, clave))
 			response = requests.get(url + '/' + clave, data=json.dumps({'clave': clave}), headers=headers)
@@ -307,8 +422,15 @@ class FacturacionElectronica(models.TransientModel):
 			_logger.info('no vamos a continuar, no se entiende la respuesta de hacienda')
 			return False
 
+
+
+		if invoice.type == 'in_invoice':
+			invoice.state_send_invoice = respuesta['ind-estado']
+		else:
+			invoice.state_tributacion = respuesta['ind-estado']
+
 		# Se actualiza la factura con la respuesta de hacienda
-		invoice.state_tributacion = respuesta['ind-estado']
+
 		
 		if 'respuesta-xml' in respuesta:
 			invoice.fname_xml_respuesta_tributacion = 'respuesta_' + respuesta['clave'] + '.xml'
@@ -425,6 +547,125 @@ class FacturacionElectronica(models.TransientModel):
 		_logger.error('Consulta Hacienda - Finalizado Exitosamente')
 
 
+	@api.model
+	def get_xml2(self, invoice):
+
+		if not invoice.number:
+			_logger.error('Factura sin consecutivo %s', invoice)
+			return False
+
+		if not invoice.number.isdigit():
+			_logger.error('Error de numeración %s', invoice.number)
+			return False
+
+		if len(invoice.number) != 20:
+			consecutivo = self.get_consecutivo(invoice)
+			if not consecutivo:
+				_logger.error('Error de consecutivo %s' % invoice.number)
+				return False
+
+			invoice.number = consecutivo
+
+		xml = base64.b64decode(invoice.xml_supplier_approval)
+		_logger.info('xml %s' % xml)
+
+		factura = etree.tostring(etree.fromstring(xml)).decode()
+		factura = etree.fromstring(re.sub(' xmlns="[^"]+"', '', factura, count=1))
+
+
+
+		Emisor = factura.find('Emisor')
+		Receptor = factura.find('Receptor')
+		TotalImpuesto = factura.find('ResumenFactura').find('TotalImpuesto')
+		TotalComprobante = factura.find('ResumenFactura').find('TotalComprobante')
+
+		emisor = invoice.company_id
+
+		# MensajeReceptor 4.2
+
+		documento = 'MensajeReceptor' # MensajeReceptor
+		xmlns = 'https://tribunet.hacienda.go.cr/docs/esquemas/2017/v4.2/mensajeReceptor'
+		schemaLocation = 'https://tribunet.hacienda.go.cr/docs/esquemas/2017/v4.2/mensajeReceptor  https://tribunet.hacienda.go.cr/docs/esquemas/2017/v4.2/MensajeReceptor_4.2.xsd'
+
+		xsi = 'http://www.w3.org/2001/XMLSchema-instance'
+		xsd = 'http://www.w3.org/2001/XMLSchema'
+		ds = 'http://www.w3.org/2000/09/xmldsig#'
+
+		nsmap = {None : xmlns, 'xsd': xsd, 'xsi': xsi, 'ds': ds}
+		attrib = {'{'+xsi+'}schemaLocation':schemaLocation}
+
+		Documento = etree.Element(documento, attrib=attrib, nsmap=nsmap)
+
+		# Clave
+		Clave = etree.Element('Clave')
+		Clave.text = factura.find('Clave').text
+		Documento.append(Clave)
+
+		# NumeroCedulaEmisor
+		NumeroCedulaEmisor = etree.Element('NumeroCedulaEmisor')
+		NumeroCedulaEmisor.text = factura.find('Emisor').find('Identificacion').find('Numero').text
+		Documento.append(NumeroCedulaEmisor)
+
+		now_utc = datetime.datetime.now(pytz.timezone('UTC'))
+		now_cr = now_utc.astimezone(pytz.timezone('America/Costa_Rica'))
+		date_cr = now_cr.strftime("%Y-%m-%dT%H:%M:%S-06:00")
+
+		# FechaEmisionDoc
+		FechaEmisionDoc = etree.Element('FechaEmisionDoc')
+		FechaEmisionDoc.text = date_cr
+		Documento.append(FechaEmisionDoc)
+
+		# Mensaje
+		Mensaje = etree.Element('Mensaje')
+		Mensaje.text = invoice.state_invoice_partner
+		Documento.append(Mensaje)
+
+		# DetalleMensaje
+		DetalleMensaje = etree.Element('DetalleMensaje')
+		DetalleMensaje.text = 'Mensaje de ' + emisor.name
+		Documento.append(DetalleMensaje)
+
+		# MontoTotalImpuesto
+		MontoTotalImpuesto = etree.Element('MontoTotalImpuesto')
+		MontoTotalImpuesto.text = TotalImpuesto.text
+		Documento.append(MontoTotalImpuesto)
+
+		# TotalFactura
+		TotalFactura = etree.Element('TotalFactura')
+		TotalFactura.text = TotalComprobante.text
+		Documento.append(TotalFactura)
+
+		identificacion = re.sub('[^0-9]', '', emisor.vat or '')
+
+		if not emisor.identification_id:
+			raise UserError('Seleccione el tipo de identificación del emisor en el perfil de la compañía')
+		elif emisor.identification_id.code == '01' and len(identificacion) != 9:
+			raise UserError('La Cédula Física del emisor debe de tener 9 dígitos')
+		elif emisor.identification_id.code == '02' and len(identificacion) != 10:
+			raise UserError('La Cédula Jurídica del emisor debe de tener 10 dígitos')
+		elif emisor.identification_id.code == '03' and (len(identificacion) != 11 or len(identificacion) != 12):
+			raise UserError('La identificación DIMEX del emisor debe de tener 11 o 12 dígitos')
+		elif emisor.identification_id.code == '04' and len(identificacion) != 10:
+			raise UserError('La identificación NITE del emisor debe de tener 10 dígitos')
+
+		# NumeroCedulaReceptor
+		NumeroCedulaReceptor = etree.Element('NumeroCedulaReceptor')
+		NumeroCedulaReceptor.text = identificacion
+		Documento.append(NumeroCedulaReceptor)
+
+		# NumeroConsecutivoReceptor
+		NumeroConsecutivoReceptor = etree.Element('NumeroConsecutivoReceptor')
+		NumeroConsecutivoReceptor.text = invoice.number
+		Documento.append(NumeroConsecutivoReceptor)
+
+		xml = etree.tostring(Documento, encoding='UTF-8', xml_declaration=True, pretty_print=True)
+
+		xml_encoded = base64.b64encode(xml).decode('utf-8')
+
+		xml_firmado = self.firmar_xml(invoice, xml_encoded)
+
+		return xml_firmado
+
 
 	@api.model
 	def get_xml(self, invoice):
@@ -471,6 +712,9 @@ class FacturacionElectronica(models.TransientModel):
 			documento = 'NotaCreditoElectronica' # Nota de Crédito
 			xmlns = 'https://tribunet.hacienda.go.cr/docs/esquemas/2017/v4.2/notaCreditoElectronica'
 			schemaLocation = 'https://tribunet.hacienda.go.cr/docs/esquemas/2017/v4.2/notaCreditoElectronica  https://tribunet.hacienda.go.cr/docs/esquemas/2017/v4.2/NotaCreditoElectronica_V4.2.xsd'
+		else:
+			_logger.info('tipo de documento no implementado %s' % invoice.type)
+			return False
 
 		xsi = 'http://www.w3.org/2001/XMLSchema-instance'
 		xsd = 'http://www.w3.org/2001/XMLSchema'
@@ -568,20 +812,21 @@ class FacturacionElectronica(models.TransientModel):
 		Emisor.append(Ubicacion)
 
 		telefono = emisor.partner_id.phone or emisor.partner_id.mobile
-		telefono = re.sub('[^0-9]', '', telefono)
-		if telefono and len(telefono) >= 8 and len(telefono) <= 20:
-			Telefono = etree.Element('Telefono')
+		if telefono:
+			telefono = re.sub('[^0-9]', '', telefono)
+			if telefono and len(telefono) >= 8 and len(telefono) <= 20:
+				Telefono = etree.Element('Telefono')
 
-			CodigoPais = etree.Element('CodigoPais')
-			CodigoPais.text = '506'
-			Telefono.append(CodigoPais)
+				CodigoPais = etree.Element('CodigoPais')
+				CodigoPais.text = '506'
+				Telefono.append(CodigoPais)
 
-			NumTelefono = etree.Element('NumTelefono')
-			NumTelefono.text = telefono[:8]
+				NumTelefono = etree.Element('NumTelefono')
+				NumTelefono.text = telefono[:8]
 
-			Telefono.append(NumTelefono)
+				Telefono.append(NumTelefono)
 
-			Emisor.append(Telefono)
+				Emisor.append(Telefono)
 
 		if not emisor.email or not re.match('^[(a-z0-9\_\-\.)]+@[(a-z0-9\_\-\.)]+\.[(a-z)]{2,15}$', emisor.email.lower()):
 			raise UserError('El correo electrónico del emisor es inválido.')
@@ -653,19 +898,20 @@ class FacturacionElectronica(models.TransientModel):
 				Receptor.append(Ubicacion)
 
 			telefono = receptor.phone or receptor.mobile
-			telefono = re.sub('[^0-9]', '', telefono)
-			if telefono and len(telefono) >= 8 and len(telefono) <= 20:
-				Telefono = etree.Element('Telefono')
+			if telefono:
+				telefono = re.sub('[^0-9]', '', telefono)
+				if telefono and len(telefono) >= 8 and len(telefono) <= 20:
+					Telefono = etree.Element('Telefono')
 
-				CodigoPais = etree.Element('CodigoPais')
-				CodigoPais.text = '506'
-				Telefono.append(CodigoPais)
+					CodigoPais = etree.Element('CodigoPais')
+					CodigoPais.text = '506'
+					Telefono.append(CodigoPais)
 
-				NumTelefono = etree.Element('NumTelefono')
-				NumTelefono.text = telefono[:8]
-				Telefono.append(NumTelefono)
+					NumTelefono = etree.Element('NumTelefono')
+					NumTelefono.text = telefono[:8]
+					Telefono.append(NumTelefono)
 
-				Receptor.append(Telefono)
+					Receptor.append(Telefono)
 
 			if receptor.email and re.match('^[(a-z0-9\_\-\.)]+@[(a-z0-9\_\-\.)]+\.[(a-z)]{2,15}$', receptor.email.lower()):
 				CorreoElectronico = etree.Element('CorreoElectronico')
@@ -922,3 +1168,4 @@ class FacturacionElectronica(models.TransientModel):
 		xml_firmado = self.firmar_xml(invoice, xml_encoded)
 
 		return xml_firmado
+

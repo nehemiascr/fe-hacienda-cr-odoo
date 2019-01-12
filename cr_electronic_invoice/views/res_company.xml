@@ -51,6 +51,7 @@
 
 				<xpath expr="//page[1]" position="after">
 					<page string="Facturación Electrónica">
+						<button name="action_renovar_token" string="Renovar token" type="object" class="btn-primary"/>
 						<!--<div style="margin-top:5px"  class="oe_button_box" name="expense_button_box">-->
 							<!--<field name="is_active" invisible="False"/>-->
 							<!--<button name="to_register_client" type="object" attrs="{'invisible':[('is_active','=',True)]}" string="Activar o Registrar Cliente"/>-->
@@ -67,19 +68,20 @@
 								<field name="frm_ws_identificador"/>
 								<field name="frm_ws_password" password="True"/>
 								<field name="frm_pin" password="True"/>
-								<field name="frm_apicr_username" />
-								<field name="frm_apicr_password" password="True"/>
+								<!--<field name="frm_apicr_username" />-->
+								<!--<field name="frm_apicr_password" password="True"/>-->
 								<!--<field name="pciaid"/>-->
 								<!--<field name="cta_id_electronic_invoice"/>-->
 							</group>
 							<group cols="2" >
-								<field name="frm_callback_url"/>
+								<!--<field name="frm_callback_url"/>-->
 								<field name="activated" readonly="True" />
 								<field name="frm_ws_ambiente"  widget="radio"/>
-                                <field name="frm_apicr_signaturecode"/>
+ 								<!--<field name="frm_apicr_signaturecode"/>-->
 								<!--<field name="frm_tipo_id"/>-->
 							</group>
 						</group>
+						<field name="token"/>
 					</page>
 				</xpath>
 

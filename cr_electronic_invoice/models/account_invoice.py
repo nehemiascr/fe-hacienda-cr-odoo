@@ -10,6 +10,7 @@ import pytz
 import requests
 from dateutil.parser import parse
 from . import functions
+from lxml import etree
 import logging
 
 _logger = logging.getLogger(__name__)
@@ -18,35 +19,46 @@ _logger = logging.getLogger(__name__)
 class AccountInvoiceElectronic(models.Model):
 	_inherit = "account.invoice"
 
-	number_electronic = fields.Char(string="Número electrónico", required=False, copy=False, index=True)
-	date_issuance = fields.Char(string="Fecha de emisión", required=False, copy=False)
+	number_electronic = fields.Char(string="Número electrónico", copy=False, index=True)
+	date_issuance = fields.Char(string="Fecha de emisión", copy=False)
 	fecha = fields.Datetime('Fecha de Emisión', readonly=True, default=fields.Datetime.now(), copy=False)
-	state_send_invoice = fields.Selection([('aceptado', 'Aceptado'), ('rechazado', 'Rechazado'), ],
-										  'Estado FE Proveedor', copy=False)
-	state_tributacion = fields.Selection(
-		[('aceptado', 'Aceptado'), ('rechazado', 'Rechazado'), ('recibido', 'Recibido'),
-		 ('error', 'Error'), ('procesando', 'Procesando')], 'Estado FE',
-		copy=False)
-	state_invoice_partner = fields.Selection([('1', 'Aceptado'), ('3', 'Rechazado'), ('2', 'Aceptacion parcial')],
+	state_send_invoice = fields.Selection([('aceptado', 'Aceptado'),
+                                           ('rechazado', 'Rechazado'),
+                                           ('error', 'Error'),
+                                           ('ne', 'No Encontrado'),
+                                           ('procesando', 'Procesando')],
+                                          'Estado FE Proveedor', copy=False)
+	state_tributacion = fields.Selection([('aceptado', 'Aceptado'),
+										  ('rechazado', 'Rechazado'),
+										  ('recibido', 'Recibido'),
+		 								  ('error', 'Error'),
+										  ('procesando', 'Procesando'),
+										  ('na', 'No Aplica'),
+										  ('ne', 'No Encontrado')],
+										 'Estado FE', copy=False)
+	state_invoice_partner = fields.Selection([('1', 'Aceptado'),
+											  ('2', 'Aceptacion parcial'),
+											  ('3', 'Rechazado'),],
 											 'Respuesta del Cliente', copy=False)
-	reference_code_id = fields.Many2one(comodel_name="reference.code", string="Código de referencia", required=False, copy=False )
-	payment_methods_id = fields.Many2one(comodel_name="payment.methods", string="Métodos de Pago", required=False, )
-	invoice_id = fields.Many2one(comodel_name="account.invoice", string="Documento de referencia", required=False,
-								 copy=False)
-	xml_respuesta_tributacion = fields.Binary(string="Respuesta Tributación XML", required=False, copy=False,
-											  attachment=True)
-	fname_xml_respuesta_tributacion = fields.Char(string="Nombre de archivo XML Respuesta Tributación", required=False,
-												  copy=False)
+	reference_code_id = fields.Many2one(comodel_name="reference.code", string="Código de referencia", copy=False)
+	payment_methods_id = fields.Many2one(comodel_name="payment.methods", string="Métodos de Pago")
+	invoice_id = fields.Many2one(comodel_name="account.invoice", string="Documento de referencia", copy=False)
+	xml_respuesta_tributacion = fields.Binary(string="Respuesta Tributación XML", copy=False, attachment=True)
+	fname_xml_respuesta_tributacion = fields.Char(string="Nombre de archivo XML Respuesta Tributación", copy=False)
 
-	respuesta_tributacion = fields.Text(string="Mensaje en la Respuesta de Tributación", readonly=True, copy=False )
-	xml_comprobante = fields.Binary(string="Comprobante XML", required=False, copy=False, attachment=True)
-	fname_xml_comprobante = fields.Char(string="Nombre de archivo Comprobante XML", required=False, copy=False,
-										attachment=True)
-	xml_supplier_approval = fields.Binary(string="XML Proveedor", required=False, copy=False, attachment=True)
-	fname_xml_supplier_approval = fields.Char(string="Nombre de archivo Comprobante XML proveedor", required=False,
-											  copy=False, attachment=True)
-	amount_tax_electronic_invoice = fields.Monetary(string='Total de impuestos FE', readonly=True, )
-	amount_total_electronic_invoice = fields.Monetary(string='Total FE', readonly=True, )
+	respuesta_tributacion = fields.Text(string="Mensaje en la Respuesta de Tributación", readonly=True, copy=False)
+	xml_comprobante = fields.Binary(string="Comprobante XML", copy=False, attachment=True)
+	fname_xml_comprobante = fields.Char(string="Nombre de archivo Comprobante XML", copy=False, attachment=True)
+	xml_supplier_approval = fields.Binary(string="XML Proveedor", copy=False, attachment=True)
+	fname_xml_supplier_approval = fields.Char(string="Nombre de archivo Comprobante XML proveedor", copy=False, attachment=True)
+	amount_tax_electronic_invoice = fields.Monetary(string='Total de impuestos FE', readonly=True)
+	amount_total_electronic_invoice = fields.Monetary(string='Total FE', readonly=True)
+	tipo_comprobante = fields.Char(string='Tipo Comprobante', readonly=True, )
+
+	state_email = fields.Selection([('no_email', 'Sin cuenta de correo'),
+									('sent', 'Enviado'),
+									('fe_error', 'Error FE')], 'Estado email', copy=False)
+
 
 	_sql_constraints = [
 		('number_electronic_uniq', 'unique (number_electronic)', "La clave de comprobante debe ser única"),
@@ -54,36 +66,123 @@ class AccountInvoiceElectronic(models.Model):
 
 	@api.onchange('xml_supplier_approval')
 	def _onchange_xml_supplier_approval(self):
+		_logger.info('cargando xml de proveedor')
 		if self.xml_supplier_approval:
 			root = ET.fromstring(
-				re.sub(' xmlns="[^"]+"', '', base64.b64decode(self.xml_supplier_approval).decode("utf-8"),
-					   count=1))  # quita el namespace de los elementos
+				re.sub(' xmlns="[^"]+"', '', base64.b64decode(self.xml_supplier_approval).decode("utf-8"), count=1))  # quita el namespace de los elementos
 
 			if not root.findall('Clave'):
-				return {'value': {'xml_supplier_approval': False}, 'warning': {'title': 'Atención',
-																			   'message': 'El archivo xml no contiene el nodo Clave. Por favor cargue un archivo con el formato correcto.'}}
+				return {'value': {'xml_supplier_approval': False},
+						'warning': {'title': 'Atención',
+									'message': 'El archivo xml no contiene el nodo Clave. Por favor cargue un archivo con el formato correcto.'
+									}
+						}
 			if not root.findall('FechaEmision'):
-				return {'value': {'xml_supplier_approval': False}, 'warning': {'title': 'Atención',
-																			   'message': 'El archivo xml no contiene el nodo FechaEmision. Por favor cargue un archivo con el formato correcto.'}}
+				return {'value': {'xml_supplier_approval': False},
+						'warning': {'title': 'Atención',
+									'message': 'El archivo xml no contiene el nodo FechaEmision. Por favor cargue un archivo con el formato correcto.'
+									}
+						}
 			if not root.findall('Emisor'):
-				return {'value': {'xml_supplier_approval': False}, 'warning': {'title': 'Atención',
-																			   'message': 'El archivo xml no contiene el nodo Emisor. Por favor cargue un archivo con el formato correcto.'}}
+				return {'value': {'xml_supplier_approval': False},
+						'warning': {'title': 'Atención',
+									'message': 'El archivo xml no contiene el nodo Emisor. Por favor cargue un archivo con el formato correcto.'
+									}
+						}
 			if not root.findall('Emisor')[0].findall('Identificacion'):
-				return {'value': {'xml_supplier_approval': False}, 'warning': {'title': 'Atención',
-																			   'message': 'El archivo xml no contiene el nodo Identificacion. Por favor cargue un archivo con el formato correcto.'}}
+				return {'value': {'xml_supplier_approval': False},
+						'warning': {'title': 'Atención',
+									'message': 'El archivo xml no contiene el nodo Identificacion. Por favor cargue un archivo con el formato correcto.'
+									}
+						}
 			if not root.findall('Emisor')[0].findall('Identificacion')[0].findall('Tipo'):
-				return {'value': {'xml_supplier_approval': False}, 'warning': {'title': 'Atención',
-																			   'message': 'El archivo xml no contiene el nodo Tipo. Por favor cargue un archivo con el formato correcto.'}}
+				return {'value': {'xml_supplier_approval': False},
+						'warning': {'title': 'Atención',
+									'message': 'El archivo xml no contiene el nodo Tipo. Por favor cargue un archivo con el formato correcto.'
+									}
+						}
 			if not root.findall('Emisor')[0].findall('Identificacion')[0].findall('Numero'):
-				return {'value': {'xml_supplier_approval': False}, 'warning': {'title': 'Atención',
-																			   'message': 'El archivo xml no contiene el nodo Numero. Por favor cargue un archivo con el formato correcto.'}}
-			# if not (root.findall('ResumenFactura') and root.findall('ResumenFactura')[0].findall('TotalImpuesto')):
-			#     return {'value': {'xml_supplier_approval': False}, 'warning': {'title': 'Atención',
-			#                                                                    'message': 'No se puede localizar el nodo TotalImpuesto. Por favor cargue un archivo con el formato correcto.'}}
-
+				return {'value': {'xml_supplier_approval': False},
+						'warning': {'title': 'Atención',
+									'message': 'El archivo xml no contiene el nodo Numero. Por favor cargue un archivo con el formato correcto.'
+									}
+						}
 			if not (root.findall('ResumenFactura') and root.findall('ResumenFactura')[0].findall('TotalComprobante')):
-				return {'value': {'xml_supplier_approval': False}, 'warning': {'title': 'Atención',
-																			   'message': 'No se puede localizar el nodo TotalComprobante. Por favor cargue un archivo con el formato correcto.'}}
+				return {'value': {'xml_supplier_approval': False},
+						'warning': {'title': 'Atención',
+									'message': 'No se puede localizar el nodo TotalComprobante. Por favor cargue un archivo con el formato correcto.'
+									}
+						}
+
+			xml = base64.b64decode(self.xml_supplier_approval)
+			_logger.info('xml %s' % xml)
+
+			factura = etree.tostring(etree.fromstring(xml)).decode()
+			factura = etree.fromstring(re.sub(' xmlns="[^"]+"', '', factura, count=1))
+
+			Clave = factura.find('Clave')
+			NumeroConsecutivo = factura.find('NumeroConsecutivo')
+			FechaEmision = factura.find('FechaEmision')
+			Emisor = factura.find('Emisor')
+			Receptor = factura.find('Receptor')
+
+			CondicionVenta = factura.find('CondicionVenta')
+			PlazoCredito = factura.find('PlazoCredito')
+
+			emisor = Emisor.find('Identificacion').find('Numero').text
+
+			_logger.info('buscando %s' % emisor)
+			proveedor = self.env['res.partner'].search([('vat', '=', emisor)])
+
+			_logger.info('resultado %s' % proveedor)
+
+			if not proveedor:
+				ctx = self.env.context.copy()
+				ctx.pop('default_type', False)
+				tipo_de_identificacion = self.env['identification.type'].search([('code','=', Emisor.find('Identificacion').find('Tipo').text)])
+
+				if tipo_de_identificacion.code == '02':
+					is_company = True
+				else:
+					is_company = False
+
+				proveedor = self.env['res.partner'].with_context(ctx).create({'name': Emisor.find('Nombre').text,
+																			  'email': Emisor.find('CorreoElectronico').text,
+																			  'phone_code': Emisor.find('Telefono').find('CodigoPais').text,
+																			  'phone': Emisor.find('Telefono').find('NumTelefono').text,
+																			  'vat':emisor,
+																			  'identification_id': tipo_de_identificacion.id,
+																			  'is_company': is_company,
+																			  'customer': False,
+																			  'supplier': True})
+				_logger.info('nuevo proveedor %s' % proveedor)
+
+			self.partner_id = proveedor
+			_logger.info('fecha %s' % FechaEmision.text)
+			self.date_invoice = FechaEmision.text
+
+			_logger.info('NumeroConsecutivo %s' % NumeroConsecutivo)
+			self.reference = NumeroConsecutivo.text
+
+			if CondicionVenta.text == '02':
+				fecha_de_factura = datetime.datetime.strptime(self.date_invoice, '%Y-%m-%d')
+				plazo = int(PlazoCredito.text)
+				fecha_de_vencimiento = fecha_de_factura + datetime.timedelta(days=plazo)
+				self.date_due = fecha_de_vencimiento.strftime('%Y-%m-%d')
+				_logger.info('date_due %s' % self.date_due)
+
+
+		else:
+			self.state_tributacion = False
+			self.state_send_invoice = False
+			self.xml_supplier_approval = False
+			self.fname_xml_supplier_approval = False
+			self.xml_respuesta_tributacion = False
+			self.fname_xml_respuesta_tributacion = False
+			self.date_issuance = False
+			self.number_electronic = False
+			self.state_invoice_partner = False
+
 
 
 
@@ -144,101 +243,38 @@ class AccountInvoiceElectronic(models.Model):
 
 	@api.multi
 	def send_acceptance_message(self):
-		for inv in self:
-			if inv.xml_supplier_approval:
-				url = self.company_id.frm_callback_url
-				root = ET.fromstring(
-					re.sub(' xmlns="[^"]+"', '', base64.b64decode(inv.xml_supplier_approval).decode("utf-8"), count=1))
-				if not inv.state_invoice_partner:
+		for invoice in self:
+			if invoice.xml_supplier_approval:
+				if not invoice.state_invoice_partner:
 					raise UserError('Aviso!.\nDebe primero seleccionar el tipo de respuesta para el archivo cargado.')
-				#                if float(root.findall('ResumenFactura')[0].findall('TotalComprobante')[0].text) == inv.amount_total:
-				if inv.company_id.frm_ws_ambiente != 'disabled' and inv.state_invoice_partner:
-					if inv.state_invoice_partner == '1':
-						detalle_mensaje = 'Aceptado'
-						tipo = 1
-						tipo_documento = 'CCE'
-					elif inv.state_invoice_partner == '2':
-						detalle_mensaje = 'Aceptado parcial'
-						tipo = 2
-						tipo_documento = 'CPCE'
+				if invoice.company_id.frm_ws_ambiente != 'disabled' and invoice.state_invoice_partner:
+					mensaje = self.env['facturacion_electronica'].get_xml2(invoice)
+
+					if mensaje:
+						invoice.xml_comprobante = mensaje
+						invoice.fname_xml_comprobante = 'mensaje_' + invoice.number + '.xml'
+
+						token = self.env['facturacion_electronica'].get_token()
+
+						if token:
+							if self.env['facturacion_electronica'].enviar_mensaje(invoice):
+								_logger.info('enviado :) :::::::')
+								# if self.env['facturacion_electronica'].consultar_factura(invoice):
+								# 	self.env['facturacion_electronica'].enviar_email(invoice)
 					else:
-						detalle_mensaje = 'Rechazado'
-						tipo = 3
-						tipo_documento = 'RCE'
+						_logger.info('Error generando mensaje %s' % mensaje)
 
-					now_utc = datetime.datetime.now(pytz.timezone('UTC'))
-					now_cr = now_utc.astimezone(pytz.timezone('America/Costa_Rica'))
-					date_cr = now_cr.strftime("%Y-%m-%dT%H:%M:%S-06:00")
-					payload = {}
-					headers = {}
 
-					response_json = functions.get_clave(self, url, tipo_documento, inv.number, inv.journal_id.sucursal,
-														inv.journal_id.terminal)
-					consecutivo_receptor = response_json.get('resp').get('consecutivo')
 
-					payload['w'] = 'genXML'
-					payload['r'] = 'gen_xml_mr'
-					payload['clave'] = inv.number_electronic
-					payload['numero_cedula_emisor'] = root.findall('Emisor')[0].find('Identificacion')[1].text
-					payload['fecha_emision_doc'] = root.findall('FechaEmision')[0].text
-					payload['mensaje'] = tipo
-					payload['detalle_mensaje'] = detalle_mensaje
-					tax_node = root.findall('ResumenFactura')[0].findall('TotalImpuesto')
-					if tax_node:
-						payload['monto_total_impuesto'] = tax_node[0].text
-					payload['total_factura'] = root.findall('ResumenFactura')[0].findall('TotalComprobante')[0].text
-					payload['numero_cedula_receptor'] = inv.company_id.vat
-					payload['numero_consecutivo_receptor'] = consecutivo_receptor
 
-					response = requests.request("POST", url, data=payload, headers=headers)
-					response_json = response.json()
 
-					xml = response_json.get('resp').get('xml')
 
-					response_json = functions.sign_xml(inv, tipo_documento, url, xml)
-					xml_firmado = response_json.get('resp').get('xmlFirmado')
 
-					env = inv.company_id.frm_ws_ambiente
 
-					response_json = functions.token_hacienda(inv, env, url)
-
-					token_m_h = response_json.get('resp').get('access_token')
-
-					headers = {}
-					payload = {}
-					payload['w'] = 'send'
-					payload['r'] = 'sendMensaje'
-					payload['token'] = token_m_h
-					payload['clave'] = inv.number_electronic
-					payload['fecha'] = date_cr
-					payload['emi_tipoIdentificacion'] = inv.company_id.identification_id.code
-					payload['emi_numeroIdentificacion'] = inv.company_id.vat
-					payload['recp_tipoIdentificacion'] = inv.partner_id.identification_id.code
-					payload['recp_numeroIdentificacion'] = inv.partner_id.vat
-					payload['comprobanteXml'] = xml
-					payload['client_id'] = env
-					payload['consecutivoReceptor'] = consecutivo_receptor
-
-					response = requests.request("POST", url, data=payload, headers=headers)
-					response_json = response.json()
-
-					inv.number = consecutivo_receptor
-
-					if response_json.get('resp').get('Status') == 202:
-						functions.consulta_documentos(self, inv, env, token_m_h, url, date_cr, xml_firmado)
-					elif response_json.get('resp').get('Status') == 200:
-						raise UserError('Error!.\n' + response_json.get('resp').get('text'))
-					elif response_json.get('resp').get('Status') == 400:
-						raise UserError('Error!.\n' + response_json.get('resp').get('text')[17])
-
-	#                else:
-	#                    raise UserError(
-	#                        'Error!.\nEl monto total de la factura no coincide con el monto total del archivo XML')
 
 	@api.multi
 	@api.returns('self')
-	def refund(self, date_invoice=None, date=None, description=None, journal_id=None, invoice_id=None,
-			   reference_code_id=None):
+	def refund(self, date_invoice=None, date=None, description=None, journal_id=None, invoice_id=None, reference_code_id=None):
 		if self.env.user.company_id.frm_ws_ambiente == 'disabled':
 			new_invoices = super(AccountInvoiceElectronic, self).refund()
 			return new_invoices
@@ -246,8 +282,7 @@ class AccountInvoiceElectronic(models.Model):
 			new_invoices = self.browse()
 			for invoice in self:
 				# create the new invoice
-				values = self._prepare_refund(invoice, date_invoice=date_invoice, date=date, description=description,
-											  journal_id=journal_id)
+				values = self._prepare_refund(invoice, date_invoice=date_invoice, date=date, description=description, journal_id=journal_id)
 				values.update({'invoice_id': invoice_id, 'reference_code_id': reference_code_id})
 				refund_invoice = self.create(values)
 
