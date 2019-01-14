@@ -53,7 +53,7 @@
 					<field name="exoneration_id" />
 				</xpath>
 				<xpath expr="//button[@name='action_invoice_cancel']" position="after">
-					<button name="charge_xml_data" type="object" string="Cargar datos desde XMLs" colspan="2" attrs="{'invisible':['|', ('state_tributacion','!=', False), '|', ('xml_comprobante', '=', False), ('xml_respuesta_tributacion', '=', False)]}" />
+					<!--<button name="charge_xml_data" type="object" string="Cargar datos desde XMLs" colspan="2" attrs="{'invisible':['|', ('state_tributacion','!=', False), '|', ('xml_comprobante', '=', False), ('xml_respuesta_tributacion', '=', False)]}" />-->
 					<button name="action_consultar_hacienda" type="object" string="Consultar Hacienda" colspan="2" attrs="{'invisible':[('state_tributacion','=', False)]}"/>
 				</xpath>
 			</field>
@@ -73,7 +73,7 @@
 						<group>
 							<field name="fname_xml_supplier_approval" invisible="1" />
 							<field name="xml_supplier_approval" filename="fname_xml_supplier_approval" />
-							<button name="charge_xml_data" type="object" string="Cargar datos desde XML" colspan="2" attrs="{'invisible':[('state','!=', 'draft')]}" />
+							<!--<button name="charge_xml_data" type="object" string="Cargar datos desde XML" colspan="2" attrs="{'invisible':[('state','!=', 'draft')]}" />-->
 						</group>
 						<group>
 							<field name="state_invoice_partner"/>

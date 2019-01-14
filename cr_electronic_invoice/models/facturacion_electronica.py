@@ -140,7 +140,6 @@ class FacturacionElectronica(models.TransientModel):
 		codigo_de_pais = '506'
 
 		# fecha
-
 		fecha = datetime.datetime.strptime(invoice.fecha , '%Y-%m-%d %H:%M:%S')
 
 		# b) día
@@ -849,27 +848,31 @@ class FacturacionElectronica(models.TransientModel):
 			if receptor.identification_id and receptor.vat:
 				identificacion = re.sub('[^0-9]', '', receptor.vat)
 
-				if receptor.identification_id.code == '01' and len(identificacion) != 9:
-					raise UserError('La Cédula Física del cliente debe de tener 9 dígitos')
-				elif receptor.identification_id.code == '02' and len(identificacion) != 10:
-					raise UserError('La Cédula Jurídica del cliente debe de tener 10 dígitos')
-				elif receptor.identification_id.code == '03' and (
-						len(identificacion) != 11 or len(identificacion) != 12):
-					raise UserError('La identificación DIMEX del cliente debe de tener 11 o 12 dígitos')
-				elif receptor.identification_id.code == '04' and len(identificacion) != 10:
-					raise UserError('La identificación NITE del cliente debe de tener 10 dígitos')
+				if receptor.identification_id.code == '05':
+					IdentificacionExtranjero = etree.Element('IdentificacionExtranjero')
+					IdentificacionExtranjero.text = identificacion[:20]
+					Receptor.append(IdentificacionExtranjero)
+				else:
+					if receptor.identification_id.code == '01' and len(identificacion) != 9:
+						raise UserError('La Cédula Física del cliente debe de tener 9 dígitos')
+					elif receptor.identification_id.code == '02' and len(identificacion) != 10:
+						raise UserError('La Cédula Jurídica del cliente debe de tener 10 dígitos')
+					elif receptor.identification_id.code == '03' and (len(identificacion) != 11 or len(identificacion) != 12):
+						raise UserError('La identificación DIMEX del cliente debe de tener 11 o 12 dígitos')
+					elif receptor.identification_id.code == '04' and len(identificacion) != 10:
+						raise UserError('La identificación NITE del cliente debe de tener 10 dígitos')
 
-				Identificacion = etree.Element('Identificacion')
+					Identificacion = etree.Element('Identificacion')
 
-				Tipo = etree.Element('Tipo')
-				Tipo.text = receptor.identification_id.code
-				Identificacion.append(Tipo)
+					Tipo = etree.Element('Tipo')
+					Tipo.text = receptor.identification_id.code
+					Identificacion.append(Tipo)
 
-				Numero = etree.Element('Numero')
-				Numero.text = identificacion
-				Identificacion.append(Numero)
+					Numero = etree.Element('Numero')
+					Numero.text = identificacion
+					Identificacion.append(Numero)
 
-				Receptor.append(Identificacion)
+					Receptor.append(Identificacion)
 
 			if receptor.state_id and receptor.county_id and receptor.district_id and receptor.street:
 				Ubicacion = etree.Element('Ubicacion')
@@ -963,6 +966,7 @@ class FacturacionElectronica(models.TransientModel):
 				Codigo = etree.Element('Codigo')
 
 				Tipo = etree.Element('Tipo')
+				Tipo.text = '02'
 				if linea.product_id.type == 'product' or linea.product_id.type == 'consu':
 					Tipo.text = '01'
 				elif linea.product_id.type == 'service':
@@ -980,6 +984,7 @@ class FacturacionElectronica(models.TransientModel):
 			LineaDetalle.append(Cantidad)
 
 			UnidadMedida = etree.Element('UnidadMedida')
+			UnidadMedida.text = 'Sp'
 			if linea.product_id.type == 'product' or linea.product_id.type == 'consu':
 				UnidadMedida.text = 'Unid'
 			elif linea.product_id.type == 'service':
@@ -1042,12 +1047,12 @@ class FacturacionElectronica(models.TransientModel):
 
 					if linea.product_id.type == 'product' or linea.product_id.type == 'consu':
 						totalMercanciasGravadas += linea.price_subtotal
-					elif linea.product_id.type == 'service':
+					elif linea.product_id.type == 'service' or not linea.product_id.type:
 						totalServiciosGravados += linea.price_subtotal
 			else:
 				if linea.product_id.type == 'product' or linea.product_id.type == 'consu':
 					totalMercanciasExentas += linea.price_subtotal
-				elif linea.product_id.type == 'service':
+				elif linea.product_id.type == 'service' or not linea.product_id.type:
 					totalServiciosExentos += linea.price_subtotal
 
 			MontoTotalLinea = etree.Element('MontoTotalLinea')
