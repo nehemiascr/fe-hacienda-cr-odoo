@@ -46,6 +46,8 @@ class FacturacionElectronica(models.TransientModel):
 			else:
 				_logger.info('token vencido hace %s' % (now - token_expires_on).total_seconds())
 				return self.refresh_token()
+		else:
+			return self.refresh_token()
 
 	@api.model
 	def refresh_token(self):
