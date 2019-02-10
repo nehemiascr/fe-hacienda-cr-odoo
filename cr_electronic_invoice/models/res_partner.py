@@ -19,5 +19,3 @@ class PartnerElectronic(models.Model):
 	neighborhood_id = fields.Many2one(comodel_name="res.country.neighborhood", string="Barrios")
 	identification_id = fields.Many2one(comodel_name="identification.type", string="Tipo de identificacion")
 	payment_methods_id = fields.Many2one(comodel_name="payment.methods", string="Métodos de Pago")
-
-

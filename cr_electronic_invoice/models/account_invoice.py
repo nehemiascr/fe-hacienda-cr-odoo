@@ -148,8 +148,8 @@ class AccountInvoiceElectronic(models.Model):
 
 				proveedor = self.env['res.partner'].with_context(ctx).create({'name': Emisor.find('Nombre').text,
 																			  'email': Emisor.find('CorreoElectronico').text,
-																			  'phone_code': Emisor.find('Telefono').find('CodigoPais').text,
-																			  'phone': Emisor.find('Telefono').find('NumTelefono').text,
+																			  'phone_code': Emisor.find('Telefono').find('CodigoPais').text or '506',
+																			  'phone': Emisor.find('Telefono').find('NumTelefono').text or '00000000',
 																			  'vat':emisor,
 																			  'identification_id': tipo_de_identificacion.id,
 																			  'is_company': is_company,
@@ -172,6 +172,59 @@ class AccountInvoiceElectronic(models.Model):
 				_logger.info('date_due %s' % self.date_due)
 
 
+			# lineas = factura.find('DetalleServicio')
+			# for linea in lineas:
+			# 	_logger.info('linea %s' % linea)
+			#
+			# 	impuesto = linea.find('Impuesto')
+			# 	_logger.info('impuesto %s' % impuesto)
+			#
+			# 	taxes = False
+			# 	if impuesto is not None and impuesto.find('Codigo').text == '01':  # impuesto de ventas
+			# 		tax = self.env.ref('l10n_cr.1_account_tax_template_IV_0', False)
+			# 		_logger.info('tax %s' % tax)
+			# 		taxes = [(6, 0, [tax.id])]
+			#
+			# 	_logger.info('taxes %s' % taxes)
+			#
+			# 	cantidad = linea.find('Cantidad').text
+			# 	precio_unitario = linea.find('PrecioUnitario').text
+			# 	descripcion = linea.find('Detalle').text
+			# 	total = linea.find('MontoTotal').text
+			#
+			# 	_logger.info('%s %s a %s = %s' % (cantidad, descripcion, precio_unitario, total))
+			#
+			# 	porcentajeDescuento = 0.0
+			# 	if linea.find('MontoDescuento') is not None:
+			# 		montoDescuento = float(linea.find('MontoDescuento').text)
+			# 		porcentajeDescuento = montoDescuento * 100 / float(total)
+			# 		_logger.info('descuento de %s  ' % porcentajeDescuento)
+			#
+			#
+			# 	linea2 = self.env['account.invoice.line'].new({
+			# 											 'quantity': cantidad,
+			# 											 'price_unit': precio_unitario,
+			# 											 'invoice_id': self.id,
+			# 											 'name': descripcion,
+			# 											 'account_id': self.partner_id.property_account_payable_id.id,
+			# 											 'invoice_line_tax_ids': taxes,
+			# 											 # 'account_analytic_id': analytic_account.id,
+			# 											'discount': porcentajeDescuento
+			# 											 })
+
+			ResumenFactura = factura.find('ResumenFactura')
+
+			self.env['account.invoice.line'].new({
+				'quantity': 1,
+				'price_unit': ResumenFactura.find('TotalComprobante').text,
+				'invoice_id': self.id,
+				'name': 'Total de la Factura',
+				'account_id': self.partner_id.property_account_payable_id.id,
+				# 'invoice_line_tax_ids': taxes,
+				# 'account_analytic_id': analytic_account.id,
+				# 'discount': porcentajeDescuento
+			})
+
 		else:
 			self.state_tributacion = False
 			self.state_send_invoice = False
@@ -183,93 +236,28 @@ class AccountInvoiceElectronic(models.Model):
 			self.number_electronic = False
 			self.state_invoice_partner = False
 
-
-
-
-	@api.multi
-	def charge_xml_data(self):
-		if (self.type == 'out_invoice' or self.type == 'out_refund') and self.xml_comprobante:
-			# remove any character not a number digit in the invoice number
-			self.number = re.sub(r"[^0-9]+", "", self.number)
-			self.currency_id = self.env['res.currency'].search(
-				[('name', '=', root.find('ResumenFactura').find('CodigoMoneda').text)], limit=1).id
-
-			root = ET.fromstring(re.sub(' xmlns="[^"]+"', '', base64.b64decode(self.xml_comprobante).decode("utf-8"),
-										count=1))  # quita el namespace de los elementos
-
-			partner_id = root.findall('Receptor')[0].find('Identificacion')[1].text
-			date_issuance = root.findall('FechaEmision')[0].text
-			consecutive = root.findall('NumeroConsecutivo')[0].text
-
-			partner = self.env['res.partner'].search(
-				[('vat', '=', partner_id)])
-			if partner and self.partner_id.id != partner.id:
-				raise UserError(
-					'El cliente con identificación ' + partner_id + ' no coincide con el cliente de esta factura: ' + self.partner_id.vat)
-			elif str(self.date_invoice) != date_issuance:
-				raise UserError('La fecha del XML () ' + date_issuance + ' no coincide con la fecha de esta factura')
-			elif self.number != consecutive:
-				raise UserError('El número cosecutivo ' + consecutive + ' no coincide con el de esta factura')
-			else:
-				self.number_electronic = root.findall('Clave')[0].text
-				self.date_issuance = date_issuance
-				self.date_invoice = date_issuance
-
-
-		elif self.xml_supplier_approval:
-			root = ET.fromstring(
-				re.sub(' xmlns="[^"]+"', '', base64.b64decode(self.xml_supplier_approval).decode("utf-8"),
-					   count=1))  # quita el namespace de los elementos
-
-			self.number_electronic = root.findall('Clave')[0].text
-			self.date_issuance = root.findall('FechaEmision')[0].text
-			self.date_invoice = parse(self.date_issuance)
-
-			partner = self.env['res.partner'].search(
-				[('vat', '=', root.findall('Emisor')[0].find('Identificacion')[1].text)])
-
-			if partner:
-				self.partner_id = partner.id
-			else:
-				raise UserError('El proveedor con identificación ' + root.findall('Emisor')[0].find('Identificacion')[
-					1].text + ' no existe. Por favor creelo primero en el sistema.')
-
-			self.reference = self.number_electronic[21:41]
-
-			tax_node = root.findall('ResumenFactura')[0].findall('TotalImpuesto')
-			if tax_node:
-				self.amount_tax_electronic_invoice = tax_node[0].text
-			self.amount_total_electronic_invoice = root.findall('ResumenFactura')[0].findall('TotalComprobante')[0].text
-
 	@api.multi
 	def send_acceptance_message(self):
 		for invoice in self:
-			if invoice.xml_supplier_approval:
-				if not invoice.state_invoice_partner:
-					raise UserError('Aviso!.\nDebe primero seleccionar el tipo de respuesta para el archivo cargado.')
-				if invoice.company_id.frm_ws_ambiente != 'disabled' and invoice.state_invoice_partner:
-					mensaje = self.env['facturacion_electronica'].get_xml2(invoice)
+			if invoice.company_id.frm_ws_ambiente != 'disabled' and invoice.type == 'in_invoice':
+				if invoice.xml_supplier_approval:
+					if not invoice.state_invoice_partner:
+						raise UserError('Aviso!.\nDebe primero seleccionar el tipo de respuesta para el archivo cargado.')
 
-					if mensaje:
-						invoice.xml_comprobante = mensaje
-						invoice.fname_xml_comprobante = 'mensaje_' + invoice.number + '.xml'
+					self.env['facturacion_electronica'].enviar_factura(invoice)
 
-						token = self.env['facturacion_electronica'].get_token()
-
-						if token:
-							if self.env['facturacion_electronica'].enviar_mensaje(invoice):
-								_logger.info('enviado :) :::::::')
-								# if self.env['facturacion_electronica'].consultar_factura(invoice):
-								# 	self.env['facturacion_electronica'].enviar_email(invoice)
-					else:
-						_logger.info('Error generando mensaje %s' % mensaje)
-
-
-
-
-
-
-
+					# mensaje = self.env['facturacion_electronica'].get_xml2(invoice)
+					#
+					# if mensaje:
+					# 	invoice.xml_comprobante = mensaje
+					# 	invoice.fname_xml_comprobante = 'mensaje_' + invoice.number + '.xml'
+					#
+					# 	if self.env['facturacion_electronica'].enviar_mensaje(invoice):
+					# 		_logger.info('mensaje enviado con \n%s' % mensaje)
+					# 		# if self.env['facturacion_electronica'].consultar_factura(invoice):
+					# 		# 	self.env['facturacion_electronica'].enviar_email(invoice)
+					# else:
+					# 	_logger.info('Error generando mensaje %s' % mensaje)
 
 
 	@api.multi
@@ -338,7 +326,16 @@ class AccountInvoiceElectronic(models.Model):
 
 				if comprobante:
 					invoice.xml_comprobante = comprobante
-					invoice.fname_xml_comprobante = 'comprobante_' + invoice.number_electronic + '.xml'
+
+					sufijo = ''
+					if invoice.type == 'out_invoice':
+						sufijo = 'FacturaElectronica_'
+					elif invoice.type == 'out_refund':
+						sufijo = 'NotaCreditoElectronica'
+					elif invoice.type == 'in_invoice':
+						sufijo = 'MensajeReceptor'
+
+					invoice.fname_xml_comprobante = sufijo + invoice.number_electronic + '.xml'
 
 					token = self.env['facturacion_electronica'].get_token()
 

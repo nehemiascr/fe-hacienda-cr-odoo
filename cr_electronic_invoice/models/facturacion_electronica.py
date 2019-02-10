@@ -135,8 +135,25 @@ class FacturacionElectronica(models.TransientModel):
 
 		return consecutivo
 
+	def get_clave_in_invoice(self, invoice):
+
+		if not invoice.xml_supplier_approval:
+			_logger.info('Para la clave de los mensajes de aceptación es necesario el xml')
+			return False
+
+		xml = base64.b64decode(invoice.xml_supplier_approval)
+
+		factura = etree.tostring(etree.fromstring(xml)).decode()
+		factura = etree.fromstring(re.sub(' xmlns="[^"]+"', '', factura, count=1))
+
+		return factura.find('Clave').text
+
+
 	@api.model
 	def get_clave(self, invoice):
+
+		if invoice.type == 'in_invoice':
+			return self.get_clave_in_invoice(invoice)
 
 		# a) código de pais
 		codigo_de_pais = '506'
@@ -264,44 +281,59 @@ class FacturacionElectronica(models.TransientModel):
 				_logger.info('Error %s : %s' % (response.status_code, response.headers['X-Error-Cause']))
 			return False
 
-
-
-
 	@api.multi
 	def enviar_factura(self, invoice):
 
-		if self.env.user.company_id.frm_ws_ambiente == 'api-stag':
+		if invoice.company_id.frm_ws_ambiente == 'disabled':
+			return False
+		elif invoice.company_id.frm_ws_ambiente == 'api-stag':
 			url = 'https://api.comprobanteselectronicos.go.cr/recepcion-sandbox/v1/recepcion/'
-		elif self.env.user.company_id.frm_ws_ambiente == 'api-prod':
+		elif invoice.company_id.frm_ws_ambiente == 'api-prod':
 			url = 'https://api.comprobanteselectronicos.go.cr/recepcion/v1/recepcion/'
 
 		if invoice.state_tributacion:
-			_logger.info('Se esta intentando enviar una factura que ya parece haber sido enviada, no la vamos a enviar, pero vamos a decir que lo hicimos')
+			_logger.info('Se esta intentando enviar un documento que ya parece haber sido enviado, no lo vamos a enviar, pero vamos a decir que lo hicimos')
 			return True
 
-		xml = base64.b64decode(invoice.xml_comprobante)
+		xml = invoice.xml_supplier_approval if invoice.type == 'in_invoice' else invoice.xml_comprobante
+		xml = base64.b64decode(xml)
+
 		_logger.info('xml %s' % xml)
 
 		factura = etree.tostring(etree.fromstring(xml)).decode()
 		factura = etree.fromstring(re.sub(' xmlns="[^"]+"', '', factura, count=1))
 
 		Clave = factura.find('Clave')
-		FechaEmision = factura.find('FechaEmision')
+
+		if invoice.type == 'in_invoice':
+			if not invoice.xml_comprobante:
+				invoice.xml_comprobante = self.get_xml2(invoice)
+			xml_comprobante = base64.b64decode(invoice.xml_comprobante)
+			comprobante = etree.tostring(etree.fromstring(xml_comprobante)).decode()
+			comprobante = etree.fromstring(re.sub(' xmlns="[^"]+"', '', comprobante, count=1))
+			FechaEmision = comprobante.find('FechaEmisionDoc')
+		else:
+			FechaEmision = factura.find('FechaEmision')
+
 		Emisor = factura.find('Emisor')
 		Receptor = factura.find('Receptor')
 
-		comprobante = {}
-		comprobante['clave'] = Clave.text
-		comprobante["fecha"] = FechaEmision.text
-		comprobante['emisor'] = {}
-		comprobante['emisor']['tipoIdentificacion'] = Emisor.find('Identificacion').find('Tipo').text
-		comprobante['emisor']['numeroIdentificacion'] = Emisor.find('Identificacion').find('Numero').text
+		mensaje = {}
+		mensaje['clave'] = Clave.text
+		mensaje['fecha'] = FechaEmision.text
+		mensaje['emisor'] = {}
+		mensaje['emisor']['tipoIdentificacion'] = Emisor.find('Identificacion').find('Tipo').text
+		mensaje['emisor']['numeroIdentificacion'] = Emisor.find('Identificacion').find('Numero').text
 		if Receptor is not None and Receptor.find('Identificacion') is not None:
-			comprobante['receptor'] = {}
-			comprobante['receptor']['tipoIdentificacion'] = Receptor.find('Identificacion').find('Tipo').text
-			comprobante['receptor']['numeroIdentificacion'] = Receptor.find('Identificacion').find('Numero').text
+			mensaje['receptor'] = {}
+			mensaje['receptor']['tipoIdentificacion'] = Receptor.find('Identificacion').find('Tipo').text
+			mensaje['receptor']['numeroIdentificacion'] = Receptor.find('Identificacion').find('Numero').text
 
-		comprobante['comprobanteXml'] = base64.b64encode(xml).decode('utf-8')
+		if invoice.type == 'in_invoice':
+			mensaje['comprobanteXml'] = base64.b64encode(base64.b64decode(invoice.xml_comprobante)).decode('utf-8')
+			mensaje['consecutivoReceptor'] = comprobante.find('NumeroConsecutivoReceptor').text
+		else:
+			mensaje['comprobanteXml'] = base64.b64encode(xml).decode('utf-8')
 
 		token = self.get_token()
 		if not token:
@@ -311,7 +343,7 @@ class FacturacionElectronica(models.TransientModel):
 		headers = {'Content-Type': 'application/json', 'Authorization': 'Bearer {}'.format(token)}
 
 		try:
-			response = requests.post(url, data=json.dumps(comprobante), headers=headers)
+			response = requests.post(url, data=json.dumps(mensaje), headers=headers)
 			_logger.info('Respuesta de hacienda\n%s' % response.__dict__)
 
 		except requests.exceptions.RequestException as e:
@@ -319,8 +351,10 @@ class FacturacionElectronica(models.TransientModel):
 			raise Exception(e)
 
 		if response.status_code == 202:
-			_logger.info('factura recibida por hacienda %s' % response.__dict__)
+			_logger.info('documento recibido por hacienda %s' % response.__dict__)
 			invoice.state_tributacion = 'recibido'
+			if invoice.type == 'in_invoice':
+				invoice.state_tributacion = 'aceptado'
 			return True
 		elif response.status_code == 301:
 			_logger.info('Error 301 %s' % response.headers['X-Error-Cause'])
@@ -342,19 +376,25 @@ class FacturacionElectronica(models.TransientModel):
 			return False
 
 		email_template = self.env.ref('account.email_template_edi_invoice', False)
-		attachment = self.env['ir.attachment'].search(
+
+		comprobante = self.env['ir.attachment'].search(
 			[('res_model', '=', 'account.invoice'), ('res_id', '=', invoice.id),
 			 ('res_field', '=', 'xml_comprobante')], limit=1)
-		attachment.name = invoice.fname_xml_comprobante
-		attachment.datas_fname = invoice.fname_xml_comprobante
+		comprobante.name = invoice.fname_xml_comprobante
+		comprobante.datas_fname = invoice.fname_xml_comprobante
 
-		attachment_resp = self.env['ir.attachment'].search(
-			[('res_model', '=', 'account.invoice'), ('res_id', '=', invoice.id),
-			 ('res_field', '=', 'xml_respuesta_tributacion')], limit=1)
-		attachment_resp.name = invoice.fname_xml_respuesta_tributacion
-		attachment_resp.datas_fname = invoice.fname_xml_respuesta_tributacion
+		attachments = comprobante
 
-		email_template.attachment_ids = [(6, 0, [attachment.id, attachment_resp.id])]
+		if invoice.xml_respuesta_tributacion:
+			respuesta = self.env['ir.attachment'].search(
+				[('res_model', '=', 'account.invoice'), ('res_id', '=', invoice.id),
+				 ('res_field', '=', 'xml_respuesta_tributacion')], limit=1)
+			respuesta.name = invoice.fname_xml_respuesta_tributacion
+			respuesta.datas_fname = invoice.fname_xml_respuesta_tributacion
+
+			attachments = attachments | respuesta
+
+		email_template.attachment_ids = [(6, 0, attachments.mapped('id'))]
 
 		email_template.with_context(type='binary', default_type='binary').send_mail(invoice.id,
 																					raise_exception=False,
@@ -370,7 +410,10 @@ class FacturacionElectronica(models.TransientModel):
 	@api.model
 	def consultar_factura(self, invoice):
 
-		if invoice.company_id.frm_ws_ambiente == 'api-stag':
+		if invoice.company_id.frm_ws_ambiente == 'disabled':
+			_logger.info('FE deshabilitada, no se consultará la factura %s' % invoice)
+			return False
+		elif invoice.company_id.frm_ws_ambiente == 'api-stag':
 			url = 'https://api.comprobanteselectronicos.go.cr/recepcion-sandbox/v1/recepcion/'
 		elif invoice.company_id.frm_ws_ambiente == 'api-prod':
 			url = 'https://api.comprobanteselectronicos.go.cr/recepcion/v1/recepcion/'
@@ -394,8 +437,7 @@ class FacturacionElectronica(models.TransientModel):
 
 		headers = {'Content-Type': 'application/json', 'Authorization': 'Bearer {}'.format(token)}
 
-		if invoice.type == 'in_invoice':
-			clave += '-' + invoice.number
+		if invoice.type == 'in_invoice': clave += '-' + invoice.number
 
 		try:
 			_logger.info('preguntando a %s por %s' % (url, clave))
@@ -434,7 +476,7 @@ class FacturacionElectronica(models.TransientModel):
 
 		
 		if 'respuesta-xml' in respuesta:
-			invoice.fname_xml_respuesta_tributacion = 'respuesta_' + respuesta['clave'] + '.xml'
+			invoice.fname_xml_respuesta_tributacion = 'MensajeHacienda_' + respuesta['clave'] + '.xml'
 			invoice.xml_respuesta_tributacion = respuesta['respuesta-xml']
 
 			respuesta = etree.tostring(etree.fromstring(base64.b64decode(invoice.xml_respuesta_tributacion))).decode()
@@ -510,8 +552,16 @@ class FacturacionElectronica(models.TransientModel):
 					_logger.error('Valida Hacienda - Error de creación de comprobante - skipped Invoice %s', invoice.number)
 					continue
 
+				sufijo = ''
+				if invoice.type == 'out_invoice':
+					sufijo = 'FacturaElectronica_'
+				elif invoice.type == 'out_refund':
+					sufijo = 'NotaCreditoElectronica'
+				elif invoice.type == 'in_invoice':
+					sufijo = 'MensajeReceptor'
+
 				invoice.xml_comprobante = comprobante
-				invoice.fname_xml_comprobante = invoice.number_electronic + '.xml'
+				invoice.fname_xml_comprobante = sufijo + invoice.number_electronic + '.xml'
 
 			token = self.get_token()
 
@@ -547,7 +597,6 @@ class FacturacionElectronica(models.TransientModel):
 
 		_logger.error('Consulta Hacienda - Finalizado Exitosamente')
 
-
 	@api.model
 	def get_xml2(self, invoice):
 
@@ -572,8 +621,6 @@ class FacturacionElectronica(models.TransientModel):
 
 		factura = etree.tostring(etree.fromstring(xml)).decode()
 		factura = etree.fromstring(re.sub(' xmlns="[^"]+"', '', factura, count=1))
-
-
 
 		Emisor = factura.find('Emisor')
 		Receptor = factura.find('Receptor')
@@ -626,10 +673,11 @@ class FacturacionElectronica(models.TransientModel):
 		DetalleMensaje.text = 'Mensaje de ' + emisor.name
 		Documento.append(DetalleMensaje)
 
-		# MontoTotalImpuesto
-		MontoTotalImpuesto = etree.Element('MontoTotalImpuesto')
-		MontoTotalImpuesto.text = TotalImpuesto.text
-		Documento.append(MontoTotalImpuesto)
+		if TotalImpuesto is not None:
+			# MontoTotalImpuesto
+			MontoTotalImpuesto = etree.Element('MontoTotalImpuesto')
+			MontoTotalImpuesto.text = TotalImpuesto.text
+			Documento.append(MontoTotalImpuesto)
 
 		# TotalFactura
 		TotalFactura = etree.Element('TotalFactura')
@@ -667,9 +715,11 @@ class FacturacionElectronica(models.TransientModel):
 
 		return xml_firmado
 
-
 	@api.model
 	def get_xml(self, invoice):
+
+		if invoice.type == 'in_invoice':
+			return self.get_xml2(invoice)
 
 		if not invoice.number:
 			_logger.error('Factura sin consecutivo %s', invoice)
@@ -1175,4 +1225,3 @@ class FacturacionElectronica(models.TransientModel):
 		xml_firmado = self.firmar_xml(invoice, xml_encoded)
 
 		return xml_firmado
-
