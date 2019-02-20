@@ -164,7 +164,7 @@ class AccountInvoiceElectronic(models.Model):
 			_logger.info('NumeroConsecutivo %s' % NumeroConsecutivo)
 			self.reference = NumeroConsecutivo.text
 
-			if CondicionVenta.text == '02':
+			if CondicionVenta.text == '02': # crédito
 				fecha_de_factura = datetime.datetime.strptime(self.date_invoice, '%Y-%m-%d')
 				plazo = int(PlazoCredito.text)
 				fecha_de_vencimiento = fecha_de_factura + datetime.timedelta(days=plazo)
@@ -172,58 +172,68 @@ class AccountInvoiceElectronic(models.Model):
 				_logger.info('date_due %s' % self.date_due)
 
 
-			# lineas = factura.find('DetalleServicio')
-			# for linea in lineas:
-			# 	_logger.info('linea %s' % linea)
-			#
-			# 	impuesto = linea.find('Impuesto')
-			# 	_logger.info('impuesto %s' % impuesto)
-			#
-			# 	taxes = False
-			# 	if impuesto is not None and impuesto.find('Codigo').text == '01':  # impuesto de ventas
-			# 		tax = self.env.ref('l10n_cr.1_account_tax_template_IV_0', False)
-			# 		_logger.info('tax %s' % tax)
-			# 		taxes = [(6, 0, [tax.id])]
-			#
-			# 	_logger.info('taxes %s' % taxes)
-			#
-			# 	cantidad = linea.find('Cantidad').text
-			# 	precio_unitario = linea.find('PrecioUnitario').text
-			# 	descripcion = linea.find('Detalle').text
-			# 	total = linea.find('MontoTotal').text
-			#
-			# 	_logger.info('%s %s a %s = %s' % (cantidad, descripcion, precio_unitario, total))
-			#
-			# 	porcentajeDescuento = 0.0
-			# 	if linea.find('MontoDescuento') is not None:
-			# 		montoDescuento = float(linea.find('MontoDescuento').text)
-			# 		porcentajeDescuento = montoDescuento * 100 / float(total)
-			# 		_logger.info('descuento de %s  ' % porcentajeDescuento)
-			#
-			#
-			# 	linea2 = self.env['account.invoice.line'].new({
-			# 											 'quantity': cantidad,
-			# 											 'price_unit': precio_unitario,
-			# 											 'invoice_id': self.id,
-			# 											 'name': descripcion,
-			# 											 'account_id': self.partner_id.property_account_payable_id.id,
-			# 											 'invoice_line_tax_ids': taxes,
-			# 											 # 'account_analytic_id': analytic_account.id,
-			# 											'discount': porcentajeDescuento
-			# 											 })
+			lineas = factura.find('DetalleServicio')
+			for linea in lineas:
+				_logger.info('linea %s de %s %s' % (lineas.index(linea)+1, len(lineas), linea))
+
+				impuestos = linea.findall('Impuesto')
+				_logger.info('impuestos %s' % impuestos)
+				taxes = self.env['account.tax']
+				for impuesto in impuestos:
+					_logger.info('impuesto %s de %s %s' % (impuestos.index(impuesto)+1, len(impuestos), impuesto))
+
+					codigo = impuesto.find('Codigo').text
+
+					if codigo == '01': # impuesto de ventas
+						tax = self.env.ref('l10n_cr.1_account_tax_template_IV_0', False)
+						_logger.info('tax %s' % tax)
+						taxes += tax
+					elif codigo == '02': # ISC
+						tax = self.env.ref('l10n_cr.1_account_tax_template_ISC_0', False)
+						_logger.info('tax %s' % tax)
+						taxes += tax
+
+				if taxes:
+					taxes =  [(6, 0, taxes.mapped('id'))]
+				_logger.info('taxes %s' % taxes)
+
+				cantidad = linea.find('Cantidad').text
+				precio_unitario = linea.find('PrecioUnitario').text
+				descripcion = linea.find('Detalle').text
+				total = linea.find('MontoTotal').text
+
+				_logger.info('%s %s a %s = %s' % (cantidad, descripcion, precio_unitario, total))
+
+				porcentajeDescuento = 0.0
+				if linea.find('MontoDescuento') is not None:
+					montoDescuento = float(linea.find('MontoDescuento').text)
+					porcentajeDescuento = montoDescuento * 100 / float(total)
+					_logger.info('descuento de %s %s ' % (porcentajeDescuento, montoDescuento))
+
+
+				linea2 = self.env['account.invoice.line'].new({
+														 'quantity': cantidad,
+														 'price_unit': precio_unitario,
+														 'invoice_id': self.id,
+														 'name': descripcion,
+														 'account_id': self.partner_id.property_account_payable_id.id,
+														 'invoice_line_tax_ids': taxes,
+														 # 'account_analytic_id': analytic_account.id,
+														'discount': porcentajeDescuento
+														 })
 
 			ResumenFactura = factura.find('ResumenFactura')
 
-			self.env['account.invoice.line'].new({
-				'quantity': 1,
-				'price_unit': ResumenFactura.find('TotalComprobante').text,
-				'invoice_id': self.id,
-				'name': 'Total de la Factura',
-				'account_id': self.partner_id.property_account_payable_id.id,
+			# self.env['account.invoice.line'].new({
+			# 	'quantity': 1,
+			# 	'price_unit': ResumenFactura.find('TotalComprobante').text,
+			# 	'invoice_id': self.id,
+			# 	'name': 'Total de la Factura',
+			# 	'account_id': self.partner_id.property_account_payable_id.id,
 				# 'invoice_line_tax_ids': taxes,
 				# 'account_analytic_id': analytic_account.id,
 				# 'discount': porcentajeDescuento
-			})
+			# })
 
 		else:
 			self.state_tributacion = False

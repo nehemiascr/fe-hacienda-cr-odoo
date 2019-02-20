@@ -28,6 +28,10 @@
 			 'views/res_company.xml',
 			 'views/res_partner.xml',
 	         'security/ir.model.access.csv',
+
+			 'data/account_data.xml',
+			 'data/account_tax_template_data.xml'
+
 	         ],
 	'installable': True,
 }

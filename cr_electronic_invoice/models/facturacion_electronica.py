@@ -452,6 +452,8 @@ class FacturacionElectronica(models.TransientModel):
 			return False
 		elif response.status_code == 400:
 			_logger.info('Error 400 %s' % response.headers['X-Error-Cause'])
+			invoice.respuesta_tributacion = response.headers['X-Error-Cause']
+			invoice.state_tributacion = 'error'
 			return False
 		elif response.status_code != 200:
 			_logger.info('no vamos a continuar, algo inesperado sucedió %s' % response.__dict__)

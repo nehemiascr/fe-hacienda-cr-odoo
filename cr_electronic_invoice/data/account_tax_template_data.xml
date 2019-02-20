@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+        <!-- Account Tax Tags -->
+        <record id="l10n_cr.tag_isc" model="account.account.tag">
+            <field name="name">ISC</field>
+            <field name="applicability">taxes</field>
+        </record>
+
+        <!-- Account Tax Template -->
+        <record id="l10n_cr.account_tax_template_ISC_0" model="account.tax.template">
+            <field name="name">Impuesto Selectivo de Consumo</field>
+            <field name="description">ISC</field>
+            <field name="sequence">10</field>
+            <field name="amount">5</field>
+            <field name="amount_type">percent</field>
+            <field name="type_tax_use">purchase</field>
+            <field name="chart_template_id" ref="l10n_cr.account_chart_template_0"/>
+            <field name="account_id" ref="l10n_cr.account_account_template_0_212101"/>
+            <field name="refund_account_id" ref="l10n_cr.account_account_template_0_212101"/>
+            <field name="tag_ids" eval="[(6,0,[ref('l10n_cr.tag_isc')])]"/>
+            <field name="tax_group_id" ref="l10n_cr.tax_group_ISC"/>
+        </record>
+
+        <!-- Default Tax -->
+        <record id="l10n_cr.account_account_template_0_410001" model="account.account.template">
+            <field name="tax_ids" eval="[(6,0,[ref('l10n_cr.account_tax_template_IV_0')])]"/>
+        </record>
+</odoo>
