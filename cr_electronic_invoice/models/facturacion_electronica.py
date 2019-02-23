@@ -1024,7 +1024,7 @@ class FacturacionElectronica(models.TransientModel):
 				Codigo = etree.Element('Codigo')
 
 				Tipo = etree.Element('Tipo')
-				Tipo.text = '02' if linea.product_id.type == 'service' else '01'
+				Tipo.text = '02' if linea.product_id and linea.product_id.type == 'service' else '01'
 
 				Codigo.append(Tipo)
 
@@ -1039,7 +1039,7 @@ class FacturacionElectronica(models.TransientModel):
 			LineaDetalle.append(Cantidad)
 
 			UnidadMedida = etree.Element('UnidadMedida')
-			UnidadMedida.text = 'Sp' if linea.product_id and linea.product_id.type == 'service' else 'Unid'
+			UnidadMedida.text = 'Sp' if (linea.product_id and linea.product_id.type == 'service') else 'Unid'
 
 			LineaDetalle.append(UnidadMedida)
 
