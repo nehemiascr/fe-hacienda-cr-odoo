@@ -40,7 +40,7 @@ class FacturacionElectronica(models.TransientModel):
 
 			now = datetime.datetime.now()
 
-			if token_expires_on > (now - datetime.timedelta(seconds=10)):
+			if token_expires_on > (now - datetime.timedelta(seconds=100)):
 				_logger.info('token actual con ttl %s' % (token_expires_on - now).total_seconds())
 				return token['access_token']
 			else:
@@ -291,9 +291,9 @@ class FacturacionElectronica(models.TransientModel):
 		elif invoice.company_id.frm_ws_ambiente == 'api-prod':
 			url = 'https://api.comprobanteselectronicos.go.cr/recepcion/v1/recepcion/'
 
-		if invoice.state_tributacion:
-			_logger.info('Se esta intentando enviar un documento que ya parece haber sido enviado, no lo vamos a enviar, pero vamos a decir que lo hicimos')
-			return True
+		if invoice.state_tributacion != 'pendiente':
+			_logger.info('Solo enviamos pendientes, no se va a enviar %s' % invoice.number)
+			return False
 
 		xml = invoice.xml_supplier_approval if invoice.type == 'in_invoice' else invoice.xml_comprobante
 		xml = base64.b64decode(xml)
@@ -303,7 +303,7 @@ class FacturacionElectronica(models.TransientModel):
 		factura = etree.tostring(etree.fromstring(xml)).decode()
 		factura = etree.fromstring(re.sub(' xmlns="[^"]+"', '', factura, count=1))
 
-		Clave = factura.find('Clave')
+		Clave = factura.find('Clave').text
 
 		if invoice.type == 'in_invoice':
 			if not invoice.xml_comprobante:
@@ -343,6 +343,7 @@ class FacturacionElectronica(models.TransientModel):
 		headers = {'Content-Type': 'application/json', 'Authorization': 'Bearer {}'.format(token)}
 
 		try:
+			_logger.info('validando %s' % Clave)
 			response = requests.post(url, data=json.dumps(mensaje), headers=headers)
 			_logger.info('Respuesta de hacienda\n%s' % response.__dict__)
 
