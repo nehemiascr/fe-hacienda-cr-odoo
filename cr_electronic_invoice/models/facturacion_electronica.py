@@ -427,12 +427,12 @@ class FacturacionElectronica(models.TransientModel):
 		elif invoice.number_electronic:
 			clave = invoice.number_electronic
 		else:
-			_logger.info('no vamos a continuar, factura sin xml ni clave')
+			_logger.error('no vamos a continuar, factura sin xml ni clave')
 			return False
 
 		token = self.get_token()
 		if not token:
-			_logger.info('No hay conexión con hacienda')
+			_logger.error('No hay conexión con hacienda')
 			return False
 
 		headers = {'Content-Type': 'application/json', 'Authorization': 'Bearer {}'.format(token)}
@@ -521,7 +521,6 @@ class FacturacionElectronica(models.TransientModel):
 
 		return xml_encoded
 
-
 	@api.model
 	def _validahacienda(self, max_invoices=10):  # cron
 
@@ -532,18 +531,18 @@ class FacturacionElectronica(models.TransientModel):
 		invoices = self.env['account.invoice'].search([('type', 'in', ('out_invoice', 'out_refund')),
 													   ('state', 'in', ('open', 'paid')),
 													   ('date_invoice', '>=', '2018-10-01'),
-													   ('state_tributacion', '=', False)], limit=max_invoices)
+													   ('state_tributacion', 'in', ('pendiente',))], limit=max_invoices)
 		total_invoices = len(invoices)
 		current_invoice = 0
-		_logger.error('Valida Hacienda - Invoices to check: %s', total_invoices)
+		_logger.info('Valida Hacienda - Invoices to check: %s', total_invoices)
 
 		for invoice in invoices:
 
 			current_invoice += 1
-			_logger.error('Valida Hacienda - Invoice %s / %s', current_invoice, total_invoices)
+			_logger.info('Valida Hacienda - Invoice %s / %s', current_invoice, total_invoices)
 
 			if not invoice.number.isdigit():
-				_logger.error('Valida Hacienda - Error de Consecutivo - skipped Invoice %s', invoice.number)
+				_logger.info('Valida Hacienda - Error de Consecutivo - skipped Invoice %s', invoice.number)
 				continue
 
 			if not invoice.xml_comprobante:
@@ -551,7 +550,7 @@ class FacturacionElectronica(models.TransientModel):
 				comprobante = self.get_xml(invoice)
 
 				if not comprobante:
-					_logger.error('Valida Hacienda - Error de creación de comprobante - skipped Invoice %s', invoice.number)
+					_logger.info('Valida Hacienda - Error de creación de comprobante - skipped Invoice %s', invoice.number)
 					continue
 
 				sufijo = ''
@@ -572,7 +571,7 @@ class FacturacionElectronica(models.TransientModel):
 					if self.consultar_factura(invoice):
 						self.enviar_email(invoice)
 
-		_logger.error('Valida Hacienda - Finalizado Exitosamente')
+		_logger.info('Valida Hacienda - Finalizado Exitosamente')
 
 	@api.model
 	def _consultahacienda(self, max_invoices=10):  # cron
@@ -583,21 +582,21 @@ class FacturacionElectronica(models.TransientModel):
 
 		invoices = self.env['account.invoice'].search(
 			[('type', 'in', ('out_invoice', 'out_refund')), ('state', 'in', ('open', 'paid')),
-			 ('state_tributacion', 'in', ('recibido', 'procesando'))])
+			 ('state_tributacion', 'in', ('recibido', 'procesando', 'error'))])
 
 		total_invoices = len(invoices)
 		current_invoice = 0
-		_logger.error('Consulta Hacienda - Invoices to check: %s', total_invoices)
+		_logger.info('Consulta Hacienda - Invoices to check: %s', total_invoices)
 
 		for invoice in invoices:
 
 			current_invoice += 1
-			_logger.error('Consulta Hacienda - Invoice %s / %s', current_invoice, total_invoices)
+			_logger.info('Consulta Hacienda - Invoice %s / %s', current_invoice, total_invoices)
 
 			if self.consultar_factura(invoice):
 				self.enviar_email(invoice)
 
-		_logger.error('Consulta Hacienda - Finalizado Exitosamente')
+		_logger.info('Consulta Hacienda - Finalizado Exitosamente')
 
 	@api.model
 	def get_xml2(self, invoice):
@@ -1235,3 +1234,53 @@ class FacturacionElectronica(models.TransientModel):
 		xml_firmado = self.firmar_xml(invoice, xml_encoded)
 
 		return xml_firmado
+
+	@api.model
+	def get_te(self, order):
+		_logger.info('order %s' % order)
+		# _logger.info('order %s' % order.__dict__)
+		_logger.info(order.sequence_number)
+		_logger.info(order.company_id)
+		_logger.info(order.partner_id)
+		_logger.info(order.partner_id)
+		for linea in order.lines:
+			_logger.info(linea.product_id)
+			_logger.info(linea.qty)
+			_logger.info(linea.name)
+			_logger.info(linea.price_unit)
+		_logger.info(order.amount_total)
+		_logger.info(order.amount_paid)
+		_logger.info(order.amount_tax)
+		_logger.info(order.nb_print)
+		_logger.info(order.invoice_id)
+
+		Invoice = self.env['account.invoice']
+		Order = self.env['pos.order']
+
+		local_context = dict(Order.env.context, force_company=order.company_id.id, company_id=order.company_id.id)
+
+		invoice = Invoice.new(order._prepare_invoice())
+		invoice._onchange_partner_id()
+		invoice.fiscal_position_id = order.fiscal_position_id
+
+		inv = invoice._convert_to_write({name: invoice[name] for name in invoice._cache})
+		new_invoice = Invoice.with_context(local_context).sudo().create(inv)
+
+		Invoice += new_invoice
+
+		for line in order.lines:
+			Order.with_context(local_context)._action_create_invoice_line(line, new_invoice.id)
+
+		new_invoice.with_context(local_context).sudo().compute_taxes()
+
+		_logger.info(new_invoice)
+
+		xml = self.get_xml(new_invoice)
+
+		order.xml_comprobante = xml
+		order.fname_xml_comprobante = 'archivo.xml'
+
+
+		# raise UserError('Suave')
+
+		return order

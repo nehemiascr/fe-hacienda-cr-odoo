@@ -28,7 +28,9 @@ class AccountInvoiceElectronic(models.Model):
                                            ('ne', 'No Encontrado'),
                                            ('procesando', 'Procesando')],
                                           'Estado FE Proveedor', copy=False)
-	state_tributacion = fields.Selection([('aceptado', 'Aceptado'),
+	state_tributacion = fields.Selection([
+		('pendiente', 'Pendiente'),
+		('aceptado', 'Aceptado'),
 										  ('rechazado', 'Rechazado'),
 										  ('recibido', 'Recibido'),
 		 								  ('error', 'Error'),
@@ -63,6 +65,8 @@ class AccountInvoiceElectronic(models.Model):
 	_sql_constraints = [
 		('number_electronic_uniq', 'unique (number_electronic)', "La clave de comprobante debe ser única"),
 	]
+
+
 
 	@api.onchange('xml_supplier_approval')
 	def _onchange_xml_supplier_approval(self):
@@ -341,17 +345,21 @@ class AccountInvoiceElectronic(models.Model):
 					if invoice.type == 'out_invoice':
 						sufijo = 'FacturaElectronica_'
 					elif invoice.type == 'out_refund':
-						sufijo = 'NotaCreditoElectronica'
+						sufijo = 'NotaCreditoElectronica_'
 					elif invoice.type == 'in_invoice':
-						sufijo = 'MensajeReceptor'
+						sufijo = 'MensajeReceptor_'
 
 					invoice.fname_xml_comprobante = sufijo + invoice.number_electronic + '.xml'
 
-					token = self.env['facturacion_electronica'].get_token()
+					invoice.state_tributacion = 'pendiente'
 
-					if token:
-						if self.env['facturacion_electronica'].enviar_factura(invoice):
-							if self.env['facturacion_electronica'].consultar_factura(invoice):
-								self.env['facturacion_electronica'].enviar_email(invoice)
+					return self
+
+					# token = self.env['facturacion_electronica'].get_token()
+					#
+					# if token:
+					# 	if self.env['facturacion_electronica'].enviar_factura(invoice):
+					# 		if self.env['facturacion_electronica'].consultar_factura(invoice):
+					# 			self.env['facturacion_electronica'].enviar_email(invoice)
 				else:
 					_logger.info('Error generando comprobante %s' % comprobante)
