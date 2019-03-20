@@ -31,6 +31,8 @@ class FacturacionElectronica(models.TransientModel):
 	@api.model
 	def get_token(self):
 
+		return self.refresh_token()
+
 		if self.env.user.company_id.token:
 			token = ast.literal_eval(self.env.user.company_id.token)
 
@@ -303,7 +305,7 @@ class FacturacionElectronica(models.TransientModel):
 		factura = etree.tostring(etree.fromstring(xml)).decode()
 		factura = etree.fromstring(re.sub(' xmlns="[^"]+"', '', factura, count=1))
 
-		Clave = factura.find('Clave').text
+		Clave = factura.find('Clave')
 
 		if invoice.type == 'in_invoice':
 			if not invoice.xml_comprobante:
