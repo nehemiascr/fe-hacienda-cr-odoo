@@ -9,9 +9,10 @@
     "license": "AGPL-3",
     "version": "1.0",
     "depends": [
-        "point_of_sale",
+        "point_of_sale", "cr_electronic_invoice"
     ],
     "data": [
+        "data/data.xml",
         "views/pos_templates.xml",
         "views/pos_views.xml",
     ],

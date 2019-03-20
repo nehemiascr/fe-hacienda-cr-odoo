@@ -13,7 +13,7 @@ from odoo.tools.safe_eval import safe_eval
 import datetime
 import pytz
 import base64
-import xml.etree.ElementTree as ET
+from lxml import etree
 from . import functions
 
 _logger = logging.getLogger(__name__)
@@ -28,10 +28,18 @@ class PosOrder(models.Model):
         oldname='simplified_invoice',
     )
 
-    state_tributacion = fields.Selection(
-        [('aceptado', 'Aceptado'), ('rechazado', 'Rechazado'), ('recibido', 'Recibido'),
-         ('error', 'Error'), ('procesando', 'Procesando')], 'Estado FE',
+    date_issuance = fields.Char(string="Fecha de emisión", copy=False)
+
+    state_tributacion = fields.Selection([
+        ('pendiente', 'Pendiente'),
+        ('aceptado', 'Aceptado'),
+        ('rechazado', 'Rechazado'),
+        ('recibido', 'Recibido'),
+        ('error', 'Error'),
+        ('procesando', 'Procesando')], 'Estado FE',
         copy=False)
+
+    respuesta_tributacion = fields.Text(string="Mensaje en la Respuesta de Tributación", readonly=True, copy=False)
 
     xml_respuesta_tributacion = fields.Binary(string="Respuesta Tributación XML", required=False, copy=False,
                                               attachment=True)
@@ -64,321 +72,376 @@ class PosOrder(models.Model):
 
     @api.model
     def _process_order(self, order):
-        simplified_invoice_number = order.get('simplified_invoice', '')
 
-        pos_order = ''
-        pos_simplificado = ''
-        next_number = ''
+        _logger.info('order %s' % order)
+        pos_order = super(PosOrder, self)._process_order(order)
+        _logger.info('pos_order %s' % pos_order.__dict__)
+        xml = self.env['facturacion_electronica'].get_te(pos_order)
 
-        #SI LO QUE VIENE ES UN TIQUETE NORMAL
-        if not simplified_invoice_number:
+        _logger.info('xml %s' % xml)
 
-            pos_order = super(PosOrder, self)._process_order(order)
-            next_number = pos_order.id
+        return pos_order
 
-        else:
+        # simplified_invoice_number = order.get('simplified_invoice', '')
+        #
+        # pos_order = ''
+        # pos_simplificado = ''
+        # next_number = ''
+        #
+        # #SI LO QUE VIENE ES UN TIQUETE NORMAL
+        # if not simplified_invoice_number:
+        #
+        #
+        #
+        # else:
+        #
+        #     #SI LO QUE VIENE ES UN TIQUETE SIMPLICADO. POR AHORA ESTO NO ES UTILIADO EN COSTA RICA
+        #     pos_order = self.env['pos.order']
+        #     pos_simplificado = self.env['pos.session'].browse(order.get('pos_session_id')).config_id
+        #
+        #     if pos_order._simplified_limit_check(
+        #         order.get('amount_total'),
+        #         pos_simplificado.ticket_hacienda_invoice_limit):
+        #         order.update({
+        #             'ticket_hacienda_invoice_number': simplified_invoice_number,
+        #          })
+        #
+        #         next_number = pos_simplificado.ticket_hacienda_invoice_sequence_id.next_by_id()
 
-            #SI LO QUE VIENE ES UN TIQUETE SIMPLICADO. POR AHORA ESTO NO ES UTILIADO EN COSTA RICA
-            pos_order = self.env['pos.order']
-            pos_simplificado = self.env['pos.session'].browse(order.get('pos_session_id')).config_id
+        # #AQUI EMPEZAMOS A ARMAR EL TIQUETE ELECTRONICO
+        # if pos_order.company_id.frm_ws_ambiente != 'disabled':
+        #     url_hacienda = pos_order.company_id.frm_callback_url
+        #     payload = {}
+        #     headers = {}
+        #     time_actual = datetime.datetime.now(pytz.timezone('UTC'))
+        #     time_costarica = time_actual.astimezone(pytz.timezone('America/Costa_Rica'))
+        #     fecha_hora_hacienda = time_costarica.strftime("%Y-%m-%dT%H:%M:%S-06:00")
+        #     medio_pago = '01'
+        #     tipo_documento = 'TE'
+        #     #cur_sucursal = pos_order.sale_journal.sucursal
+        #     # #cur_caja = pos_order.sale_journal.terminal
+        #
+        #     #OBTENER EL CONSECUTIVO Y LA CLAVE PARA ESTE TE#
+        #     response_json = functions.get_clave(pos_order, url_hacienda, tipo_documento, next_number)
+        #     consecutivo_factura = response_json.get('resp').get('consecutivo')
+        #     clave_factura = response_json.get('resp').get('clave')
+        #
+        #     order.update({
+        #         'ticket_hacienda_invoice_number': clave_factura,
+        #     })
+        #
+        #     pos_order.ticket_hacienda_invoice_number = clave_factura
+        #
+        #     #CONTINUO ARMANDO EL XML DEL TIQUETE
+        #     currency_rate = 1
+        #
+        #     lines = '{'
+        #     base_total = 0.0
+        #     numero = 0
+        #     indextax = 0
+        #     total_servicio_gravado = 0.0
+        #     total_servicio_exento = 0.0
+        #     total_mercaderia_gravado = 0.0
+        #     total_mercaderia_exento = 0.0
+        #
+        #     for line in pos_order.lines:
+        #         impuestos_acumulados = 0.0
+        #         numero += 1
+        #         base_total += line.price_unit * line.qty
+        #         impuestos = '{'
+        #         for i in line.tax_ids:
+        #             indextax += 1
+        #             if i.tax_code != '00':
+        #                 monto_impuesto = round(i.amount / 100 * line.price_subtotal, 2)
+        #                 impuestos = (impuestos + '"' + str(indextax) + '":' + '{"codigo": "'
+        #                              + str(i.tax_code or '01') + '",' + '"tarifa": "' + str(i.amount) + '",' +
+        #                              '"monto": "' + str(monto_impuesto))
+        #                 impuestos_acumulados += round(i.amount / 100 * line.price_subtotal, 2)
+        #                 impuestos = impuestos + '"},'
+        #         impuestos = impuestos[:-1] + '}'
+        #         indextax = 0
+        #
+        #         if line.product_id:
+        #             if line.product_id.type == 'service':
+        #                 if impuestos_acumulados != 0.0:
+        #                     total_servicio_gravado += line.qty * line.price_unit
+        #                 else:
+        #                     total_servicio_exento += line.qty * line.price_unit
+        #             else:
+        #                 if impuestos_acumulados != 0.0:
+        #                     total_mercaderia_gravado += line.qty * line.price_unit
+        #                 else:
+        #                     total_mercaderia_exento += line.qty * line.price_unit
+        #         else:  # se asume que si no tiene producto setrata como un type product
+        #             if impuestos_acumulados != 0.0:
+        #                 total_mercaderia_gravado += line.qty * line.price_unit
+        #             else:
+        #                 total_mercaderia_exento += line.qty * line.price_unit
+        #
+        #         unidad_medida = line.product_id.commercial_measurement or 'Sp'
+        #         total = line.qty * line.price_unit
+        #         total_linea = line.price_subtotal + impuestos_acumulados
+        #         descuento = (round(line.qty * line.price_unit, 2)
+        #                      - round(line.price_subtotal, 2)) or 0
+        #         natu_descuento = ''
+        #         _logger.info(impuestos)
+        #
+        #         line_obj = ('{' +
+        #                     '"cantidad": "' + str(int(line.qty)) + '",' +
+        #                     '"unidadMedida": "' + unidad_medida + '",' +
+        #                     '"detalle": "' + line.product_id.display_name + '",' +
+        #                     '"precioUnitario": "' + str(line.price_unit) + '",' +
+        #                     '"montoTotal": "' + str(total) + '",' +
+        #                     '"subtotal": "' + str(line.price_subtotal) + '",')
+        #         if descuento != 0:
+        #             line_obj = (line_obj + '"montoDescuento": "' + str(descuento) + '",' +
+        #                         '"naturalezaDescuento": "' + natu_descuento + '",')
+        #         line_obj = (line_obj + '"impuesto": ' + str(impuestos) + ',' +
+        #                     '"montoTotalLinea": "' + str(total_linea) + '"' +
+        #                     '}'
+        #                     )
+        #
+        #         lines = lines + '"' + str(numero) + '":' + line_obj + ","
+        #     lines = lines[:-1] + "}"
+        #     amount_untaxed = pos_order.amount_total - pos_order.amount_tax
+        #     payload = {}
+        #
+        #     # Generar FE payload
+        #     payload['w'] = 'genXML'
+        #     if tipo_documento == 'TE':
+        #         payload['r'] = 'gen_xml_te'
+        #     payload['clave'] = clave_factura
+        #     payload['consecutivo'] = consecutivo_factura
+        #     payload['fecha_emision'] = fecha_hora_hacienda
+        #     payload['emisor_nombre'] = pos_order.company_id.name
+        #     payload['emisor_tipo_indetif'] = pos_order.company_id.identification_id.code
+        #     payload['emisor_num_identif'] = pos_order.company_id.vat
+        #     payload['nombre_comercial'] = pos_order.company_id.commercial_name or ''
+        #     payload['emisor_provincia'] = pos_order.company_id.state_id.code
+        #     payload['emisor_canton'] = pos_order.company_id.county_id.code
+        #     payload['emisor_distrito'] = pos_order.company_id.district_id.code
+        #     payload['emisor_barrio'] = pos_order.company_id.neighborhood_id.code
+        #     payload['emisor_otras_senas'] = pos_order.company_id.street
+        #     payload['emisor_cod_pais_tel'] = pos_order.company_id.phone_code
+        #     payload['emisor_tel'] = pos_order.company_id.phone
+        #     #if pos_order.company_id.fax_code:
+        #     #    payload['emisor_cod_pais_fax'] = pos_order.company_id.fax_code
+        #     #else:
+        #     #    payload['emisor_cod_pais_fax'] = ''
+        #     #if pos_order.company_id.fax:
+        #     #    payload['emisor_fax'] = pos_order.company_id.fax
+        #     #else:
+        #     #    payload['emisor_fax'] = ''
+        #     payload['emisor_email'] = pos_order.company_id.email
+        #     payload['omitir_receptor'] = 'true'
+        #     payload['condicion_venta'] = '01'
+        #     payload['plazo_credito'] = ''
+        #     payload['medio_pago'] = medio_pago
+        #     payload['cod_moneda'] = 'CRC'
+        #     payload['tipo_cambio'] = 1
+        #     payload['total_serv_gravados'] = total_servicio_gravado
+        #     payload['total_serv_exentos'] = total_servicio_exento
+        #     payload['total_merc_gravada'] = total_mercaderia_gravado
+        #     payload['total_merc_exenta'] = total_mercaderia_exento
+        #     payload['total_gravados'] = total_servicio_gravado + total_mercaderia_gravado
+        #     payload['total_exentos'] = total_servicio_exento + total_mercaderia_exento
+        #     payload['total_ventas'] = total_servicio_gravado + total_mercaderia_gravado + total_servicio_exento + total_mercaderia_exento
+        #     payload['total_descuentos'] = round(base_total, 2) - round(amount_untaxed, 2)
+        #     payload['total_ventas_neta'] = (total_servicio_gravado + total_mercaderia_gravado
+        #                                     + total_servicio_exento + total_mercaderia_exento) \
+        #                                    - (base_total - amount_untaxed)
+        #     payload['total_impuestos'] = pos_order.amount_tax
+        #     payload['total_comprobante'] = pos_order.amount_total
+        #     payload['otros'] = ''
+        #     payload['detalles'] = lines
+        #
+        #     response = requests.request("POST", url_hacienda, data=payload, headers=headers)
+        #     #response_json = json.loads(response._content)
+        #     response_json = response.json()
+        #     _logger.info('XML Sin Firmar')
+        #
+        #     # firmar Comprobante
+        #     payload = {}
+        #     payload['w'] = 'signXML'
+        #     payload['r'] = 'signFE'
+        #     payload['p12Url'] = pos_order.company_id.frm_apicr_signaturecode
+        #     payload['inXml'] = response_json.get('resp').get('xml')
+        #     payload['pinP12'] = pos_order.company_id.frm_pin
+        #     payload['tipodoc'] = tipo_documento
+        #
+        #     response = requests.request("POST", url_hacienda, data=payload, headers=headers)
+        #     #response_json = json.loads(response._content)
+        #     response_json = response.json()
+        #     xml_firmado = response_json.get('resp').get('xmlFirmado')
+        #     _logger.info('Firmado XML')
+        #
+        #     if pos_order.company_id.frm_ws_ambiente == 'api-stag':
+        #         env = 'api-stag'
+        #     else:
+        #         env = 'api-prod'
+        #
+        #     # get token
+        #     payload = {}
+        #     payload['w'] = 'token'
+        #     payload['r'] = 'gettoken'
+        #     payload['grant_type'] = 'password'
+        #     payload['client_id'] = env
+        #     payload['username'] = pos_order.company_id.frm_ws_identificador
+        #     payload['password'] = pos_order.company_id.frm_ws_password
+        #
+        #     response = requests.request("POST", url_hacienda, data=payload, headers=headers)
+        #     #response_json = json.loads(response._content)
+        #     response_json = response.json()
+        #     _logger.info('Token MH')
+        #     token_m_h = response_json.get('resp').get('access_token')
+        #
+        #     payload = {}
+        #     payload['w'] = 'send'
+        #     payload['r'] = 'sendTE'
+        #     payload['token'] = token_m_h
+        #     payload['clave'] = clave_factura
+        #     payload['fecha'] = fecha_hora_hacienda
+        #     payload['emi_tipoIdentificacion'] = pos_order.company_id.identification_id.code
+        #     payload['emi_numeroIdentificacion'] = pos_order.company_id.vat
+        #     #payload['recp_tipoIdentificacion'] = ''
+        #     #payload['recp_numeroIdentificacion'] = ''
+        #     payload['comprobanteXml'] = xml_firmado
+        #     payload['client_id'] = env
+        #
+        #     response = requests.request("POST", url_hacienda, data=payload, headers=headers)
+        #     #response_json = json.loads(response._content)
+        #     response_json = response.json()
+        #
+        #     if response_json.get('resp').get('Status') == 202:
+        #         payload = {}
+        #         payload['w'] = 'consultar'
+        #         payload['r'] = 'consultarCom'
+        #         payload['client_id'] = env
+        #         payload['token'] = token_m_h
+        #         payload['clave'] = clave_factura
+        #         response = requests.request("POST", url_hacienda, data=payload, headers=headers)
+        #         #response_json = json.loads(response._content)
+        #         response_json = response.json()
+        #         estado_m_h = response_json.get('resp').get('ind-estado')
+        #
+        #         _logger.error('MAB - MH response:%s', response_json)
+        #
+        #         if estado_m_h == 'aceptado':
+        #             pos_order.state_tributacion = estado_m_h
+        #             pos_order.fname_xml_respuesta_tributacion = 'respuesta_' + clave_factura + '.xml'
+        #             pos_order.xml_respuesta_tributacion = response_json.get('resp').get('respuesta-xml')
+        #             pos_order.fname_xml_comprobante = 'comprobante_' + clave_factura + '.xml'
+        #             pos_order.xml_comprobante = xml_firmado
+        #         elif estado_m_h == 'recibido':
+        #             pos_order.state_tributacion = estado_m_h;
+        #             pos_order.fname_xml_comprobante = 'comprobante_' + clave_factura + '.xml'
+        #             pos_order.xml_comprobante = xml_firmado
+        #         elif estado_m_h == 'procesando':
+        #             pos_order.state_tributacion = estado_m_h;
+        #             pos_order.fname_xml_comprobante = 'comprobante_' + clave_factura + '.xml'
+        #             pos_order.xml_comprobante = xml_firmado
+        #         elif estado_m_h == 'rechazado':
+        #             pos_order.state_tributacion = estado_m_h;
+        #             pos_order.fname_xml_comprobante = 'comprobante_' + clave_factura + '.xml'
+        #             pos_order.xml_comprobante = xml_firmado
+        #             pos_order.fname_xml_respuesta_tributacion = 'respuesta_' + clave_factura + '.xml'
+        #             pos_order.xml_respuesta_tributacion = response_json.get('resp').get('respuesta-xml')
+        #         elif estado_m_h == 'error':
+        #             pos_order.state_tributacion = estado_m_h
+        #             pos_order.fname_xml_comprobante = 'comprobante_' + clave_factura + '.xml'
+        #             pos_order.xml_comprobante = xml_firmado
+        #         else:
+        #             raise UserError('No se pudo Crear la factura electrónica: \n' + str(response_json))
+        #     else:
+        #         raise UserError(
+        #             'No se pudo Crear la factura electrónica: \n' + str(response_json.get('resp').get('text')))
 
-            if pos_order._simplified_limit_check(
-                order.get('amount_total'),
-                pos_simplificado.ticket_hacienda_invoice_limit):
-                order.update({
-                    'ticket_hacienda_invoice_number': simplified_invoice_number,
-                 })
-
-                next_number = pos_simplificado.ticket_hacienda_invoice_sequence_id.next_by_id()
-
-        #AQUI EMPEZAMOS A ARMAR EL TIQUETE ELECTRONICO
-        if pos_order.company_id.frm_ws_ambiente != 'disabled':
-            url_hacienda = pos_order.company_id.frm_callback_url
-            payload = {}
-            headers = {}
-            time_actual = datetime.datetime.now(pytz.timezone('UTC'))
-            time_costarica = time_actual.astimezone(pytz.timezone('America/Costa_Rica'))
-            fecha_hora_hacienda = time_costarica.strftime("%Y-%m-%dT%H:%M:%S-06:00")
-            medio_pago = '01'
-            tipo_documento = 'TE'
-            #cur_sucursal = pos_order.sale_journal.sucursal
-            # #cur_caja = pos_order.sale_journal.terminal
-
-            #OBTENER EL CONSECUTIVO Y LA CLAVE PARA ESTE TE#
-            response_json = functions.get_clave(pos_order, url_hacienda, tipo_documento, next_number)
-            consecutivo_factura = response_json.get('resp').get('consecutivo')
-            clave_factura = response_json.get('resp').get('clave')
-
-            order.update({
-                'ticket_hacienda_invoice_number': clave_factura,
-            })
-
-            pos_order.ticket_hacienda_invoice_number = clave_factura
-
-            #CONTINUO ARMANDO EL XML DEL TIQUETE
-            currency_rate = 1
-
-            lines = '{'
-            base_total = 0.0
-            numero = 0
-            indextax = 0
-            total_servicio_gravado = 0.0
-            total_servicio_exento = 0.0
-            total_mercaderia_gravado = 0.0
-            total_mercaderia_exento = 0.0
-
-            for line in pos_order.lines:
-                impuestos_acumulados = 0.0
-                numero += 1
-                base_total += line.price_unit * line.qty
-                impuestos = '{'
-                for i in line.tax_ids:
-                    indextax += 1
-                    if i.tax_code != '00':
-                        monto_impuesto = round(i.amount / 100 * line.price_subtotal, 2)
-                        impuestos = (impuestos + '"' + str(indextax) + '":' + '{"codigo": "'
-                                     + str(i.tax_code or '01') + '",' + '"tarifa": "' + str(i.amount) + '",' +
-                                     '"monto": "' + str(monto_impuesto))
-                        impuestos_acumulados += round(i.amount / 100 * line.price_subtotal, 2)
-                        impuestos = impuestos + '"},'
-                impuestos = impuestos[:-1] + '}'
-                indextax = 0
-
-                if line.product_id:
-                    if line.product_id.type == 'service':
-                        if impuestos_acumulados != 0.0:
-                            total_servicio_gravado += line.qty * line.price_unit
-                        else:
-                            total_servicio_exento += line.qty * line.price_unit
-                    else:
-                        if impuestos_acumulados != 0.0:
-                            total_mercaderia_gravado += line.qty * line.price_unit
-                        else:
-                            total_mercaderia_exento += line.qty * line.price_unit
-                else:  # se asume que si no tiene producto setrata como un type product
-                    if impuestos_acumulados != 0.0:
-                        total_mercaderia_gravado += line.qty * line.price_unit
-                    else:
-                        total_mercaderia_exento += line.qty * line.price_unit
-
-                unidad_medida = line.product_id.commercial_measurement or 'Sp'
-                total = line.qty * line.price_unit
-                total_linea = line.price_subtotal + impuestos_acumulados
-                descuento = (round(line.qty * line.price_unit, 2)
-                             - round(line.price_subtotal, 2)) or 0
-                natu_descuento = ''
-                _logger.info(impuestos)
-
-                line_obj = ('{' +
-                            '"cantidad": "' + str(int(line.qty)) + '",' +
-                            '"unidadMedida": "' + unidad_medida + '",' +
-                            '"detalle": "' + line.product_id.display_name + '",' +
-                            '"precioUnitario": "' + str(line.price_unit) + '",' +
-                            '"montoTotal": "' + str(total) + '",' +
-                            '"subtotal": "' + str(line.price_subtotal) + '",')
-                if descuento != 0:
-                    line_obj = (line_obj + '"montoDescuento": "' + str(descuento) + '",' +
-                                '"naturalezaDescuento": "' + natu_descuento + '",')
-                line_obj = (line_obj + '"impuesto": ' + str(impuestos) + ',' +
-                            '"montoTotalLinea": "' + str(total_linea) + '"' +
-                            '}'
-                            )
-
-                lines = lines + '"' + str(numero) + '":' + line_obj + ","
-            lines = lines[:-1] + "}"
-            amount_untaxed = pos_order.amount_total - pos_order.amount_tax
-            payload = {}
-
-            # Generar FE payload
-            payload['w'] = 'genXML'
-            if tipo_documento == 'TE':
-                payload['r'] = 'gen_xml_te'
-            payload['clave'] = clave_factura
-            payload['consecutivo'] = consecutivo_factura
-            payload['fecha_emision'] = fecha_hora_hacienda
-            payload['emisor_nombre'] = pos_order.company_id.name
-            payload['emisor_tipo_indetif'] = pos_order.company_id.identification_id.code
-            payload['emisor_num_identif'] = pos_order.company_id.vat
-            payload['nombre_comercial'] = pos_order.company_id.commercial_name or ''
-            payload['emisor_provincia'] = pos_order.company_id.state_id.code
-            payload['emisor_canton'] = pos_order.company_id.county_id.code
-            payload['emisor_distrito'] = pos_order.company_id.district_id.code
-            payload['emisor_barrio'] = pos_order.company_id.neighborhood_id.code
-            payload['emisor_otras_senas'] = pos_order.company_id.street
-            payload['emisor_cod_pais_tel'] = pos_order.company_id.phone_code
-            payload['emisor_tel'] = pos_order.company_id.phone
-            #if pos_order.company_id.fax_code:
-            #    payload['emisor_cod_pais_fax'] = pos_order.company_id.fax_code
-            #else:
-            #    payload['emisor_cod_pais_fax'] = ''
-            #if pos_order.company_id.fax:
-            #    payload['emisor_fax'] = pos_order.company_id.fax
-            #else:
-            #    payload['emisor_fax'] = ''
-            payload['emisor_email'] = pos_order.company_id.email
-            payload['omitir_receptor'] = 'true'
-            payload['condicion_venta'] = '01'
-            payload['plazo_credito'] = ''
-            payload['medio_pago'] = medio_pago
-            payload['cod_moneda'] = 'CRC'
-            payload['tipo_cambio'] = 1
-            payload['total_serv_gravados'] = total_servicio_gravado
-            payload['total_serv_exentos'] = total_servicio_exento
-            payload['total_merc_gravada'] = total_mercaderia_gravado
-            payload['total_merc_exenta'] = total_mercaderia_exento
-            payload['total_gravados'] = total_servicio_gravado + total_mercaderia_gravado
-            payload['total_exentos'] = total_servicio_exento + total_mercaderia_exento
-            payload['total_ventas'] = total_servicio_gravado + total_mercaderia_gravado + total_servicio_exento + total_mercaderia_exento
-            payload['total_descuentos'] = round(base_total, 2) - round(amount_untaxed, 2)
-            payload['total_ventas_neta'] = (total_servicio_gravado + total_mercaderia_gravado
-                                            + total_servicio_exento + total_mercaderia_exento) \
-                                           - (base_total - amount_untaxed)
-            payload['total_impuestos'] = pos_order.amount_tax
-            payload['total_comprobante'] = pos_order.amount_total
-            payload['otros'] = ''
-            payload['detalles'] = lines
-
-            response = requests.request("POST", url_hacienda, data=payload, headers=headers)
-            #response_json = json.loads(response._content)
-            response_json = response.json()
-            _logger.info('XML Sin Firmar')
-
-            # firmar Comprobante
-            payload = {}
-            payload['w'] = 'signXML'
-            payload['r'] = 'signFE'
-            payload['p12Url'] = pos_order.company_id.frm_apicr_signaturecode
-            payload['inXml'] = response_json.get('resp').get('xml')
-            payload['pinP12'] = pos_order.company_id.frm_pin
-            payload['tipodoc'] = tipo_documento
-
-            response = requests.request("POST", url_hacienda, data=payload, headers=headers)
-            #response_json = json.loads(response._content)
-            response_json = response.json()
-            xml_firmado = response_json.get('resp').get('xmlFirmado')
-            _logger.info('Firmado XML')
-
-            if pos_order.company_id.frm_ws_ambiente == 'api-stag':
-                env = 'api-stag'
-            else:
-                env = 'api-prod'
-
-            # get token
-            payload = {}
-            payload['w'] = 'token'
-            payload['r'] = 'gettoken'
-            payload['grant_type'] = 'password'
-            payload['client_id'] = env
-            payload['username'] = pos_order.company_id.frm_ws_identificador
-            payload['password'] = pos_order.company_id.frm_ws_password
-
-            response = requests.request("POST", url_hacienda, data=payload, headers=headers)
-            #response_json = json.loads(response._content)
-            response_json = response.json()
-            _logger.info('Token MH')
-            token_m_h = response_json.get('resp').get('access_token')
-
-            payload = {}
-            payload['w'] = 'send'
-            payload['r'] = 'sendTE'
-            payload['token'] = token_m_h
-            payload['clave'] = clave_factura
-            payload['fecha'] = fecha_hora_hacienda
-            payload['emi_tipoIdentificacion'] = pos_order.company_id.identification_id.code
-            payload['emi_numeroIdentificacion'] = pos_order.company_id.vat
-            #payload['recp_tipoIdentificacion'] = ''
-            #payload['recp_numeroIdentificacion'] = ''
-            payload['comprobanteXml'] = xml_firmado
-            payload['client_id'] = env
-
-            response = requests.request("POST", url_hacienda, data=payload, headers=headers)
-            #response_json = json.loads(response._content)
-            response_json = response.json()
-
-            if response_json.get('resp').get('Status') == 202:
-                payload = {}
-                payload['w'] = 'consultar'
-                payload['r'] = 'consultarCom'
-                payload['client_id'] = env
-                payload['token'] = token_m_h
-                payload['clave'] = clave_factura
-                response = requests.request("POST", url_hacienda, data=payload, headers=headers)
-                #response_json = json.loads(response._content)
-                response_json = response.json()
-                estado_m_h = response_json.get('resp').get('ind-estado')
-
-                _logger.error('MAB - MH response:%s', response_json)
-
-                if estado_m_h == 'aceptado':
-                    pos_order.state_tributacion = estado_m_h
-                    pos_order.fname_xml_respuesta_tributacion = 'respuesta_' + clave_factura + '.xml'
-                    pos_order.xml_respuesta_tributacion = response_json.get('resp').get('respuesta-xml')
-                    pos_order.fname_xml_comprobante = 'comprobante_' + clave_factura + '.xml'
-                    pos_order.xml_comprobante = xml_firmado
-                elif estado_m_h == 'recibido':
-                    pos_order.state_tributacion = estado_m_h;
-                    pos_order.fname_xml_comprobante = 'comprobante_' + clave_factura + '.xml'
-                    pos_order.xml_comprobante = xml_firmado
-                elif estado_m_h == 'procesando':
-                    pos_order.state_tributacion = estado_m_h;
-                    pos_order.fname_xml_comprobante = 'comprobante_' + clave_factura + '.xml'
-                    pos_order.xml_comprobante = xml_firmado
-                elif estado_m_h == 'rechazado':
-                    pos_order.state_tributacion = estado_m_h;
-                    pos_order.fname_xml_comprobante = 'comprobante_' + clave_factura + '.xml'
-                    pos_order.xml_comprobante = xml_firmado
-                    pos_order.fname_xml_respuesta_tributacion = 'respuesta_' + clave_factura + '.xml'
-                    pos_order.xml_respuesta_tributacion = response_json.get('resp').get('respuesta-xml')
-                elif estado_m_h == 'error':
-                    pos_order.state_tributacion = estado_m_h
-                    pos_order.fname_xml_comprobante = 'comprobante_' + clave_factura + '.xml'
-                    pos_order.xml_comprobante = xml_firmado
-                else:
-                    raise UserError('No se pudo Crear la factura electrónica: \n' + str(response_json))
-            else:
-                raise UserError(
-                    'No se pudo Crear la factura electrónica: \n' + str(response_json.get('resp').get('text')))
-
-            return pos_order
 
         #return super(PosOrder, self)._process_order(pos_order)
 
     @api.model
-    def _consul_hacienda_tiq(self):  # cron
-        invoices = self.env['pos.order'].search([('state_tributacion', 'in', ('recibido', 'procesando'))])
+    def _consultahacienda_pos(self, max_invoices=10):  # cron
 
-        for i in invoices:
-            url = i.company_id.frm_callback_url
-            if i.company_id.frm_ws_ambiente == 'api-stag':
-                env = 'api-stag'
-            else:
-                env = 'api-prod'
-            response_json = functions.token_hacienda(i, env, url)
-            _logger.info('Token MH')
-            token_m_h = response_json.get('resp').get('access_token')
+        if self.env.user.company_id.frm_ws_ambiente == 'disabled':
+            _logger.info('Facturación Electrónica deshabilitada, nada que consultar')
+            return
 
-            cadena_cortada = i.fname_xml_comprobante[12:50]
+        invoices = self.env['pos.order'].search([('state_tributacion', 'in', ('recibido', 'procesando', 'error'))])
 
-            if i.ticket_hacienda_invoice_number and len(i.ticket_hacienda_invoice_number) == 50:
-                headers = {}
-                payload = {}
-                payload['w'] = 'consultar'
-                payload['r'] = 'consultarCom'
-                payload['client_id'] = env
-                payload['token'] = token_m_h
-                payload['clave'] = i.ticket_hacienda_number
-                response = requests.request("POST", url, data=payload, headers=headers)
-                #responsejson = json.loads(response._content)
-                response_json = response.json()
+        total_invoices = len(invoices)
+        current_invoice = 0
+        _logger.info('Consulta Hacienda POS - Invoices to check: %s', total_invoices)
 
-                estado_m_h = response_json.get('resp').get('ind-estado')
-                if estado_m_h == 'aceptado':
-                    i.state_tributacion = estado_m_h
-                    i.fname_xml_respuesta_tributacion = 'respuesta_' + i.ticket_hacienda_number + '.xml'
-                    i.xml_respuesta_tributacion = response_json.get('resp').get('respuesta-xml')
-                elif estado_m_h == 'rechazado':
-                    i.state_tributacion = estado_m_h
-                    i.fname_xml_respuesta_tributacion = 'respuesta_' + i.ticket_hacienda_number + '.xml'
-                    i.xml_respuesta_tributacion = response_json.get('resp').get('respuesta-xml')
-                elif estado_m_h == 'error':
-                    i.state_tributacion = estado_m_h
+        for invoice in invoices:
+
+            current_invoice += 1
+            _logger.info('Consulta Hacienda POS - Invoice %s / %s', current_invoice, total_invoices)
+
+            if self.env['facturacion_electronica'].consultar_factura(invoice):
+                self.enviar_email_pos(invoice)
+
+        _logger.info('Consulta Hacienda - Finalizado Exitosamente')
+
+    @api.model
+    def _validahacienda_pos(self, max_invoices=4):  # cron
+
+        if self.env.user.company_id.frm_ws_ambiente == 'disabled':
+            _logger.info('Facturación Electrónica deshabilitada, nada que validar')
+            return
+
+        invoices = self.env['pos.order'].search([('state_tributacion', 'in', ('pendiente',))], limit=max_invoices)
+
+        total_invoices = len(invoices)
+        current_invoice = 0
+        _logger.info('Valida Hacienda POS - Invoices to check: %s', total_invoices)
+
+        for invoice in invoices:
+
+            current_invoice += 1
+            _logger.info('Valida Hacienda POS - Invoice %s / %s', current_invoice, total_invoices)
+
+            if not invoice.xml_comprobante:
+                _logger.info('Valida Hacienda POS - Venta sin comprobante - skipped Invoice %s', invoice.number)
+                continue
+
+            self.env['facturacion_electronica'].enviar_factura(invoice)
+
+    @api.model
+    def enviar_email_pos(self, invoice):
+        if invoice.state_tributacion != 'aceptado':
+            _logger.info('La factura %s está en estado %s, no vamos a enviar el email' % (
+            invoice.name, invoice.state_tributacion))
+            return False
+
+        if invoice.partner_id and invoice.partner_id.email:
+
+            email_template = self.env.ref('account.email_template_edi_invoice', False)
+
+            comprobante = self.env['ir.attachment'].search(
+                [('res_model', '=', 'pos.order'), ('res_id', '=', invoice.id),
+                 ('res_field', '=', 'xml_comprobante')], limit=1)
+            comprobante.name = invoice.fname_xml_comprobante
+            comprobante.datas_fname = invoice.fname_xml_comprobante
+
+            attachments = comprobante
+
+            if invoice.xml_respuesta_tributacion:
+                respuesta = self.env['ir.attachment'].search(
+                    [('res_model', '=', 'por.order'), ('res_id', '=', invoice.id),
+                     ('res_field', '=', 'xml_respuesta_tributacion')], limit=1)
+                respuesta.name = invoice.fname_xml_respuesta_tributacion
+                respuesta.datas_fname = invoice.fname_xml_respuesta_tributacion
+
+                attachments = attachments | respuesta
+
+            email_template.attachment_ids = [(6, 0, attachments.mapped('id'))]
+
+            email_template.with_context(type='binary', default_type='binary').send_mail(invoice.id,
+                                                                                        raise_exception=False,
+                                                                                        force_send=True)  # default_type='binary'
+
+            email_template.attachment_ids = [(5)]
+
+        else:
+            _logger.info('cliende de orden sin email, no se puede enviar el tiquete')
+
