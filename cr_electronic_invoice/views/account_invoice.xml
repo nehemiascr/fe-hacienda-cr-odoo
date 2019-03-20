@@ -61,6 +61,18 @@
 			</field>
 		</record>
 
+		 <record id="view_employee_readonly" model="ir.ui.view">
+			<field name="name">account.invoice.form.inherit</field>
+			<field name="model">account.invoice</field>
+			<field name="inherit_id" ref="cr_electronic_invoice.invoice_form_inherit" />
+			<field name="groups_id" eval="[(6, 0, [ref('base.group_system')])]"/>
+			<field name="arch" type="xml">
+				<xpath expr="//field[@name='state_tributacion']" position="attributes">
+					<attribute name="readonly">False</attribute>
+				</xpath>
+			</field>
+		</record>
+
 		<record id="invoice_supplier_form_inherit" model="ir.ui.view">
 			<field name="name">account.invoice.supplier.form.inherit</field>
 			<field name="model">account.invoice</field>
