@@ -358,7 +358,7 @@ class FacturacionElectronica(models.TransientModel):
 			invoice.state_tributacion = 'aceptado' if invoice.type == 'in_invoice' else 'recibido'
 			return True
 		else:
-			_logger.info('Error %s %s' % (response.status_code))
+			_logger.info('Error %s' % (response.status_code))
 			_logger.info('no vamos a continuar, algo inesperado sucedió %s' % response.__dict__)
 			# invoice.state_tributacion = 'error'
 			invoice.respuesta_tributacion = response.headers['X-Error-Cause'] if response.headers and 'X-Error-Cause' in response.headers else 'No hay de Conexión con Hacienda'
