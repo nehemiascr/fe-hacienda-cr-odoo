@@ -28,6 +28,18 @@
         </field>
     </record>
 
+    		 <record id="view_state_tributacion_readonly" model="ir.ui.view">
+			<field name="name">pos.order.form</field>
+			<field name="model">pos.order</field>
+			<field name="inherit_id" ref="cr_pos_electronic_invoice.view_pos_pos_form_simplified_invoice" />
+			<field name="groups_id" eval="[(6, 0, [ref('base.group_system')])]"/>
+			<field name="arch" type="xml">
+				<xpath expr="//field[@name='state_tributacion']" position="attributes">
+					<attribute name="readonly">False</attribute>
+				</xpath>
+			</field>
+		</record>
+
     <!-- POS order tree -->
     <record id="view_pos_order_tree" model="ir.ui.view">
         <field name="model">pos.order</field>

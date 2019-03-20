@@ -74,7 +74,7 @@ class FacturacionElectronica(models.TransientModel):
 			respuesta['timestamp'] = datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')
 
 			_logger.info('response respuesta %s' % respuesta)
-			self.env.user.company_id.token = respuesta
+			# self.env.user.company_id.token = respuesta
 
 			return respuesta['access_token']
 
@@ -297,7 +297,7 @@ class FacturacionElectronica(models.TransientModel):
 			_logger.info('Solo enviamos pendientes, no se va a enviar %s' % invoice.number)
 			return False
 
-		xml = invoice.xml_supplier_approval if invoice.type == 'in_invoice' else invoice.xml_comprobante
+		xml = invoice.xml_supplier_approval if 'type' in invoice and invoice.type == 'in_invoice' else invoice.xml_comprobante
 		xml = base64.b64decode(xml)
 
 		_logger.info('xml %s' % xml)
@@ -307,7 +307,7 @@ class FacturacionElectronica(models.TransientModel):
 
 		Clave = factura.find('Clave')
 
-		if invoice.type == 'in_invoice':
+		if 'type' in invoice and invoice.type == 'in_invoice':
 			if not invoice.xml_comprobante:
 				invoice.xml_comprobante = self.get_xml2(invoice)
 			xml_comprobante = base64.b64decode(invoice.xml_comprobante)
@@ -331,7 +331,7 @@ class FacturacionElectronica(models.TransientModel):
 			mensaje['receptor']['tipoIdentificacion'] = Receptor.find('Identificacion').find('Tipo').text
 			mensaje['receptor']['numeroIdentificacion'] = Receptor.find('Identificacion').find('Numero').text
 
-		if invoice.type == 'in_invoice':
+		if 'type' in invoice and invoice.type == 'in_invoice':
 			mensaje['comprobanteXml'] = base64.b64encode(base64.b64decode(invoice.xml_comprobante)).decode('utf-8')
 			mensaje['consecutivoReceptor'] = comprobante.find('NumeroConsecutivoReceptor').text
 		else:
@@ -355,7 +355,7 @@ class FacturacionElectronica(models.TransientModel):
 
 		if response.status_code == 202:
 			_logger.info('documento recibido por hacienda %s' % response.__dict__)
-			invoice.state_tributacion = 'aceptado' if invoice.type == 'in_invoice' else 'recibido'
+			invoice.state_tributacion = 'aceptado' if 'type' in invoice and invoice.type == 'in_invoice' else 'recibido'
 			return True
 		else:
 			_logger.info('Error %s' % (response.status_code))
@@ -432,7 +432,7 @@ class FacturacionElectronica(models.TransientModel):
 
 		headers = {'Content-Type': 'application/json', 'Authorization': 'Bearer {}'.format(token)}
 
-		if invoice.type == 'in_invoice': clave += '-' + invoice.number
+		if 'type' in invoice and invoice.type == 'in_invoice': clave += '-' + invoice.number
 
 		try:
 			_logger.info('preguntando a %s por %s' % (url, clave))
@@ -457,7 +457,7 @@ class FacturacionElectronica(models.TransientModel):
 			_logger.info('no vamos a continuar, no se entiende la respuesta de hacienda')
 			return False
 
-		if invoice.type == 'in_invoice':
+		if 'type' in invoice and invoice.type == 'in_invoice':
 			invoice.state_send_invoice = respuesta['ind-estado']
 		else:
 			invoice.state_tributacion = respuesta['ind-estado']
@@ -709,7 +709,7 @@ class FacturacionElectronica(models.TransientModel):
 	@api.model
 	def get_xml(self, invoice):
 
-		if invoice.type == 'in_invoice':
+		if 'type' in invoice and invoice.type == 'in_invoice':
 			return self.get_xml2(invoice)
 
 		if not invoice.number:
@@ -984,7 +984,7 @@ class FacturacionElectronica(models.TransientModel):
 
 		# MedioPago
 		MedioPago = etree.Element('MedioPago')
-		MedioPago.text = invoice.payment_methods_id.sequence
+		MedioPago.text = invoice.payment_methods_id.sequence if invoice.payment_methods_id else '01'
 		Documento.append(MedioPago)
 
 		# DetalleServicio
@@ -1229,27 +1229,50 @@ class FacturacionElectronica(models.TransientModel):
 	def get_te(self, order):
 		_logger.info('order %s' % order)
 		# _logger.info('order %s' % order.__dict__)
-		_logger.info(order.sequence_number)
-		_logger.info(order.company_id)
-		_logger.info(order.partner_id)
-		_logger.info(order.partner_id)
+		_logger.info('sequence_number %s ' % order.sequence_number)
+		_logger.info('ticket_hacienda_invoice_number %s ' % order.ticket_hacienda_invoice_number)
+		_logger.info('pos_reference %s ' % order.pos_reference)
+
+
+		_logger.info('company_id %s ' % order.company_id)
+		_logger.info('partner_id %s ' % order.partner_id)
+		_logger.info('partner_id %s ' % order.partner_id)
 		for linea in order.lines:
-			_logger.info(linea.product_id)
-			_logger.info(linea.qty)
-			_logger.info(linea.name)
-			_logger.info(linea.price_unit)
-		_logger.info(order.amount_total)
-		_logger.info(order.amount_paid)
-		_logger.info(order.amount_tax)
-		_logger.info(order.nb_print)
-		_logger.info(order.invoice_id)
+			_logger.info('product_id %s ' % linea.product_id)
+			_logger.info('qty %s ' % linea.qty)
+			_logger.info('name %s ' % linea.name)
+			_logger.info('price_unit %s ' % linea.price_unit)
+		_logger.info('amount_total %s ' % order.amount_total)
+		_logger.info('amount_paid %s ' % order.amount_paid)
+		_logger.info('amount_tax %s ' % order.amount_tax)
+		_logger.info('nb_print %s ' % order.nb_print)
+		_logger.info('invoice_id %s ' % order.invoice_id)
+
+		if not order.partner_id:
+			order.partner_id =  self.env['res.partner'].browse(8)
+		_logger.info('partner_id %s ' % order.partner_id)
 
 		Invoice = self.env['account.invoice']
 		Order = self.env['pos.order']
 
+
+
+		# invv = order.action_pos_order_invoice()
+		# _logger.info('invoice %s ' % invv)
+		# _logger.info('order.invoice_id %s' % order.invoice_id)
+		#
+		# _logger.info('invoice.type %s' % order.invoice_id.type)
+		# _logger.info('invoice.number %s' % order.invoice_id.number)
+
 		local_context = dict(Order.env.context, force_company=order.company_id.id, company_id=order.company_id.id)
 
 		invoice = Invoice.new(order._prepare_invoice())
+		_logger.info('invoice %s %s' % (invoice, invoice.__dict__))
+		_logger.info('invoice.type %s' % invoice.type)
+		_logger.info('invoice.number %s' % invoice.number)
+		_logger.info('invoice.partner_id %s' % invoice.partner_id)
+		_logger.info('invoice.company_id %s' % invoice.company_id)
+
 		invoice._onchange_partner_id()
 		invoice.fiscal_position_id = order.fiscal_position_id
 
@@ -1264,13 +1287,19 @@ class FacturacionElectronica(models.TransientModel):
 		new_invoice.with_context(local_context).sudo().compute_taxes()
 
 		_logger.info(new_invoice)
+		_logger.info('new invoice %s' % new_invoice.__dict__)
+
+		new_invoice.number = order.name
 
 		xml = self.get_xml(new_invoice)
 
 		order.xml_comprobante = xml
-		order.fname_xml_comprobante = 'archivo.xml'
+		order.fname_xml_comprobante = 'FacturaElectronica_' + new_invoice.number_electronic + '.xml'
+		order.state_tributacion = 'pendiente'
+
+		_logger.info('xml %s' % xml)
 
 
 		# raise UserError('Suave')
 
-		return order
+		return xml
