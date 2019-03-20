@@ -345,7 +345,7 @@ class FacturacionElectronica(models.TransientModel):
 		headers = {'Content-Type': 'application/json', 'Authorization': 'Bearer {}'.format(token)}
 
 		try:
-			_logger.info('validando %s' % Clave)
+			_logger.info('validando %s' % Clave.text)
 			response = requests.post(url, data=json.dumps(mensaje), headers=headers)
 			_logger.info('Respuesta de hacienda\n%s' % response.__dict__)
 
@@ -355,21 +355,13 @@ class FacturacionElectronica(models.TransientModel):
 
 		if response.status_code == 202:
 			_logger.info('documento recibido por hacienda %s' % response.__dict__)
-			invoice.state_tributacion = 'recibido'
-			if invoice.type == 'in_invoice':
-				invoice.state_tributacion = 'aceptado'
+			invoice.state_tributacion = 'aceptado' if invoice.type == 'in_invoice' else 'recibido'
 			return True
-		elif response.status_code == 301:
-			_logger.info('Error 301 %s' % response.headers['X-Error-Cause'])
-			return False
-		elif response.status_code == 400:
-			_logger.info('Error 400 %s' % response.headers['X-Error-Cause'])
-			invoice.state_tributacion = 'error'
-			return False
 		else:
+			_logger.info('Error %s %s' % (response.status_code))
 			_logger.info('no vamos a continuar, algo inesperado sucedió %s' % response.__dict__)
-			if (response.headers and 'X-Error-Cause' in response.headers):
-				_logger.info('Error %s : %s' % (response.status_code, response.headers['X-Error-Cause']))
+			# invoice.state_tributacion = 'error'
+			invoice.respuesta_tributacion = response.headers['X-Error-Cause'] if response.headers and 'X-Error-Cause' in response.headers else 'No hay de Conexión con Hacienda'
 			return False
 
 	@api.model
@@ -450,16 +442,11 @@ class FacturacionElectronica(models.TransientModel):
 			_logger.info('no vamos a continuar, Exception %s' % e)
 			return False
 
-		if response.status_code == 301:
-			_logger.info('Error 301 %s' % response.headers['X-Error-Cause'])
-			return False
-		elif response.status_code == 400:
-			_logger.info('Error 400 %s' % response.headers['X-Error-Cause'])
-			invoice.respuesta_tributacion = response.headers['X-Error-Cause']
-			invoice.state_tributacion = 'error'
-			return False
-		elif response.status_code != 200:
+		if response.status_code in (301, 400):
+			_logger.info('Error %s %s' % (response.status_code, response.headers['X-Error-Cause']))
 			_logger.info('no vamos a continuar, algo inesperado sucedió %s' % response.__dict__)
+			invoice.state_tributacion = 'error'
+			invoice.respuesta_tributacion = response.headers['X-Error-Cause'] if response.headers and 'X-Error-Cause' in response.headers else 'No hay de Conexión con Hacienda'
 			return False
 
 		respuesta = response.json()
@@ -469,8 +456,6 @@ class FacturacionElectronica(models.TransientModel):
 		if 'ind-estado' not in respuesta:
 			_logger.info('no vamos a continuar, no se entiende la respuesta de hacienda')
 			return False
-
-
 
 		if invoice.type == 'in_invoice':
 			invoice.state_send_invoice = respuesta['ind-estado']
@@ -525,7 +510,7 @@ class FacturacionElectronica(models.TransientModel):
 		return xml_encoded
 
 	@api.model
-	def _validahacienda(self, max_invoices=10):  # cron
+	def _validahacienda(self, max_invoices=4):  # cron
 
 		if self.env.user.company_id.frm_ws_ambiente == 'disabled':
 			_logger.info('Facturación Electrónica deshabilitada, nada que validar')
@@ -567,14 +552,16 @@ class FacturacionElectronica(models.TransientModel):
 				invoice.xml_comprobante = comprobante
 				invoice.fname_xml_comprobante = sufijo + invoice.number_electronic + '.xml'
 
-			token = self.get_token()
-
-			if token:
-				if self.enviar_factura(invoice):
-					if self.consultar_factura(invoice):
-						self.enviar_email(invoice)
+			self.enviar_factura(invoice)
 
 		_logger.info('Valida Hacienda - Finalizado Exitosamente')
+			#
+			# token = self.get_token()
+			#
+			# if token:
+			# 	if )self.enviar_factura(invoice:
+					# if self.consultar_factura(invoice):
+					# 	self.enviar_email(invoice)
 
 	@api.model
 	def _consultahacienda(self, max_invoices=10):  # cron
