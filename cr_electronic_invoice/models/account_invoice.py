@@ -170,7 +170,11 @@ class AccountInvoiceElectronic(models.Model):
 
 			if CondicionVenta.text == '02': # crédito
 				fecha_de_factura = datetime.datetime.strptime(self.date_invoice, '%Y-%m-%d')
-				plazo = int(PlazoCredito.text)
+				plazo = 0
+				try:
+					plazo = int(re.sub('[^0-9]', '', PlazoCredito.text))
+				except TypeError:
+					_logger.info('%s no es un número' % PlazoCredito.text)
 				fecha_de_vencimiento = fecha_de_factura + datetime.timedelta(days=plazo)
 				self.date_due = fecha_de_vencimiento.strftime('%Y-%m-%d')
 				_logger.info('date_due %s' % self.date_due)
