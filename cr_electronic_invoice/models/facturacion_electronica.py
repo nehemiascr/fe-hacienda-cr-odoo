@@ -398,6 +398,8 @@ class FacturacionElectronica(models.TransientModel):
 
 		email_template.attachment_ids = [(5)]
 
+		invoice.sent = True
+
 
 	def get_mensaje(self, invoice):
 		_logger.info('\n\n\n\n\n\n%s' % base64.b64decode(invoice.xml_comprobante))
