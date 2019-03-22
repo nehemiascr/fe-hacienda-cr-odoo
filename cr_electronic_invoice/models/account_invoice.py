@@ -66,7 +66,55 @@ class AccountInvoiceElectronic(models.Model):
 		('number_electronic_uniq', 'unique (number_electronic)', "La clave de comprobante debe ser única"),
 	]
 
+	@api.multi
+	def action_invoice_sent(self):
+		""" Open a window to compose an email, with the edi invoice template
+			message loaded by default
+		"""
+		self.ensure_one()
+		template = self.env.ref('account.email_template_edi_invoice', False)
 
+		comprobante = self.env['ir.attachment'].search(
+			[('res_model', '=', 'account.invoice'), ('res_id', '=', self.id),
+			 ('res_field', '=', 'xml_comprobante')], limit=1)
+		comprobante.name = self.fname_xml_comprobante
+		comprobante.datas_fname = self.fname_xml_comprobante
+
+		attachments = comprobante
+
+		if self.xml_respuesta_tributacion:
+			respuesta = self.env['ir.attachment'].search(
+				[('res_model', '=', 'account.invoice'), ('res_id', '=', self.id),
+				 ('res_field', '=', 'xml_respuesta_tributacion')], limit=1)
+			respuesta.name = self.fname_xml_respuesta_tributacion
+			respuesta.datas_fname = self.fname_xml_respuesta_tributacion
+
+			attachments = attachments | respuesta
+
+		template.attachment_ids = [(6, 0, attachments.mapped('id'))]
+
+		compose_form = self.env.ref('mail.email_compose_message_wizard_form', False)
+		ctx = dict(
+			default_model='account.invoice',
+			default_res_id=self.id,
+			default_use_template=bool(template),
+			default_template_id=template and template.id or False,
+			default_composition_mode='comment',
+			mark_invoice_as_sent=True,
+			custom_layout="account.mail_template_data_notification_email_account_invoice",
+			force_email=True
+		)
+		return {
+			'name': _('Compose Email'),
+			'type': 'ir.actions.act_window',
+			'view_type': 'form',
+			'view_mode': 'form',
+			'res_model': 'mail.compose.message',
+			'views': [(compose_form.id, 'form')],
+			'view_id': compose_form.id,
+			'target': 'new',
+			'context': ctx,
+		}
 
 	@api.onchange('xml_supplier_approval')
 	def _onchange_xml_supplier_approval(self):
