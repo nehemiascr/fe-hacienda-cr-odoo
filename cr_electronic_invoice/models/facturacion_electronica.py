@@ -362,6 +362,7 @@ class FacturacionElectronica(models.TransientModel):
 			_logger.info('no vamos a continuar, algo inesperado sucedió %s' % response.__dict__)
 			# invoice.state_tributacion = 'error'
 			invoice.respuesta_tributacion = response.headers['X-Error-Cause'] if response.headers and 'X-Error-Cause' in response.headers else 'No hay de Conexión con Hacienda'
+			if 'ya fue recibido anteriormente' in invoice.respuesta_tributacion : invoice.state_tributacion = 'recibido'
 			return False
 
 	@api.model
@@ -447,6 +448,8 @@ class FacturacionElectronica(models.TransientModel):
 			_logger.info('no vamos a continuar, algo inesperado sucedió %s' % response.__dict__)
 			invoice.state_tributacion = 'error'
 			invoice.respuesta_tributacion = response.headers['X-Error-Cause'] if response.headers and 'X-Error-Cause' in response.headers else 'No hay de Conexión con Hacienda'
+			if 'ya fue recibido anteriormente' in invoice.respuesta_tributacion: invoice.state_tributacion = 'recibido'
+			if 'no ha sido recibido' in invoice.respuesta_tributacion: invoice.state_tributacion = 'pendiente'
 			return False
 
 		respuesta = response.json()
