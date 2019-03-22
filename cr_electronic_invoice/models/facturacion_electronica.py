@@ -371,6 +371,10 @@ class FacturacionElectronica(models.TransientModel):
 			_logger.info('La factura %s está en estado %s, no vamos a enviar el email' % (invoice.number, invoice.state_tributacion))
 			return False
 
+		if not invoice.partner_id.email:
+			_logger.info('Cliente %s no tiene email, no se enviará la factura' %  invoice.partner_id.name)
+			return False
+
 		email_template = self.env.ref('account.email_template_edi_invoice', False)
 
 		comprobante = self.env['ir.attachment'].search(
