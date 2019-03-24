@@ -30,6 +30,12 @@
 				<field name="state_id" position="attributes">
 					<attribute name="options">{"no_open": True,"no_create": 1, "no_create_edit": 1}</attribute>
 				</field>
+				<field name="email" position="after">
+					<field string="Correo de Facturación" name="email_facturas"/>
+				</field>
+				<field name="email" position="attributes">
+					<attribute name="string">Correo de Pedidos</attribute>
+				</field>
 			</field>
 		</record>
 

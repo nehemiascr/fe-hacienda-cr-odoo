@@ -396,9 +396,13 @@ class FacturacionElectronica(models.TransientModel):
 
 		email_template.attachment_ids = [(6, 0, attachments.mapped('id'))]
 
+		email_to = invoice.partner_id.email_facturas or invoice.partner_id.email
+		_logger.info('emailing to %s' % email_to)
+
 		email_template.with_context(type='binary', default_type='binary').send_mail(invoice.id,
 																					raise_exception=False,
-																					force_send=True)  # default_type='binary'
+																					force_send=True,
+																					email_values={'email_to':email_to})  # default_type='binary'
 
 		email_template.attachment_ids = [(5)]
 

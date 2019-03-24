@@ -93,6 +93,9 @@ class AccountInvoiceElectronic(models.Model):
 
 		template.attachment_ids = [(6, 0, attachments.mapped('id'))]
 
+		email_to = self.partner_id.email_facturas or self.partner_id.email
+		_logger.info('emailing to %s' % email_to)
+
 		compose_form = self.env.ref('mail.email_compose_message_wizard_form', False)
 		ctx = dict(
 			default_model='account.invoice',
@@ -102,7 +105,8 @@ class AccountInvoiceElectronic(models.Model):
 			default_composition_mode='comment',
 			mark_invoice_as_sent=True,
 			custom_layout="account.mail_template_data_notification_email_account_invoice",
-			force_email=True
+			force_email=True,
+			default_email_to=email_to
 		)
 		return {
 			'name': _('Compose Email'),
