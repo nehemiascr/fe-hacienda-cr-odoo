@@ -43,7 +43,8 @@ class AccountInvoiceElectronic(models.Model):
 											  ('3', 'Rechazado'),],
 											 'Respuesta del Cliente', copy=False)
 	reference_code_id = fields.Many2one(comodel_name="reference.code", string="Código de referencia", copy=False)
-	payment_methods_id = fields.Many2one(comodel_name="payment.methods", string="Métodos de Pago")
+	payment_methods_id = fields.Many2one(comodel_name="payment.methods", string="Métodos de Pago",
+										 default=lambda m: m.env.ref('cr_electronic_invoice.PaymentMethods_1'))
 	invoice_id = fields.Many2one(comodel_name="account.invoice", string="Documento de referencia", copy=False)
 	xml_respuesta_tributacion = fields.Binary(string="Respuesta Tributación XML", copy=False, attachment=True)
 	fname_xml_respuesta_tributacion = fields.Char(string="Nombre de archivo XML Respuesta Tributación", copy=False)
@@ -309,26 +310,12 @@ class AccountInvoiceElectronic(models.Model):
 	@api.multi
 	def send_acceptance_message(self):
 		for invoice in self:
-			if invoice.company_id.frm_ws_ambiente != 'disabled' and invoice.type == 'in_invoice':
+			if invoice.company_id.frm_ws_ambiente != 'disabled' and invoice.type in ('in_invoice','in_refund'):
 				if invoice.xml_supplier_approval:
 					if not invoice.state_invoice_partner:
 						raise UserError('Aviso!.\nDebe primero seleccionar el tipo de respuesta para el archivo cargado.')
 
 					self.env['facturacion_electronica'].enviar_factura(invoice)
-
-					# mensaje = self.env['facturacion_electronica'].get_xml2(invoice)
-					#
-					# if mensaje:
-					# 	invoice.xml_comprobante = mensaje
-					# 	invoice.fname_xml_comprobante = 'mensaje_' + invoice.number + '.xml'
-					#
-					# 	if self.env['facturacion_electronica'].enviar_mensaje(invoice):
-					# 		_logger.info('mensaje enviado con \n%s' % mensaje)
-					# 		# if self.env['facturacion_electronica'].consultar_factura(invoice):
-					# 		# 	self.env['facturacion_electronica'].enviar_email(invoice)
-					# else:
-					# 	_logger.info('Error generando mensaje %s' % mensaje)
-
 
 	@api.multi
 	@api.returns('self')
@@ -360,6 +347,7 @@ class AccountInvoiceElectronic(models.Model):
 	def _onchange_partner_id(self):
 		super(AccountInvoiceElectronic, self)._onchange_partner_id()
 		self.payment_methods_id = self.partner_id.payment_methods_id
+		self.payment_methods_id = self.env.ref('cr_electronic_invoice.PaymentMethods_1')
 
 	@api.multi
 	def action_consultar_hacienda(self):
@@ -368,8 +356,67 @@ class AccountInvoiceElectronic(models.Model):
 			for invoice in self:
 				self.env['facturacion_electronica'].consultar_factura(invoice)
 
+	def _action_out_invoice_open(self, invoice):
+
+		if invoice.type not in ('out_invoice', 'out_refund'):
+			return invoice
+
+		consecutivo = self.env['facturacion_electronica'].get_consecutivo(invoice)
+		if not consecutivo:
+			raise UserError('Error con el consecutivo de la factura %s' % consecutivo)
+		invoice.number = consecutivo
+
+		clave = self.env['facturacion_electronica'].get_clave(invoice)
+		if not clave:
+			raise UserError('Error con la clave de la factura %s' % clave)
+		invoice.number_electronic = clave
+
+		comprobante = self.env['facturacion_electronica'].get_xml(invoice)
+
+		if comprobante:
+			invoice.xml_comprobante = comprobante
+
+			sufijo = 'FacturaElectronica_' if invoice.type == 'out_invoice' else 'NotaCreditoElectronica_'
+
+		invoice.fname_xml_comprobante = sufijo + invoice.number_electronic + '.xml'
+
+		invoice.state_tributacion = 'pendiente'
+
+		return invoice
+
+	def _action_in_invoice_open(self, invoice):
+
+		if invoice.type not in ('in_invoice', 'in_refund'):
+			return invoice
+
+		if invoice.xml_supplier_approval:
+			consecutivo = self.env['facturacion_electronica'].get_consecutivo(invoice)
+			if not consecutivo:
+				raise UserError('Error con el consecutivo de la factura %s' % consecutivo)
+			invoice.number = consecutivo
+
+			clave = self.env['facturacion_electronica'].get_clave(invoice)
+			if not clave:
+				raise UserError('Error con la clave de la factura %s' % clave)
+			invoice.number_electronic = clave
+
+			comprobante = self.env['facturacion_electronica'].get_xml(invoice)
+
+			if comprobante:
+				invoice.xml_comprobante = comprobante
+				invoice.fname_xml_comprobante = 'MensajeReceptor_' + invoice.number_electronic + '.xml'
+				invoice.state_tributacion = 'pendiente'
+			else:
+				invoice.state_tributacion = 'error'
+
+		else:
+			invoice.state_tributacion = 'na'
+
+		return invoice
+
 	@api.multi
 	def action_invoice_open(self):
+		_logger.info('%s of type %s' % (self, self.type))
 		super(AccountInvoiceElectronic, self).action_invoice_open()
 
 		if self.company_id.frm_ws_ambiente != 'disabled':
@@ -382,40 +429,9 @@ class AccountInvoiceElectronic(models.Model):
 				invoice.fecha = now_cr.strftime('%Y-%m-%d %H:%M:%S')
 				invoice.date_issuance = now_cr.strftime("%Y-%m-%dT%H:%M:%S-06:00")
 
-				consecutivo = self.env['facturacion_electronica'].get_consecutivo(invoice)
-				if not consecutivo:
-					raise UserError('Error con el consecutivo de la factura %s' % consecutivo)
-				invoice.number = consecutivo
+				if invoice.type in ('out_invoice', 'out_refund'):
+					self._action_out_invoice_open(invoice)
+				elif invoice.type in ('in_invoice', 'in_refund'):
+					self._action_in_invoice_open(invoice)
 
-				clave = self.env['facturacion_electronica'].get_clave(invoice)
-				if not clave:
-					raise UserError('Error con la clave de la factura %s' % clave)
-				invoice.number_electronic = clave
-
-				comprobante = self.env['facturacion_electronica'].get_xml(invoice)
-
-				if comprobante:
-					invoice.xml_comprobante = comprobante
-
-					sufijo = ''
-					if invoice.type == 'out_invoice':
-						sufijo = 'FacturaElectronica_'
-					elif invoice.type == 'out_refund':
-						sufijo = 'NotaCreditoElectronica_'
-					elif invoice.type == 'in_invoice':
-						sufijo = 'MensajeReceptor_'
-
-					invoice.fname_xml_comprobante = sufijo + invoice.number_electronic + '.xml'
-
-					invoice.state_tributacion = 'pendiente'
-
-					return self
-
-					# token = self.env['facturacion_electronica'].get_token()
-					#
-					# if token:
-					# 	if self.env['facturacion_electronica'].enviar_factura(invoice):
-					# 		if self.env['facturacion_electronica'].consultar_factura(invoice):
-					# 			self.env['facturacion_electronica'].enviar_email(invoice)
-				else:
-					_logger.info('Error generando comprobante %s' % comprobante)
+		return self

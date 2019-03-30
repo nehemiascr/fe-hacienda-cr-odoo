@@ -108,7 +108,7 @@ class FacturacionElectronica(models.TransientModel):
 			tipo = '01' # Factura Electrónica
 		elif invoice.type == 'out_refund':
 			tipo = '03' # Nota Crédito
-		elif invoice.type == 'in_invoice':
+		elif invoice.type in ('in_invoice', 'in_refund'):
 			if invoice.state_invoice_partner == '1':
 				tipo = '05'  # Aceptado
 			elif invoice.state_invoice_partner == '2':
@@ -154,7 +154,7 @@ class FacturacionElectronica(models.TransientModel):
 	@api.model
 	def get_clave(self, invoice):
 
-		if invoice.type == 'in_invoice':
+		if invoice.type in ('in_invoice', 'in_refund'):
 			return self.get_clave_in_invoice(invoice)
 
 		# a) código de pais
@@ -208,7 +208,6 @@ class FacturacionElectronica(models.TransientModel):
 
 		_logger.info('se genera la clave %s para invoice id %s' % (clave, invoice.id))
 		return clave
-
 
 	@api.multi
 	def enviar_mensaje(self, invoice):
@@ -297,7 +296,7 @@ class FacturacionElectronica(models.TransientModel):
 			_logger.info('Solo enviamos pendientes, no se va a enviar %s' % invoice.number)
 			return False
 
-		xml = invoice.xml_supplier_approval if 'type' in invoice and invoice.type == 'in_invoice' else invoice.xml_comprobante
+		xml = invoice.xml_supplier_approval if 'type' in invoice and invoice.type in ('in_invoice','in_refund') else invoice.xml_comprobante
 		xml = base64.b64decode(xml)
 
 		_logger.info('xml %s' % xml)
@@ -307,7 +306,7 @@ class FacturacionElectronica(models.TransientModel):
 
 		Clave = factura.find('Clave')
 
-		if 'type' in invoice and invoice.type == 'in_invoice':
+		if 'type' in invoice and invoice.type in ('in_invoice','in_refund'):
 			if not invoice.xml_comprobante:
 				invoice.xml_comprobante = self.get_xml2(invoice)
 			xml_comprobante = base64.b64decode(invoice.xml_comprobante)
@@ -331,7 +330,7 @@ class FacturacionElectronica(models.TransientModel):
 			mensaje['receptor']['tipoIdentificacion'] = Receptor.find('Identificacion').find('Tipo').text
 			mensaje['receptor']['numeroIdentificacion'] = Receptor.find('Identificacion').find('Numero').text
 
-		if 'type' in invoice and invoice.type == 'in_invoice':
+		if 'type' in invoice and invoice.type in ('in_invoice','in_refund'):
 			mensaje['comprobanteXml'] = base64.b64encode(base64.b64decode(invoice.xml_comprobante)).decode('utf-8')
 			mensaje['consecutivoReceptor'] = comprobante.find('NumeroConsecutivoReceptor').text
 		else:
@@ -355,7 +354,7 @@ class FacturacionElectronica(models.TransientModel):
 
 		if response.status_code == 202:
 			_logger.info('documento recibido por hacienda %s' % response.__dict__)
-			invoice.state_tributacion = 'aceptado' if 'type' in invoice and invoice.type == 'in_invoice' else 'recibido'
+			invoice.state_tributacion = 'aceptado' if 'type' in invoice and invoice.type in ('in_invoice','in_refund') else 'recibido'
 			return True
 		else:
 			_logger.info('Error %s' % (response.status_code))
@@ -409,10 +408,6 @@ class FacturacionElectronica(models.TransientModel):
 		invoice.sent = True
 
 
-	def get_mensaje(self, invoice):
-		_logger.info('\n\n\n\n\n\n%s' % base64.b64decode(invoice.xml_comprobante))
-		_logger.info('\n\n\n\n\n\n%s' % base64.b64decode(invoice.xml_respuesta_tributacion))
-
 	@api.model
 	def consultar_factura(self, invoice):
 
@@ -443,7 +438,7 @@ class FacturacionElectronica(models.TransientModel):
 
 		headers = {'Content-Type': 'application/json', 'Authorization': 'Bearer {}'.format(token)}
 
-		if 'type' in invoice and invoice.type == 'in_invoice': clave += '-' + invoice.number
+		if 'type' in invoice and invoice.type in ('in_invoice','in_refund'): clave += '-' + invoice.number
 
 		try:
 			_logger.info('preguntando a %s por %s' % (url, clave))
@@ -470,14 +465,13 @@ class FacturacionElectronica(models.TransientModel):
 			_logger.info('no vamos a continuar, no se entiende la respuesta de hacienda')
 			return False
 
-		if 'type' in invoice and invoice.type == 'in_invoice':
+		if 'type' in invoice and invoice.type in ('in_invoice','in_refund'):
 			invoice.state_send_invoice = respuesta['ind-estado']
 		else:
 			invoice.state_tributacion = respuesta['ind-estado']
 
 		# Se actualiza la factura con la respuesta de hacienda
 
-		
 		if 'respuesta-xml' in respuesta:
 			invoice.fname_xml_respuesta_tributacion = 'MensajeHacienda_' + respuesta['clave'] + '.xml'
 			invoice.xml_respuesta_tributacion = respuesta['respuesta-xml']
@@ -529,7 +523,7 @@ class FacturacionElectronica(models.TransientModel):
 			_logger.info('Facturación Electrónica deshabilitada, nada que validar')
 			return
 
-		invoices = self.env['account.invoice'].search([('type', 'in', ('out_invoice', 'out_refund')),
+		invoices = self.env['account.invoice'].search([('type', 'in', ('out_invoice', 'out_refund','in_invoice', 'in_refund')),
 													   ('state', 'in', ('open', 'paid')),
 													   ('date_invoice', '>=', '2018-10-01'),
 													   ('state_tributacion', 'in', ('pendiente',))], limit=max_invoices)
@@ -547,34 +541,11 @@ class FacturacionElectronica(models.TransientModel):
 				continue
 
 			if not invoice.xml_comprobante:
-
-				comprobante = self.get_xml(invoice)
-
-				if not comprobante:
-					_logger.info('Valida Hacienda - Error de creación de comprobante - skipped Invoice %s', invoice.number)
-					continue
-
-				sufijo = ''
-				if invoice.type == 'out_invoice':
-					sufijo = 'FacturaElectronica_'
-				elif invoice.type == 'out_refund':
-					sufijo = 'NotaCreditoElectronica'
-				elif invoice.type == 'in_invoice':
-					sufijo = 'MensajeReceptor'
-
-				invoice.xml_comprobante = comprobante
-				invoice.fname_xml_comprobante = sufijo + invoice.number_electronic + '.xml'
+				pass
 
 			self.enviar_factura(invoice)
 
 		_logger.info('Valida Hacienda - Finalizado Exitosamente')
-			#
-			# token = self.get_token()
-			#
-			# if token:
-			# 	if )self.enviar_factura(invoice:
-					# if self.consultar_factura(invoice):
-					# 	self.enviar_email(invoice)
 
 	@api.model
 	def _consultahacienda(self, max_invoices=10):  # cron
@@ -720,9 +691,9 @@ class FacturacionElectronica(models.TransientModel):
 		return xml_firmado
 
 	@api.model
-	def get_xml(self, invoice):
+	def get_FE_xml(self, invoice):
 
-		if 'type' in invoice and invoice.type == 'in_invoice':
+		if 'type' in invoice and invoice.type in ('in_invoice', 'in_refund'):
 			return self.get_xml2(invoice)
 
 		if not invoice.number:
@@ -1200,10 +1171,17 @@ class FacturacionElectronica(models.TransientModel):
 			InformacionReferencia.append(TipoDoc)
 
 			Numero = etree.Element('Numero')
-			Numero.text = invoice.refund_invoice_id.number_electronic
+			Numero.text = invoice.refund_invoice_id.number_electronic or invoice.refund_invoice_id.number
 			InformacionReferencia.append(Numero)
 
 			FechaEmision = etree.Element('FechaEmision')
+			if not invoice.refund_invoice_id.date_issuance:
+				now_utc = datetime.datetime.now(pytz.timezone('UTC'))
+				now_cr = now_utc.astimezone(pytz.timezone('America/Costa_Rica'))
+				invoice.refund_invoice_id.fecha = now_cr.strftime('%Y-%m-%d %H:%M:%S')
+				invoice.refund_invoice_id.date_issuance = now_cr.strftime("%Y-%m-%dT%H:%M:%S-06:00")
+
+
 			FechaEmision.text = invoice.refund_invoice_id.date_issuance
 			InformacionReferencia.append(FechaEmision)
 
@@ -1229,6 +1207,15 @@ class FacturacionElectronica(models.TransientModel):
 		Normativa.append(FechaResolucion)
 
 		Documento.append(Normativa)
+
+		return Documento
+
+
+
+	@api.model
+	def get_xml(self, invoice):
+
+		Documento = self.get_FE_xml(invoice)
 
 		xml = etree.tostring(Documento,encoding='UTF-8', xml_declaration=True, pretty_print=True)
 
@@ -1261,8 +1248,10 @@ class FacturacionElectronica(models.TransientModel):
 		_logger.info('nb_print %s ' % order.nb_print)
 		_logger.info('invoice_id %s ' % order.invoice_id)
 
+		no_partner = False
 		if not order.partner_id:
-			order.partner_id =  self.env['res.partner'].browse(8)
+			order.partner_id =  self.env['res.partner'].browse(1)
+			no_partner = True
 		_logger.info('partner_id %s ' % order.partner_id)
 
 		Invoice = self.env['account.invoice']
@@ -1304,10 +1293,36 @@ class FacturacionElectronica(models.TransientModel):
 
 		new_invoice.number = order.name
 
-		xml = self.get_xml(new_invoice)
+		Documento = self.get_FE_xml(new_invoice)
 
-		order.xml_comprobante = xml
-		order.fname_xml_comprobante = 'FacturaElectronica_' + new_invoice.number_electronic + '.xml'
+		# TiqueteElectronico 4.2
+
+		documento = 'TiqueteElectronico'
+		xmlns = 'https://www.hacienda.go.cr/ATV/docs/esquemas/2016/v4.2/tiqueteElectronico'
+		schemaLocation = 'https://www.hacienda.go.cr/ATV/docs/esquemas/2016/v4.2/tiqueteElectronico  https://tribunet.hacienda.go.cr/docs/esquemas/2016/v4.2/TiqueteElectronico_V4.2.xsd'
+
+		xsi = 'http://www.w3.org/2001/XMLSchema-instance'
+		xsd = 'http://www.w3.org/2001/XMLSchema'
+		ds = 'http://www.w3.org/2000/09/xmldsig#'
+
+		nsmap = {None: xmlns, 'xsd': xsd, 'xsi': xsi, 'ds': ds}
+		attrib = {'{' + xsi + '}schemaLocation': schemaLocation}
+
+		Documento.tag = 'TiqueteElectronico'
+
+		if no_partner:
+			Receptor = Documento.find('Receptor')
+			Receptor.getparent().remove(Receptor)
+
+		xml = etree.tostring(Documento, encoding='UTF-8', xml_declaration=True, pretty_print=True)
+
+		xml_encoded = base64.b64encode(xml).decode('utf-8')
+
+		xml_firmado = self.firmar_xml(invoice, xml_encoded)
+
+
+		order.xml_comprobante = xml_firmado
+		order.fname_xml_comprobante = 'TiqueteElectronico_' + new_invoice.number_electronic + '.xml'
 		order.state_tributacion = 'pendiente'
 
 		_logger.info('xml %s' % xml)
