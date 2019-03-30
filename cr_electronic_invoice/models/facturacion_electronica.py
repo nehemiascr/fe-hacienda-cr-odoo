@@ -465,10 +465,7 @@ class FacturacionElectronica(models.TransientModel):
 			_logger.info('no vamos a continuar, no se entiende la respuesta de hacienda')
 			return False
 
-		if 'type' in invoice and invoice.type in ('in_invoice','in_refund'):
-			invoice.state_send_invoice = respuesta['ind-estado']
-		else:
-			invoice.state_tributacion = respuesta['ind-estado']
+		invoice.state_tributacion = respuesta['ind-estado']
 
 		# Se actualiza la factura con la respuesta de hacienda
 

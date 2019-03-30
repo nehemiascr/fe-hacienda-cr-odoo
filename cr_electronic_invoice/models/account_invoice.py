@@ -22,12 +22,7 @@ class AccountInvoiceElectronic(models.Model):
 	number_electronic = fields.Char(string="Número electrónico", copy=False, index=True)
 	date_issuance = fields.Char(string="Fecha de emisión", copy=False)
 	fecha = fields.Datetime('Fecha de Emisión', readonly=True, default=fields.Datetime.now(), copy=False)
-	state_send_invoice = fields.Selection([('aceptado', 'Aceptado'),
-                                           ('rechazado', 'Rechazado'),
-                                           ('error', 'Error'),
-                                           ('ne', 'No Encontrado'),
-                                           ('procesando', 'Procesando')],
-                                          'Estado FE Proveedor', copy=False)
+
 	state_tributacion = fields.Selection([
 		('pendiente', 'Pendiente'),
 		('aceptado', 'Aceptado'),
@@ -298,7 +293,6 @@ class AccountInvoiceElectronic(models.Model):
 
 		else:
 			self.state_tributacion = False
-			self.state_send_invoice = False
 			self.xml_supplier_approval = False
 			self.fname_xml_supplier_approval = False
 			self.xml_respuesta_tributacion = False
