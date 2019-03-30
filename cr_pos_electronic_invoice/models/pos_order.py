@@ -404,7 +404,7 @@ class PosOrder(models.Model):
                 _logger.info('Valida Hacienda POS - Venta sin comprobante - skipped Invoice %s', invoice.number)
                 continue
 
-            self.env['facturacion_electronica'].enviar_factura(invoice)
+            self.env['facturacion_electronica'].enviar_documento(invoice)
 
     @api.model
     def enviar_email_pos(self, invoice):

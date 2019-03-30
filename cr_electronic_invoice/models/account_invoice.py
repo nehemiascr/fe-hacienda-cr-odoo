@@ -309,7 +309,7 @@ class AccountInvoiceElectronic(models.Model):
 					if not invoice.state_invoice_partner:
 						raise UserError('Aviso!.\nDebe primero seleccionar el tipo de respuesta para el archivo cargado.')
 
-					self.env['facturacion_electronica'].enviar_factura(invoice)
+					self.env['facturacion_electronica'].enviar_documento(invoice)
 
 	@api.multi
 	@api.returns('self')
