@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <odoo>
-	<data>
+	<data noupdate="0">
 
 		<!-- Quitar el boton de Cancelar Factura -->
 		<record id="inherit_invoice_form_cancel_inherit" model="ir.ui.view">
