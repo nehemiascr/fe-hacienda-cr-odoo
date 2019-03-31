@@ -18,3 +18,4 @@ status
 /.idea/
 
 *.pyc
+cr_electronic_invoice/bin/factura.xml

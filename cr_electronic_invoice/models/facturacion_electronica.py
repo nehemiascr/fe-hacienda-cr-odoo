@@ -474,7 +474,7 @@ class FacturacionElectronica(models.TransientModel):
 		_logger.info('Valida Hacienda - Finalizado Exitosamente')
 
 	@api.model
-	def _consultahacienda(self, max_invoices=10):  # cron
+	def _consultahacienda(self, max_invoices=4):  # cron
 
 		if self.env.user.company_id.frm_ws_ambiente == 'disabled':
 			_logger.info('Facturación Electrónica deshabilitada, nada que consultar')
@@ -482,7 +482,7 @@ class FacturacionElectronica(models.TransientModel):
 
 		invoices = self.env['account.invoice'].search(
 			[('type', 'in', ('out_invoice', 'out_refund')), ('state', 'in', ('open', 'paid')),
-			 ('state_tributacion', 'in', ('recibido', 'procesando', 'error'))])
+			 ('state_tributacion', 'in', ('recibido', 'procesando', 'error'))], limit=max_invoices)
 
 		total_invoices = len(invoices)
 		current_invoice = 0
@@ -654,6 +654,8 @@ class FacturacionElectronica(models.TransientModel):
 		receptor = invoice.partner_id
 
 		# FacturaElectronica 4.2
+
+		decimales = 2
 
 		if invoice.type == 'out_invoice':
 			documento = 'FacturaElectronica' # Factura Electrónica
@@ -900,19 +902,19 @@ class FacturacionElectronica(models.TransientModel):
 		# DetalleServicio
 		DetalleServicio = etree.Element('DetalleServicio')
 
-		totalServiciosGravados = 0
-		totalServiciosExentos = 0
-		totalMercanciasGravadas = 0
-		totalMercanciasExentas = 0
+		totalServiciosGravados = round(0.00, decimales)
+		totalServiciosExentos = round(0.00, decimales)
+		totalMercanciasGravadas = round(0.00, decimales)
+		totalMercanciasExentas = round(0.00, decimales)
 
-		totalDescuentosMercanciasExentas = 0
-		totalDescuentosMercanciasGravadas = 0
-		totalDescuentosServiciosExentos = 0
-		totalDescuentosServiciosGravados = 0
+		totalDescuentosMercanciasExentas = round(0.00, decimales)
+		totalDescuentosMercanciasGravadas = round(0.00, decimales)
+		totalDescuentosServiciosExentos = round(0.00, decimales)
+		totalDescuentosServiciosGravados = round(0.00, decimales)
 
-		totalImpuesto = 0
+		totalImpuesto = round(0.00, decimales)
 
-		for indice, linea in enumerate(invoice.invoice_line_ids):
+		for indice, linea in enumerate(invoice.invoice_line_ids.sorted(lambda l: l.sequence)):
 			LineaDetalle = etree.Element('LineaDetalle')
 
 			NumeroLinea = etree.Element('NumeroLinea')
@@ -947,18 +949,19 @@ class FacturacionElectronica(models.TransientModel):
 			LineaDetalle.append(Detalle)
 
 			PrecioUnitario = etree.Element('PrecioUnitario')
-			PrecioUnitario.text = str(round(linea.price_unit, 2))
+			PrecioUnitario.text = str(round(linea.price_unit, decimales))
 			LineaDetalle.append(PrecioUnitario)
 
 			MontoTotal = etree.Element('MontoTotal')
-			montoTotal = linea.price_unit * linea.quantity
-			MontoTotal.text = str(round(montoTotal, 2))
+			montoTotal = round(linea.price_unit, decimales) * round(linea.quantity, decimales)
+			MontoTotal.text = str(round(montoTotal, decimales))
 
 			LineaDetalle.append(MontoTotal)
 
 			if linea.discount:
 				MontoDescuento = etree.Element('MontoDescuento')
-				montoDescuento = round(montoTotal * linea.discount / 100, 2)
+				montoDescuento = round(round(montoTotal, decimales) * round(linea.discount, decimales) / round(100.00, decimales), decimales)
+				montoDescuento = round(round(montoTotal, decimales) - round(linea.price_subtotal, decimales), decimales)
 				if linea.invoice_line_tax_ids:
 					if linea.product_id and linea.product_id.type == 'service':
 						totalDescuentosServiciosGravados += montoDescuento
@@ -978,7 +981,7 @@ class FacturacionElectronica(models.TransientModel):
 				LineaDetalle.append(NaturalezaDescuento)
 
 			SubTotal = etree.Element('SubTotal')
-			SubTotal.text = str(round(linea.price_subtotal, 2))
+			SubTotal.text = str(round(linea.price_subtotal, decimales))
 			LineaDetalle.append(SubTotal)
 
 			if linea.invoice_line_tax_ids:
@@ -995,13 +998,13 @@ class FacturacionElectronica(models.TransientModel):
 						raise UserError('No se puede aplicar impuesto de ventas a los servicios')
 
 					Tarifa = etree.Element('Tarifa')
-					Tarifa.text = str(round(impuesto.amount, 2))
+					Tarifa.text = str(round(impuesto.amount, decimales))
 					Impuesto.append(Tarifa)
 
 					Monto = etree.Element('Monto')
-					monto = round(linea.price_subtotal * impuesto.amount / 100.0, 2)
+					monto = round(round(linea.price_subtotal, decimales) * round(impuesto.amount, decimales) / round(100.00, decimales), decimales)
 					totalImpuesto += monto
-					Monto.text = str(monto)
+					Monto.text = str(round(monto, decimales))
 					Impuesto.append(Monto)
 
 					LineaDetalle.append(Impuesto)
@@ -1018,7 +1021,7 @@ class FacturacionElectronica(models.TransientModel):
 					totalMercanciasExentas += linea.price_subtotal
 
 			MontoTotalLinea = etree.Element('MontoTotalLinea')
-			MontoTotalLinea.text = str(round(linea.price_total, 2))
+			MontoTotalLinea.text = str(round(linea.price_total, decimales))
 			LineaDetalle.append(MontoTotalLinea)
 
 			DetalleServicio.append(LineaDetalle)
@@ -1030,55 +1033,55 @@ class FacturacionElectronica(models.TransientModel):
 
 		if totalServiciosGravados:
 			TotalServGravados = etree.Element('TotalServGravados')
-			TotalServGravados.text = str(round(totalServiciosGravados + totalDescuentosServiciosGravados, 2))
+			TotalServGravados.text = str(round(totalServiciosGravados + totalDescuentosServiciosGravados, decimales))
 			ResumenFactura.append(TotalServGravados)
 
 		if totalServiciosExentos:
 			TotalServExentos = etree.Element('TotalServExentos')
-			TotalServExentos.text = str(round(totalServiciosExentos + totalDescuentosServiciosExentos, 2))
+			TotalServExentos.text = str(round(totalServiciosExentos + totalDescuentosServiciosExentos, decimales))
 			ResumenFactura.append(TotalServExentos)
 
 		if totalMercanciasGravadas:
 			TotalMercanciasGravadas = etree.Element('TotalMercanciasGravadas')
-			TotalMercanciasGravadas.text = str(round(totalMercanciasGravadas + totalDescuentosMercanciasGravadas, 2))
+			TotalMercanciasGravadas.text = str(round(totalMercanciasGravadas + totalDescuentosMercanciasGravadas, decimales))
 			ResumenFactura.append(TotalMercanciasGravadas)
 
 		if totalMercanciasExentas:
 			TotalMercanciasExentas = etree.Element('TotalMercanciasExentas')
-			TotalMercanciasExentas.text = str(round(totalMercanciasExentas + totalDescuentosMercanciasExentas, 2))
+			TotalMercanciasExentas.text = str(round(totalMercanciasExentas + totalDescuentosMercanciasExentas, decimales))
 			ResumenFactura.append(TotalMercanciasExentas)
 
 		if totalServiciosGravados + totalMercanciasGravadas:
 			TotalGravado = etree.Element('TotalGravado')
-			TotalGravado.text = str(round(totalServiciosGravados + totalDescuentosServiciosGravados + totalMercanciasGravadas + totalDescuentosMercanciasGravadas, 2))
+			TotalGravado.text = str(round(totalServiciosGravados + totalDescuentosServiciosGravados + totalMercanciasGravadas + totalDescuentosMercanciasGravadas, decimales))
 			ResumenFactura.append(TotalGravado)
 
 		if totalServiciosExentos + totalMercanciasExentas:
 			TotalExento = etree.Element('TotalExento')
-			TotalExento.text = str(round(totalServiciosExentos + totalDescuentosServiciosExentos + totalMercanciasExentas + totalDescuentosMercanciasExentas, 2))
+			TotalExento.text = str(round(totalServiciosExentos + totalDescuentosServiciosExentos + totalMercanciasExentas + totalDescuentosMercanciasExentas, decimales))
 			ResumenFactura.append(TotalExento)
 
 		TotalVenta = etree.Element('TotalVenta')
-		TotalVenta.text = str(round(invoice.amount_untaxed + totalDescuentosServiciosGravados + totalDescuentosMercanciasGravadas + totalDescuentosServiciosExentos + totalDescuentosMercanciasExentas, 2))
+		TotalVenta.text = str(round(invoice.amount_untaxed + totalDescuentosServiciosGravados + totalDescuentosMercanciasGravadas + totalDescuentosServiciosExentos + totalDescuentosMercanciasExentas, decimales))
 		ResumenFactura.append(TotalVenta)
 
 		if totalDescuentosServiciosGravados + totalDescuentosMercanciasGravadas + totalDescuentosServiciosExentos + totalDescuentosMercanciasExentas:
 			TotalDescuentos = etree.Element('TotalDescuentos')
-			TotalDescuentos.text = str(round(totalDescuentosServiciosGravados + totalDescuentosMercanciasGravadas + totalDescuentosServiciosExentos + totalDescuentosMercanciasExentas, 2))
+			TotalDescuentos.text = str(round(totalDescuentosServiciosGravados + totalDescuentosMercanciasGravadas + totalDescuentosServiciosExentos + totalDescuentosMercanciasExentas, decimales))
 			ResumenFactura.append(TotalDescuentos)
 
 		TotalVentaNeta = etree.Element('TotalVentaNeta')
-		TotalVentaNeta.text = str(round(invoice.amount_untaxed, 2))
+		TotalVentaNeta.text = str(round(invoice.amount_untaxed, decimales))
 		ResumenFactura.append(TotalVentaNeta)
 
 		if invoice.amount_tax:
 			TotalImpuesto = etree.Element('TotalImpuesto')
-			# TotalImpuesto.text = str(round(invoice.amount_tax, 2))
-			TotalImpuesto.text = str(round(totalImpuesto, 2))
+			# TotalImpuesto.text = str(round(invoice.amount_tax, decimales))
+			TotalImpuesto.text = str(round(totalImpuesto, decimales))
 			ResumenFactura.append(TotalImpuesto)
 
 		TotalComprobante = etree.Element('TotalComprobante')
-		TotalComprobante.text = str(round(invoice.amount_total, 2))
+		TotalComprobante.text = str(round(invoice.amount_total, decimales))
 		ResumenFactura.append(TotalComprobante)
 
 		Documento.append(ResumenFactura)
