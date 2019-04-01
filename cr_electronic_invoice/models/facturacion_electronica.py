@@ -608,13 +608,7 @@ class FacturacionElectronica(models.TransientModel):
 		NumeroConsecutivoReceptor.text = invoice.number
 		Documento.append(NumeroConsecutivoReceptor)
 
-		xml = etree.tostring(Documento, encoding='UTF-8', xml_declaration=True, pretty_print=True)
-
-		xml_encoded = base64.b64encode(xml).decode('utf-8')
-
-		xml_firmado = self.firmar_xml(invoice, xml_encoded)
-
-		return xml_firmado
+		return Documento
 
 	@api.model
 	def get_FE_xml(self, invoice):
