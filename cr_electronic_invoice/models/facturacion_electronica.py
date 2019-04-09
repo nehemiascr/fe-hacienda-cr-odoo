@@ -378,7 +378,7 @@ class FacturacionElectronica(models.TransientModel):
 			return False
 
 		if response.status_code in (301, 400):
-			_logger.info('Error %s %s' % (response.status_code, response.headers['X-Error-Cause']))
+			_logger.info('Error %s %s' % (response.status_code, response.headers['X-Error-Cause'] if response.headers and 'X-Error-Cause' in response.headers else response))
 			_logger.info('no vamos a continuar, algo inesperado sucedió %s' % response.__dict__)
 			invoice.state_tributacion = 'error'
 			invoice.respuesta_tributacion = response.headers['X-Error-Cause'] if response.headers and 'X-Error-Cause' in response.headers else 'No hay de Conexión con Hacienda'
