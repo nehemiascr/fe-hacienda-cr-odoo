@@ -241,7 +241,7 @@ class AccountInvoiceElectronic(models.Model):
 					codigo = impuesto.find('Codigo').text
 
 					if codigo == '01': # impuesto de ventas
-						tax = self.env.ref('l10n_cr.1_account_tax_template_IV_0', False)
+						tax = self.env.ref('l10n_cr.1_account_tax_template_IV_1', False)
 						_logger.info('tax %s' % tax)
 						taxes += tax
 					elif codigo == '02': # ISC
