@@ -7,18 +7,19 @@
         <field name="inherit_id" ref="point_of_sale.view_pos_pos_form"/>
         <field name="arch" type="xml">
             <field name="name" position="after">
-                <field name="ticket_hacienda_invoice_number" readonly="1"/>
+                <field name="number_electronic" readonly="1"/>
             </field>
              <field name="name" position="after">
-                <field name="ticket_hacienda_invoice_number" readonly="1"/>
+                <field name="number_electronic" readonly="1"/>
             </field>
 
             <xpath expr="//page[4]" position="after">
                 <page string="Tiquete Electrónico">
                     <group>
-                        <field name="state_tributacion" readonly="1"/>
                         <field name="fname_xml_respuesta_tributacion" invisible="1" readonly="1"/>
                         <field name="xml_respuesta_tributacion" filename="fname_xml_respuesta_tributacion" readonly="1"/>
+                        <field name="respuesta_tributacion" default="Nada aún"/>
+                        <field name="state_tributacion" readonly="1"/>
                         <field name="fname_xml_comprobante" invisible="1" readonly="1"/>
                         <field name="xml_comprobante" filename="fname_xml_comprobante" readonly="1"/>
                     </group>
@@ -45,8 +46,9 @@
         <field name="model">pos.order</field>
         <field name="inherit_id" ref="point_of_sale.view_pos_order_tree"/>
         <field name="arch" type="xml">
-            <field name="pos_reference" position="before">
-                <field name="ticket_hacienda_invoice_number"/>
+            <field name="state" position="before">
+				<field name="state_tributacion"/>
+                <field name="respuesta_tributacion"/>
             </field>
         </field>
     </record>
@@ -60,9 +62,9 @@
         <field name="arch" type="xml">
             <field name="user_id" position="before">
                 <separator/>
-                <filter string="Invoices" name="invoices" domain="[('ticket_hacienda_invoice_number', '=', False)]"/>
-                <filter string="Simplified invoices" name="invoices" domain="[('ticket_hacienda_invoice_number', '!=', False)]"/>
-                <field name="ticket_hacienda_invoice_number"/>
+                <filter string="Invoices" name="invoices" domain="[('number_electronic', '=', False)]"/>
+                <filter string="Simplified invoices" name="invoices" domain="[('number_electronic', '!=', False)]"/>
+                <field name="number_electronic"/>
             </field>
         </field>
     </record>

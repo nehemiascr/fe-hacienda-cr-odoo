@@ -19,7 +19,7 @@ _logger = logging.getLogger(__name__)
 class AccountInvoiceElectronic(models.Model):
 	_inherit = "account.invoice"
 
-	number_electronic = fields.Char(string="Número electrónico", copy=False, index=True)
+	number_electronic = fields.Char(string="Clave", copy=False, index=True)
 	date_issuance = fields.Char(string="Fecha de emisión", copy=False)
 	fecha = fields.Datetime('Fecha de Emisión', readonly=True, default=fields.Datetime.now(), copy=False)
 
@@ -241,7 +241,7 @@ class AccountInvoiceElectronic(models.Model):
 					codigo = impuesto.find('Codigo').text
 
 					if codigo == '01': # impuesto de ventas
-						tax = self.env.ref('l10n_cr.1_account_tax_template_IV_0', False)
+						tax = self.env.ref('l10n_cr.1_account_tax_template_IV_1', False)
 						_logger.info('tax %s' % tax)
 						taxes += tax
 					elif codigo == '02': # ISC
@@ -309,7 +309,7 @@ class AccountInvoiceElectronic(models.Model):
 					if not invoice.state_invoice_partner:
 						raise UserError('Aviso!.\nDebe primero seleccionar el tipo de respuesta para el archivo cargado.')
 
-					self.env['facturacion_electronica'].enviar_documento(invoice)
+					self.env['facturacion_electronica']._enviar_documento(invoice)
 
 	@api.multi
 	@api.returns('self')
@@ -355,12 +355,12 @@ class AccountInvoiceElectronic(models.Model):
 		if invoice.type not in ('out_invoice', 'out_refund'):
 			return invoice
 
-		consecutivo = self.env['facturacion_electronica'].get_consecutivo(invoice)
+		consecutivo = self.env['facturacion_electronica']._get_consecutivo(invoice)
 		if not consecutivo:
 			raise UserError('Error con el consecutivo de la factura %s' % consecutivo)
 		invoice.number = consecutivo
 
-		clave = self.env['facturacion_electronica'].get_clave(invoice)
+		clave = self.env['facturacion_electronica']._get_clave(invoice)
 		if not clave:
 			raise UserError('Error con la clave de la factura %s' % clave)
 		invoice.number_electronic = clave
@@ -384,7 +384,7 @@ class AccountInvoiceElectronic(models.Model):
 			return invoice
 
 		if invoice.xml_supplier_approval:
-			consecutivo = self.env['facturacion_electronica'].get_consecutivo(invoice)
+			consecutivo = self.env['facturacion_electronica']._get_consecutivo(invoice)
 			if not consecutivo:
 				raise UserError('Error con el consecutivo de la factura %s' % consecutivo)
 			invoice.number = consecutivo
