@@ -1,0 +1,74 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+	<data>
+
+        <record id="res_config_settings_view_form" model="ir.ui.view">
+            <field name="name">res.config.settings.view.form.inherit.facturacion_electronica</field>
+            <field name="model">res.config.settings</field>
+            <field name="priority" eval="30"/>
+            <field name="inherit_id" ref="base.res_config_settings_view_form" />
+            <field name="arch" type="xml">
+                <xpath expr="//div[hasclass('settings')]" position="inside" >
+                    <div class="app_settings_block" data-string="Facturación Electrónica" string="Facturación Electrónica" data-key="facturacion_electronica" groups="base.group_system">
+                        <h2>Configuración de la Facturación Electrónica</h2>
+                        <div class="row mt16 o_settings_container">
+                            <div class="col-12 col-lg-12 o_setting_box">
+                                <div class="o_setting_left_pane"/>
+                                <div class="o_setting_right_pane">
+                                    <span class="o_form_label">Versión</span>
+                                    <div class="text-muted">Versión de la Factura Electrónica a usar</div>
+                                    <div class="text-muted"><field name="default_FacturaElectronica_version"/></div>
+                                </div>
+                            </div>
+
+                            <div class="col-12 col-md-6 o_setting_box">
+                                <div class="o_setting_left_pane"/>
+                                <div class="o_setting_right_pane">
+                                    <span class="o_form_label">Usuario, Contraseña, Llave Criptográfica y PIN</span>
+                                    <div class="text-muted">Usuario en el sistema ATV de Hacienda</div>
+                                    <div class="text-muted"><field name="default_FacturaElectronica_usuario"/></div>
+                                    <div class="text-muted">Contraseña en el sistema ATV de Hacienda</div>
+                                    <div class="text-muted"><field name="default_FacturaElectronica_password"/></div>
+                                    <div class="text-muted">Llave Criptográfica</div>
+                                    <div class="text-muted"><field name="default_FacturaElectronica_llave_criptografica"/></div>
+                                    <div class="text-muted">PIN en el sistema ATV de Hacienda</div>
+                                    <div class="text-muted"><field name="default_FacturaElectronica_pin"/></div>
+                                    <div><button name="probar_conexion" icon="fa-arrow-right" type="object" string="Probar conexión" class="btn-link"/></div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </xpath>
+            </field>
+        </record>
+
+        <record model="ir.actions.act_window" id="action_facturacion_electronica_version">
+            <field name="name">Versiones del esquema de la Facturación Electrónica</field>
+            <field name="res_model">facturacion_electronica.version</field>
+            <field name="view_mode">tree,form</field>
+        </record>
+
+        <record model="ir.actions.act_window" id="action_facturacion_electronica_esquema">
+            <field name="name">Esquemas de los diferentes documentos de la Facturación Electrónica</field>
+            <field name="res_model">facturacion_electronica.esquema</field>
+            <field name="view_mode">tree,form</field>
+        </record>
+
+        <menuitem name="Facturación Electrónica"
+                  id="menu_facturacion_electronica"
+                  parent="base.menu_custom"/>
+
+        <menuitem id="menu_facturacion_electronica_version"
+                  name="Versiones"
+                  sequence="10"
+                  parent="menu_facturacion_electronica"
+                  action="action_facturacion_electronica_version"/>
+
+        <menuitem id="menu_facturacion_electronica_esquema"
+                  name="Esquemas"
+                  sequence="20"
+                  parent="menu_facturacion_electronica"
+                  action="action_facturacion_electronica_esquema"/>
+
+	</data>
+</odoo>

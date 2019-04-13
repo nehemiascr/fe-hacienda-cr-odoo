@@ -1,0 +1,42 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <data>
+
+        <record id="FacturacionElectronica_V_4_1" model="facturacion_electronica.version">
+            <field name="name">https://tribunet.hacienda.go.cr/docs/esquemas/2017/v4.1/</field>
+            <field name="url_recepcion_produccion">https://api.comprobanteselectronicos.go.cr/recepcion/v1/recepcion</field>
+            <field name="url_recepcion_pruebas">https://api.comprobanteselectronicos.go.cr/recepcion-sandbox/v1/recepcion</field>
+            <field name="url_auth">https://idp.comprobanteselectronicos.go.cr/auth/realms/rut-stag/protocol/openid-connect/token</field>
+            <field name="notas">Esquema versión 4.1 de la Factura Electrónica del Ministerio de Hacienda de Costa Rica
+
+            Resolución N° DGT-R-13-2017. —San José, a las ocho horas cinco minutos del 20 de febrero de dos mil diecisiete.
+            https://www.hacienda.go.cr/ATV/ComprobanteElectronico/docs/esquemas/2016/v4.2/Modifica_a_la_resolucion_N_DGT_R_48_2016_V4.2.pdf
+            </field>
+        </record>
+
+        <record id="FacturacionElectronica_V_4_2" model="facturacion_electronica.version">
+            <field name="name">https://tribunet.hacienda.go.cr/docs/esquemas/2017/v4.2/</field>
+            <field name="url_recepcion_produccion">https://api.comprobanteselectronicos.go.cr/recepcion/v1/recepcion</field>
+            <field name="url_recepcion_pruebas">https://api.comprobanteselectronicos.go.cr/recepcion-sandbox/v1/recepcion</field>
+            <field name="url_auth">https://idp.comprobanteselectronicos.go.cr/auth/realms/rut-stag/protocol/openid-connect/token</field>
+            <field name="notas">Esquema versión 4.2 de la Factura Electrónica del Ministerio de Hacienda de Costa Rica
+
+            Resolución Nº DGT-R- 25-2017.- San José, a las ocho horas del diecinueve de abril de dos mil diecisiete.
+            https://www.hacienda.go.cr/ATV/ComprobanteElectronico/docs/esquemas/2016/v4.2/DGT_25_2017Resolucion_modificaciones_del_uso_del_tipo_de_moneda_obligatoriedad_V4.2.pdf
+            </field>
+        </record>
+
+        <record id="FacturacionElectronica_V_4_3" model="facturacion_electronica.version">
+            <field name="name">v4.3</field>
+            <field name="url_recepcion_produccion">https://api.comprobanteselectronicos.go.cr/recepcion/v1/recepcion</field>
+            <field name="url_recepcion_pruebas">https://api.comprobanteselectronicos.go.cr/recepcion-sandbox/v1/recepcion</field>
+            <field name="url_auth">https://idp.comprobanteselectronicos.go.cr/auth/realms/rut-stag/protocol/openid-connect/token</field>
+            <field name="notas">Esquema versión 4.3 de la Factura Electrónica del Ministerio de Hacienda de Costa Rica
+
+            Resolución Nº DGT-R- 25-2017.- San José, a las ocho horas del diecinueve de abril de dos mil diecisiete.
+            https://www.hacienda.go.cr/ATV/ComprobanteElectronico/docs/esquemas/2016/v4.3/DGT_25_2017Resolucion_modificaciones_del_uso_del_tipo_de_moneda_obligatoriedad_V4.2.pdf
+            </field>
+        </record>
+
+    </data>
+</odoo>

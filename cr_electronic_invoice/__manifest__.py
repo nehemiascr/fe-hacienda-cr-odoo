@@ -11,26 +11,34 @@
 		'''
 		Facturación electronica Costa Rica.
 		''',
-	'depends': ['base', 'account', 'product', 'sale_management', 'sales_team', 'account_invoicing', 'l10n_cr_country_codes', 'account_cancel', 'res_currency_cr_adapter', ],
-	'data': ['data/data.xml',
-	         'data/code.type.product.csv',
-	         'data/identification.type.csv',
-	         'data/payment.methods.csv',
-	         'data/reference.code.csv',
-	         'data/reference.document.csv',
-	         'data/sale.conditions.csv',
-	         'data/product.uom.csv',
-			 'data/mail_template_data.xml',
-			 'data/sequence.xml',
-			 'views/account_invoice.xml',
-			 'views/account_journal.xml',
-			 'views/electronic_invoice_views.xml',
-			 'views/res_company.xml',
-			 'views/res_partner.xml',
-	         'security/ir.model.access.csv',
+	'depends': ['base', 'account', 'l10n_cr_country_codes', 'res_currency_cr_adapter', ],
+	'data': [
+		    'security/ir.model.access.csv',
+			'security/ir_module_category.xml',
+		    'security/res_groups.xml',
+		    'security/ir_rule.xml',
 
-			 'data/account_data.xml',
-			 'data/account_tax_template_data.xml'
+			'views/account_invoice.xml',
+			'views/account_journal.xml',
+			'views/electronic_invoice_views.xml',
+			'views/res_company.xml',
+			'views/res_partner.xml',
+
+			'data/data.xml',
+	        'data/code.type.product.csv',
+	        'data/identification.type.csv',
+	        'data/payment.methods.csv',
+	        'data/reference.code.csv',
+	        'data/reference.document.csv',
+	        'data/sale.conditions.csv',
+	        'data/product.uom.csv',
+			'data/mail_template_data.xml',
+			'data/sequence.xml',
+
+
+
+			'data/account_data.xml',
+			'data/account_tax_template_data.xml'
 
 	         ],
 	'installable': True,

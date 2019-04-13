@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+<data>
+
+    <!--<record id="facturacion_electronica_administracion_rule" model="ir.rule">-->
+        <!--<field name="name">Administración</field>-->
+        <!--<field ref="model_facturacion_electronica" name="model_id"/>-->
+        <!--<field name="domain_force">[(1,'=',1)]</field>-->
+        <!--<field name="groups" eval="[(4, ref('cr_electronic_invoice.group_fe_administracion'))]"/>-->
+    <!--</record>-->
+    <!--<record id="facturacion_electronica_confiuracion_rule" model="ir.rule">-->
+        <!--<field name="name">Configuración</field>-->
+        <!--<field ref="model_facturacion_electronica" name="model_id"/>-->
+        <!--<field name="domain_force">[(1,'=',1)]</field>-->
+        <!--<field name="groups" eval="[(4, ref('cr_electronic_invoice.group_fe_configuracion'))]"/>-->
+    <!--</record>-->
+
+</data>
+</odoo>
