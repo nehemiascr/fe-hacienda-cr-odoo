@@ -7,9 +7,6 @@ import base64
 import re
 import datetime
 import pytz
-import requests
-from dateutil.parser import parse
-from . import functions
 from lxml import etree
 import logging
 

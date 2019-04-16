@@ -2,7 +2,6 @@
 
 import logging
 from odoo import models, fields, api, _
-import json, ast, datetime, pytz
 
 _logger = logging.getLogger(__name__)
 
