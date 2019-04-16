@@ -266,6 +266,8 @@ class FacturacionElectronica(models.TransientModel):
 		elif object.company_id.frm_ws_ambiente == 'api-prod':
 			url = 'https://api.comprobanteselectronicos.go.cr/recepcion/v1/recepcion/'
 
+		_logger.info('validando %s' % object)
+
 		if object.state_tributacion != 'pendiente':
 			_logger.info('Solo enviamos pendientes, no se va a enviar %s' % object)
 			return False
