@@ -61,7 +61,7 @@
 			</field>
 		</record>
 
-		 <record id="view_employee_readonly" model="ir.ui.view">
+		 <record id="view_state_tributacion_client_readonly" model="ir.ui.view">
 			<field name="name">account.invoice.form.inherit</field>
 			<field name="model">account.invoice</field>
 			<field name="inherit_id" ref="cr_electronic_invoice.invoice_form_inherit" />
@@ -87,17 +87,20 @@
 						<group>
 							<field name="fname_xml_supplier_approval" invisible="1" />
 							<field name="xml_supplier_approval" filename="fname_xml_supplier_approval" />
+							<field name="state_invoice_partner" />
 							<!--<button name="charge_xml_data" type="object" string="Cargar datos desde XML" colspan="2" attrs="{'invisible':[('state','!=', 'draft')]}" />-->
 						</group>
 						<group>
-							<field name="state_invoice_partner"/>
 							<field name="date_issuance" readonly="1"/>
 							<field name="number_electronic" readonly="1"/>
-							<field name="fname_xml_comprobante" invisible="1" readonly="1"/>
-							<field name="xml_comprobante" filename="fname_xml_comprobante" readonly="1"/>
 							<field name="state_tributacion" readonly="1"/>
 							<field name="fname_xml_respuesta_tributacion" invisible="1" readonly="1"/>
-							<field name="xml_respuesta_tributacion" filename="fname_xml_respuesta_tributacion" readonly="1"/>
+							<field name="xml_respuesta_tributacion" filename="fname_xml_respuesta_tributacion"/>
+							<field name="respuesta_tributacion" default="Nada aún"/>
+							<field name="state_tributacion" invisible="1"/>
+							<field name="fname_xml_comprobante" invisible="1" readonly="1"/>
+							<field name="xml_comprobante" filename="fname_xml_comprobante"/>
+
 						</group>
 					</group>
 				</xpath>
@@ -108,22 +111,34 @@
 			</field>
 		</record>
 
-		<record id="view_invoice_line_form_inherit" model="ir.ui.view">
-			<field name="name">account.invoice.line.form.inherit</field>
-			<field name="model">account.invoice.line</field>
-			<field name="inherit_id" ref="account.view_invoice_line_form"/>
+		<record id="view_state_tributacion_supplier_readonly" model="ir.ui.view">
+			<field name="name">account.invoice.form.inherit</field>
+			<field name="model">account.invoice</field>
+			<field name="inherit_id" ref="cr_electronic_invoice.invoice_form_inherit" />
+			<field name="groups_id" eval="[(6, 0, [ref('base.group_system')])]"/>
 			<field name="arch" type="xml">
-				<field name="invoice_line_tax_ids" position="after">
-					<field name="total_amount" invisible="1"/>
-					<field name="total_discount" invisible="1"/>
-					<field name="discount_note" invisible="1"/>
-					<field name="total_tax" invisible="1"/>
-					<!--<field name="exoneration_total"/>
-					<field name="total_line_exoneration"/>-->
-					<field name="exoneration_id" />
-				</field>
+				<xpath expr="//field[@name='state_tributacion']" position="attributes">
+					<attribute name="readonly">False</attribute>
+				</xpath>
 			</field>
 		</record>
+
+		<!--<record id="view_invoice_line_form_inherit" model="ir.ui.view">-->
+			<!--<field name="name">account.invoice.line.form.inherit</field>-->
+			<!--<field name="model">account.invoice.line</field>-->
+			<!--<field name="inherit_id" ref="account.view_invoice_line_form"/>-->
+			<!--<field name="arch" type="xml">-->
+				<!--<field name="invoice_line_tax_ids" position="after">-->
+					<!--<field name="total_amount" invisible="1"/>-->
+					<!--<field name="total_discount" invisible="1"/>-->
+					<!--<field name="discount_note" invisible="1"/>-->
+					<!--<field name="total_tax" invisible="1"/>-->
+					<!--<field name="exoneration_total"/>
+					<field name="total_line_exoneration"/>-->
+					<!--<field name="exoneration_id" />-->
+				<!--</field>-->
+			<!--</field>-->
+		<!--</record>-->
 
         <record id="view_account_invoice_refund_inherit" model="ir.ui.view">
 			<field name="name">account.invoice.refund.form.inherit</field>
