@@ -348,7 +348,7 @@ class AccountInvoiceElectronic(models.Model):
 		if self.company_id.frm_ws_ambiente != 'disabled':
 
 			for invoice in self:
-				self.env['facturacion_electronica'].consultar_factura(invoice)
+				self.env['facturacion_electronica']._consultar_documento(invoice)
 
 	def _action_out_invoice_open(self, invoice):
 
@@ -389,7 +389,7 @@ class AccountInvoiceElectronic(models.Model):
 				raise UserError('Error con el consecutivo de la factura %s' % consecutivo)
 			invoice.number = consecutivo
 
-			clave = self.env['facturacion_electronica'].get_clave(invoice)
+			clave = self.env['facturacion_electronica']._get_clave(invoice)
 			if not clave:
 				raise UserError('Error con la clave de la factura %s' % clave)
 			invoice.number_electronic = clave

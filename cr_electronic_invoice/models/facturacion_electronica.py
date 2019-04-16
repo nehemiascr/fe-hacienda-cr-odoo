@@ -4,7 +4,7 @@ from odoo import fields, models, api
 from odoo.exceptions import UserError
 import requests
 import json
-from datetime import datetime
+from datetime import datetime, timedelta
 from lxml import etree
 import logging
 import re
@@ -39,11 +39,11 @@ class FacturacionElectronica(models.TransientModel):
 
 			token_timestamp = datetime.strptime(token['timestamp'], '%Y-%m-%d %H:%M:%S')
 
-			token_expires_on = token_timestamp + datetime.timedelta(seconds=token['expires_in'])
+			token_expires_on = token_timestamp + timedelta(seconds=token['expires_in'])
 
 			now = datetime.now()
 
-			if token_expires_on > (now - datetime.timedelta(seconds=100)):
+			if token_expires_on > (now - timedelta(seconds=100)):
 				_logger.info('token actual con ttl %s' % (token_expires_on - now).total_seconds())
 				return token['access_token']
 			else:
@@ -1130,7 +1130,7 @@ class FacturacionElectronica(models.TransientModel):
 
 	def _get_xml_FE_NC_ND(self, invoice):
 
-		if invoice.type not in ('out_invoice', 'in_invoice'):
+		if invoice.type not in ('out_invoice', 'out_refund'):
 			_logger.error('No es factura de cliente %s', invoice)
 			return False
 
@@ -1396,7 +1396,7 @@ class FacturacionElectronica(models.TransientModel):
 			Documento.append(CondicionVenta)
 
 			PlazoCredito = etree.Element('PlazoCredito')
-			datetime.timedelta(7)
+			timedelta(7)
 			fecha_de_factura = datetime.strptime(invoice.date_invoice, '%Y-%m-%d')
 			fecha_de_vencimiento = datetime.strptime(invoice.date_due, '%Y-%m-%d')
 			PlazoCredito.text = str((fecha_de_factura - fecha_de_vencimiento).days)
