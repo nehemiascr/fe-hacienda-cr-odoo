@@ -343,7 +343,7 @@ class FacturacionElectronica(models.TransientModel):
 			object.respuesta_tributacion = error_cause
 
 			if 'ya fue recibido anteriormente' in object.respuesta_tributacion:
-				object.state_tributacion = 'aceptado' if object._name == 'account.invoice' and object.type in ('in_invoice', 'in_refund') else 'recibido'
+				object.state_tributacion = 'recibido'
 
 			if 'no ha sido recibido' in object.respuesta_tributacion:
 				object.state_tributacion = 'pendiente'
