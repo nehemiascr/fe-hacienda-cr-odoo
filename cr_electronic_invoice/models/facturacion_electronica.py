@@ -4,7 +4,7 @@ from odoo import fields, models, api
 from odoo.exceptions import UserError
 import requests
 import json
-import datetime
+from datetime import datetime
 from lxml import etree
 import logging
 import re
@@ -37,11 +37,11 @@ class FacturacionElectronica(models.TransientModel):
 		if self.env.user.company_id.token:
 			token = ast.literal_eval(self.env.user.company_id.token)
 
-			token_timestamp = datetime.datetime.strptime(token['timestamp'], '%Y-%m-%d %H:%M:%S')
+			token_timestamp = datetime.strptime(token['timestamp'], '%Y-%m-%d %H:%M:%S')
 
 			token_expires_on = token_timestamp + datetime.timedelta(seconds=token['expires_in'])
 
-			now = datetime.datetime.now()
+			now = datetime.now()
 
 			if token_expires_on > (now - datetime.timedelta(seconds=100)):
 				_logger.info('token actual con ttl %s' % (token_expires_on - now).total_seconds())
@@ -71,7 +71,7 @@ class FacturacionElectronica(models.TransientModel):
 
 			respuesta = response.json()
 
-			respuesta['timestamp'] = datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+			respuesta['timestamp'] = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
 
 			_logger.info('token length %s type %s' % (len(respuesta['access_token']), respuesta['token_type']) if 'acces_token' in respuesta else 'No hay conexión con hacienda')
 			# self.env.user.company_id.token = respuesta
@@ -214,7 +214,7 @@ class FacturacionElectronica(models.TransientModel):
 		codigo_de_pais = '506'
 
 		# fecha
-		fecha = datetime.datetime.strptime(object.fecha, '%Y-%m-%d %H:%M:%S')
+		fecha = datetime.strptime(object.fecha, '%Y-%m-%d %H:%M:%S')
 
 		# b) día
 		dia = fecha.strftime('%d')
@@ -582,7 +582,7 @@ class FacturacionElectronica(models.TransientModel):
 			tiquetes = order.search([('state_tributacion', 'in', ('recibido', 'procesando', 'error'))], limit=max_documentos)
 
 			for indice, tiquete in enumerate(tiquetes):
-				_logger.info('Consultando documento %s / %s ' % (indice+1, len(tiquete)))
+				_logger.info('Consultando documento %s / %s ' % (indice+1, len(tiquetes)))
 				if not tiquete.xml_comprobante:
 					pass
 				if self._consultar_documento(tiquete):
@@ -662,12 +662,12 @@ class FacturacionElectronica(models.TransientModel):
 
 		# NumeroConsecutivo
 		NumeroConsecutivo = etree.Element('NumeroConsecutivo')
-		NumeroConsecutivo.text = order.name
+		NumeroConsecutivo.text = order.name # order.name
 		Documento.append(NumeroConsecutivo)
 
 		# FechaEmision
 		FechaEmision = etree.Element('FechaEmision')
-		FechaEmision.text = datetime.datetime.strptime(order.fecha, '%Y-%m-%d %H:%M:%S').strftime("%Y-%m-%dT%H:%M:%S")
+		FechaEmision.text = datetime.strptime(order.fecha, '%Y-%m-%d %H:%M:%S').strftime("%Y-%m-%dT%H:%M:%S")
 		Documento.append(FechaEmision)
 
 		# Emisor
@@ -719,24 +719,24 @@ class FacturacionElectronica(models.TransientModel):
 		Ubicacion = etree.Element('Ubicacion')
 
 		Provincia = etree.Element('Provincia')
-		Provincia.text = emisor.partner_id.state_id.code
+		Provincia.text = emisor.partner_id.state_id.code # state_id.code
 		Ubicacion.append(Provincia)
 
 		Canton = etree.Element('Canton')
-		Canton.text = emisor.county_id.code
+		Canton.text = emisor.county_id.code # county_id.code
 		Ubicacion.append(Canton)
 
 		Distrito = etree.Element('Distrito')
-		Distrito.text = emisor.district_id.code
+		Distrito.text = emisor.district_id.code # district_id.code
 		Ubicacion.append(Distrito)
 
-		if emisor.partner_id.neighborhood_id:
+		if emisor.partner_id.neighborhood_id and emisor.partner_id.neighborhood_id.code:
 			Barrio = etree.Element('Barrio')
-			Barrio.text = emisor.neighborhood_id.code
+			Barrio.text = emisor.neighborhood_id.code # neighborhood_id.code
 			Ubicacion.append(Barrio)
 
 		OtrasSenas = etree.Element('OtrasSenas')
-		OtrasSenas.text = emisor.street or 'Sin otras señas'
+		OtrasSenas.text = emisor.street or 'Sin otras señas' # emisor.street
 		Ubicacion.append(OtrasSenas)
 
 		Emisor.append(Ubicacion)
@@ -748,11 +748,11 @@ class FacturacionElectronica(models.TransientModel):
 				Telefono = etree.Element('Telefono')
 
 				CodigoPais = etree.Element('CodigoPais')
-				CodigoPais.text = '506'
+				CodigoPais.text = '506' # '506'
 				Telefono.append(CodigoPais)
 
 				NumTelefono = etree.Element('NumTelefono')
-				NumTelefono.text = telefono[:8]
+				NumTelefono.text = telefono[:8] # telefono
 
 				Telefono.append(NumTelefono)
 
@@ -762,7 +762,7 @@ class FacturacionElectronica(models.TransientModel):
 			raise UserError('El correo electrónico del emisor es inválido.')
 
 		CorreoElectronico = etree.Element('CorreoElectronico')
-		CorreoElectronico.text = emisor.email.lower()
+		CorreoElectronico.text = emisor.email.lower() # emisor.email
 		Emisor.append(CorreoElectronico)
 
 		Documento.append(Emisor)
@@ -773,7 +773,7 @@ class FacturacionElectronica(models.TransientModel):
 			Receptor = etree.Element('Receptor')
 
 			Nombre = etree.Element('Nombre')
-			Nombre.text = receptor.name
+			Nombre.text = receptor.name # receptor.name
 			Receptor.append(Nombre)
 
 			if receptor.identification_id and receptor.vat:
@@ -781,7 +781,7 @@ class FacturacionElectronica(models.TransientModel):
 
 				if receptor.identification_id.code == '05':
 					IdentificacionExtranjero = etree.Element('IdentificacionExtranjero')
-					IdentificacionExtranjero.text = identificacion[:20]
+					IdentificacionExtranjero.text = identificacion[:20] # identificacion
 					Receptor.append(IdentificacionExtranjero)
 				else:
 					if receptor.identification_id.code == '01' and len(identificacion) != 9:
@@ -796,11 +796,11 @@ class FacturacionElectronica(models.TransientModel):
 					Identificacion = etree.Element('Identificacion')
 
 					Tipo = etree.Element('Tipo')
-					Tipo.text = receptor.identification_id.code
+					Tipo.text = receptor.identification_id.code # receptor.identification_id
 					Identificacion.append(Tipo)
 
 					Numero = etree.Element('Numero')
-					Numero.text = identificacion
+					Numero.text = identificacion # identificacion
 					Identificacion.append(Numero)
 
 					Receptor.append(Identificacion)
@@ -809,24 +809,24 @@ class FacturacionElectronica(models.TransientModel):
 				Ubicacion = etree.Element('Ubicacion')
 
 				Provincia = etree.Element('Provincia')
-				Provincia.text = receptor.state_id.code
+				Provincia.text = receptor.state_id.code # receptor.state_id
 				Ubicacion.append(Provincia)
 
 				Canton = etree.Element('Canton')
-				Canton.text = receptor.county_id.code
+				Canton.text = receptor.county_id.code # receptor.county_id
 				Ubicacion.append(Canton)
 
 				Distrito = etree.Element('Distrito')
-				Distrito.text = receptor.district_id.code
+				Distrito.text = receptor.district_id.code # receptor.district_id
 				Ubicacion.append(Distrito)
 
 				if receptor.neighborhood_id:
 					Barrio = etree.Element('Barrio')
-					Barrio.text = receptor.neighborhood_id.code
+					Barrio.text = receptor.neighborhood_id.code # receptor.neighborhood_id
 					Ubicacion.append(Barrio)
 
 				OtrasSenas = etree.Element('OtrasSenas')
-				OtrasSenas.text = receptor.street
+				OtrasSenas.text = receptor.street # receptor.street
 				Ubicacion.append(OtrasSenas)
 
 				Receptor.append(Ubicacion)
@@ -838,18 +838,18 @@ class FacturacionElectronica(models.TransientModel):
 					Telefono = etree.Element('Telefono')
 
 					CodigoPais = etree.Element('CodigoPais')
-					CodigoPais.text = '506'
+					CodigoPais.text = '506' # '506'
 					Telefono.append(CodigoPais)
 
 					NumTelefono = etree.Element('NumTelefono')
-					NumTelefono.text = telefono[:8]
+					NumTelefono.text = telefono[:8] # telefono
 					Telefono.append(NumTelefono)
 
 					Receptor.append(Telefono)
 
 			if receptor.email and re.match('^[(a-z0-9\_\-\.)]+@[(a-z0-9\_\-\.)]+\.[(a-z)]{2,15}$', receptor.email.lower()):
 				CorreoElectronico = etree.Element('CorreoElectronico')
-				CorreoElectronico.text = receptor.email
+				CorreoElectronico.text = receptor.email # receptor.email
 				Receptor.append(CorreoElectronico)
 
 			Documento.append(Receptor)
@@ -867,23 +867,28 @@ class FacturacionElectronica(models.TransientModel):
 		# DetalleServicio
 		DetalleServicio = etree.Element('DetalleServicio')
 
-		totalServiciosGravados = round(0.00, decimales)
-		totalServiciosExentos = round(0.00, decimales)
-		totalMercanciasGravadas = round(0.00, decimales)
-		totalMercanciasExentas = round(0.00, decimales)
+		totalServiciosGravados = round(0.0, decimales)
+		totalServiciosExentos = round(0.0, decimales)
+		totalMercanciasGravadas = round(0.0, decimales)
+		totalMercanciasExentas = round(0.0, decimales)
 
-		totalDescuentosMercanciasExentas = round(0.00, decimales)
-		totalDescuentosMercanciasGravadas = round(0.00, decimales)
-		totalDescuentosServiciosExentos = round(0.00, decimales)
-		totalDescuentosServiciosGravados = round(0.00, decimales)
+		totalDescuentosMercanciasExentas = round(0.0, decimales)
+		totalDescuentosMercanciasGravadas = round(0.0, decimales)
+		totalDescuentosServiciosExentos = round(0.0, decimales)
+		totalDescuentosServiciosGravados = round(0.0, decimales)
 
-		totalImpuesto = round(0.00, decimales)
+		totalImpuesto = round(0.0, decimales)
 
-		for indice, linea in enumerate(order.lines):
+		impuestoServicio = self.env['account.tax'].search([('tax_code', '=', 'IS')])
+		servicio = True if impuestoServicio in order.lines.mapped('tax_ids_after_fiscal_position') else False
+
+		indice = 1
+		for linea in order.lines:
+
 			LineaDetalle = etree.Element('LineaDetalle')
 
 			NumeroLinea = etree.Element('NumeroLinea')
-			NumeroLinea.text = '%s' % (indice + 1)
+			NumeroLinea.text = '%s' % indice # indice + 1
 			LineaDetalle.append(NumeroLinea)
 
 			if linea.product_id.default_code:
@@ -895,13 +900,13 @@ class FacturacionElectronica(models.TransientModel):
 				Codigo.append(Tipo)
 
 				Codigo2 = etree.Element('Codigo')
-				Codigo2.text = linea.product_id.default_code
+				Codigo2.text = linea.product_id.default_code # product_id.default_code
 				Codigo.append(Codigo2)
 
 				LineaDetalle.append(Codigo)
 
 			Cantidad = etree.Element('Cantidad')
-			Cantidad.text = str(linea.qty)
+			Cantidad.text = str(linea.qty) # linea.qty
 			LineaDetalle.append(Cantidad)
 
 			UnidadMedida = etree.Element('UnidadMedida')
@@ -910,15 +915,17 @@ class FacturacionElectronica(models.TransientModel):
 			LineaDetalle.append(UnidadMedida)
 
 			Detalle = etree.Element('Detalle')
-			Detalle.text = linea.product_id.product_tmpl_id.name
+			Detalle.text = linea.product_id.product_tmpl_id.name # product_tmpl_id.name
 			LineaDetalle.append(Detalle)
 
+			precioUnitario = round(linea.price_unit, decimales)
+
 			PrecioUnitario = etree.Element('PrecioUnitario')
-			PrecioUnitario.text = str(round(linea.price_unit, decimales))
+			PrecioUnitario.text = str(precioUnitario)
 			LineaDetalle.append(PrecioUnitario)
 
 			MontoTotal = etree.Element('MontoTotal')
-			montoTotal = round(linea.price_unit, decimales) * round(linea.qty, decimales)
+			montoTotal = precioUnitario * round(linea.qty, decimales)
 			MontoTotal.text = str(round(montoTotal, decimales))
 
 			LineaDetalle.append(MontoTotal)
@@ -952,33 +959,33 @@ class FacturacionElectronica(models.TransientModel):
 			if linea.tax_ids_after_fiscal_position:
 				for impuesto in linea.tax_ids_after_fiscal_position:
 
-					Impuesto = etree.Element('Impuesto')
+					if impuesto.tax_code != 'IS':
+						Impuesto = etree.Element('Impuesto')
 
-					Codigo = etree.Element('Codigo')
-					# Codigo.text = impuesto.code
+						Codigo = etree.Element('Codigo')
 
-					Codigo.text = impuesto.tax_code
-					Impuesto.append(Codigo)
+						Codigo.text = impuesto.tax_code
+						Impuesto.append(Codigo)
 
-					if linea.product_id.type == 'service':
-						raise UserError('No se puede aplicar impuesto de ventas a los servicios')
+						if linea.product_id.type == 'service':
+							raise UserError('No se puede aplicar impuesto de ventas a los servicios')
 
-					Tarifa = etree.Element('Tarifa')
-					Tarifa.text = str(round(impuesto.amount, decimales))
-					Impuesto.append(Tarifa)
+						Tarifa = etree.Element('Tarifa')
+						Tarifa.text = str(round(impuesto.amount, decimales))
+						Impuesto.append(Tarifa)
 
-					Monto = etree.Element('Monto')
-					monto = round(round(linea.price_subtotal, decimales) * round(impuesto.amount, decimales) / round(100.00, decimales), decimales)
-					totalImpuesto += monto
-					Monto.text = str(round(monto, decimales))
-					Impuesto.append(Monto)
+						Monto = etree.Element('Monto')
+						monto = round(round(linea.price_subtotal, decimales) * round(impuesto.amount, decimales) / round(100.00, decimales), decimales)
+						totalImpuesto += monto
+						Monto.text = str(round(monto, decimales))
+						Impuesto.append(Monto)
 
-					LineaDetalle.append(Impuesto)
+						LineaDetalle.append(Impuesto)
 
-					if linea.product_id and linea.product_id.type == 'service':
-						totalServiciosGravados += linea.price_subtotal
-					else:
-						totalMercanciasGravadas += linea.price_subtotal
+						if linea.product_id and linea.product_id.type == 'service':
+							totalServiciosGravados += linea.price_subtotal
+						else:
+							totalMercanciasGravadas += linea.price_subtotal
 
 			else:
 				if linea.product_id and linea.product_id.type == 'service':
@@ -987,10 +994,55 @@ class FacturacionElectronica(models.TransientModel):
 					totalMercanciasExentas += linea.price_subtotal
 
 			MontoTotalLinea = etree.Element('MontoTotalLinea')
-			MontoTotalLinea.text = str(round(linea.price_subtotal_incl, decimales))
+			montoTotalLinea = linea.price_subtotal_incl
+			if servicio:
+				montoTotalLinea -= montoTotalLinea * 10.0 / (100.0 + sum(linea.tax_ids_after_fiscal_position.mapped('amount')))
+			MontoTotalLinea.text = str(round(montoTotalLinea, decimales))
 			LineaDetalle.append(MontoTotalLinea)
 
 			DetalleServicio.append(LineaDetalle)
+			indice += 1
+
+		if servicio:
+			LineaDetalle = etree.Element('LineaDetalle')
+
+			NumeroLinea = etree.Element('NumeroLinea')
+			NumeroLinea.text = '%s' % indice  # indice
+			LineaDetalle.append(NumeroLinea)
+
+			Cantidad = etree.Element('Cantidad')
+			Cantidad.text = '1'
+			LineaDetalle.append(Cantidad)
+
+			UnidadMedida = etree.Element('UnidadMedida')
+			UnidadMedida.text = 'Unid'
+
+			LineaDetalle.append(UnidadMedida)
+
+			Detalle = etree.Element('Detalle')
+			Detalle.text = 'Cargo de Servicio (10%)'
+			LineaDetalle.append(Detalle)
+
+			PrecioUnitario = etree.Element('PrecioUnitario')
+			PrecioUnitario.text = str(round((order.amount_total - order.amount_tax) * 10.0 / 100.0, decimales))
+			LineaDetalle.append(PrecioUnitario)
+
+			MontoTotal = etree.Element('MontoTotal')
+			MontoTotal.text = PrecioUnitario.text
+			LineaDetalle.append(MontoTotal)
+
+			SubTotal = etree.Element('SubTotal')
+			SubTotal.text = PrecioUnitario.text
+			LineaDetalle.append(SubTotal)
+
+			MontoTotalLinea = etree.Element('MontoTotalLinea')
+			MontoTotalLinea.text = PrecioUnitario.text
+			LineaDetalle.append(MontoTotalLinea)
+
+			DetalleServicio.append(LineaDetalle)
+
+			totalMercanciasExentas += round((order.amount_total - order.amount_tax) * 10.0 / 100.0, decimales)
+
 
 		Documento.append(DetalleServicio)
 
@@ -1028,7 +1080,10 @@ class FacturacionElectronica(models.TransientModel):
 			ResumenFactura.append(TotalExento)
 
 		TotalVenta = etree.Element('TotalVenta')
-		TotalVenta.text = str(round(order.amount_total - order.amount_tax, decimales))
+		totalVenta = order.amount_total - order.amount_tax
+		if servicio:
+			totalVenta += (order.amount_total - order.amount_tax) * 10.0 / 100.0
+		TotalVenta.text = str(round(totalVenta, decimales))
 		ResumenFactura.append(TotalVenta)
 
 		if totalDescuentosServiciosGravados + totalDescuentosMercanciasGravadas + totalDescuentosServiciosExentos + totalDescuentosMercanciasExentas:
@@ -1037,13 +1092,18 @@ class FacturacionElectronica(models.TransientModel):
 			ResumenFactura.append(TotalDescuentos)
 
 		TotalVentaNeta = etree.Element('TotalVentaNeta')
-		TotalVentaNeta.text = str(round(order.amount_total - order.amount_tax, decimales))
+		totalVentaNeta = order.amount_total - order.amount_tax
+		if servicio:
+			totalVentaNeta += (order.amount_total - order.amount_tax) * 10.0 / 100.0
+		TotalVentaNeta.text = str(round(totalVentaNeta, decimales))
 		ResumenFactura.append(TotalVentaNeta)
 
 		if order.amount_tax:
 			TotalImpuesto = etree.Element('TotalImpuesto')
-			# TotalImpuesto.text = str(round(invoice.amount_tax, decimales))
-			TotalImpuesto.text = str(round(order.amount_tax, decimales))
+			totalImpuesto = order.amount_tax
+			if servicio:
+				totalImpuesto -= (order.amount_total - order.amount_tax) * 10.0 / 100.0
+			TotalImpuesto.text = str(round(totalImpuesto, decimales))
 			ResumenFactura.append(TotalImpuesto)
 
 		TotalComprobante = etree.Element('TotalComprobante')
@@ -1142,7 +1202,7 @@ class FacturacionElectronica(models.TransientModel):
 
 		# FechaEmision
 		FechaEmision = etree.Element('FechaEmision')
-		FechaEmision.text = datetime.datetime.strptime(invoice.fecha, '%Y-%m-%d %H:%M:%S').strftime("%Y-%m-%dT%H:%M:%S")
+		FechaEmision.text = datetime.strptime(invoice.fecha, '%Y-%m-%d %H:%M:%S').strftime("%Y-%m-%dT%H:%M:%S")
 		Documento.append(FechaEmision)
 
 		# Emisor
@@ -1337,8 +1397,8 @@ class FacturacionElectronica(models.TransientModel):
 
 			PlazoCredito = etree.Element('PlazoCredito')
 			datetime.timedelta(7)
-			fecha_de_factura = datetime.datetime.strptime(invoice.date_invoice, '%Y-%m-%d')
-			fecha_de_vencimiento = datetime.datetime.strptime(invoice.date_due, '%Y-%m-%d')
+			fecha_de_factura = datetime.strptime(invoice.date_invoice, '%Y-%m-%d')
+			fecha_de_vencimiento = datetime.strptime(invoice.date_due, '%Y-%m-%d')
 			PlazoCredito.text = str((fecha_de_factura - fecha_de_vencimiento).days)
 			Documento.append(PlazoCredito)
 		else:
@@ -1556,7 +1616,7 @@ class FacturacionElectronica(models.TransientModel):
 
 			FechaEmision = etree.Element('FechaEmision')
 			if not invoice.refund_invoice_id.date_issuance:
-				now_utc = datetime.datetime.now(pytz.timezone('UTC'))
+				now_utc = datetime.now(pytz.timezone('UTC'))
 				now_cr = now_utc.astimezone(pytz.timezone('America/Costa_Rica'))
 				invoice.refund_invoice_id.fecha = now_cr.strftime('%Y-%m-%d %H:%M:%S')
 				invoice.refund_invoice_id.date_issuance = now_cr.strftime("%Y-%m-%dT%H:%M:%S-06:00")
@@ -1646,34 +1706,34 @@ class FacturacionElectronica(models.TransientModel):
 		NumeroCedulaEmisor.text = factura.find('Emisor').find('Identificacion').find('Numero').text
 		Documento.append(NumeroCedulaEmisor)
 
-		now_utc = datetime.datetime.now(pytz.timezone('UTC'))
+		now_utc = datetime.now(pytz.timezone('UTC'))
 		now_cr = now_utc.astimezone(pytz.timezone('America/Costa_Rica'))
 		date_cr = now_cr.strftime("%Y-%m-%dT%H:%M:%S-06:00")
 
 		# FechaEmisionDoc
 		FechaEmisionDoc = etree.Element('FechaEmisionDoc')
-		FechaEmisionDoc.text = date_cr
+		FechaEmisionDoc.text = date_cr # date_cr
 		Documento.append(FechaEmisionDoc)
 
 		# Mensaje
 		Mensaje = etree.Element('Mensaje')
-		Mensaje.text = invoice.state_invoice_partner
+		Mensaje.text = invoice.state_invoice_partner # state_invoice_partner
 		Documento.append(Mensaje)
 
 		# DetalleMensaje
 		DetalleMensaje = etree.Element('DetalleMensaje')
-		DetalleMensaje.text = 'Mensaje de ' + emisor.name
+		DetalleMensaje.text = 'Mensaje de ' + emisor.name # emisor.name
 		Documento.append(DetalleMensaje)
 
 		if TotalImpuesto is not None:
 			# MontoTotalImpuesto
 			MontoTotalImpuesto = etree.Element('MontoTotalImpuesto')
-			MontoTotalImpuesto.text = TotalImpuesto.text
+			MontoTotalImpuesto.text = TotalImpuesto.text # TotalImpuesto.text
 			Documento.append(MontoTotalImpuesto)
 
 		# TotalFactura
 		TotalFactura = etree.Element('TotalFactura')
-		TotalFactura.text = TotalComprobante.text
+		TotalFactura.text = TotalComprobante.text # TotalComprobante.text
 		Documento.append(TotalFactura)
 
 		identificacion = re.sub('[^0-9]', '', emisor.vat or '')

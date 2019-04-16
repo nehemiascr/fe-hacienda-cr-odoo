@@ -1,32 +1,23 @@
+# -*- coding: utf-8 -*-
 # License AGPL-3.0 or later (https://www.gnu.org/licenses/agpl).
 
 
-import odoo.addons.decimal_precision as dp
-from odoo.tools import float_compare
-import json
-import requests
 import logging
-import re
 from odoo import models, fields, api, _
-from odoo.exceptions import UserError
-from odoo.tools.safe_eval import safe_eval
 import datetime
 import pytz
-import base64
-from lxml import etree
-from . import functions
 
 _logger = logging.getLogger(__name__)
 
 
 class PosOrder(models.Model):
     _inherit = 'pos.order'
-
-    ticket_hacienda_invoice_number = fields.Char(
-        'Simplified invoice',
-        copy=False,
-        oldname='simplified_invoice',
-    )
+    #
+    # ticket_hacienda_invoice_number = fields.Char(
+    #     'Simplified invoice',
+    #     copy=False,
+    #     oldname='simplified_invoice',
+    # )
     number_electronic = fields.Char(string="Clave", copy=False, index=True)
     fecha = fields.Datetime('Fecha de Emisión', readonly=True, default=fields.Datetime.now(), copy=False)
 
@@ -55,22 +46,22 @@ class PosOrder(models.Model):
                                         attachment=True)
 
 
-    @api.model
-    def _simplified_limit_check(self, amount_total, limit=3000):
-        precision_digits = dp.get_precision('Account')(self.env.cr)[1]
-        # -1 or 0: amount_total <= limit, simplified
-        #       1: amount_total > limit, can not be simplified
-        return float_compare(
-            amount_total, limit, precision_digits=precision_digits) < 0
+    # @api.model
+    # def _simplified_limit_check(self, amount_total, limit=3000):
+    #     precision_digits = dp.get_precision('Account')(self.env.cr)[1]
+    #     # -1 or 0: amount_total <= limit, simplified
+    #     #       1: amount_total > limit, can not be simplified
+    #     return float_compare(
+    #         amount_total, limit, precision_digits=precision_digits) < 0
 
-    @api.model
-    def _order_fields(self, ui_order):
-        res = super(PosOrder, self)._order_fields(ui_order)
-        res.update({
-            'ticket_hacienda_invoice_number': ui_order.get(
-                'simplified_invoice', ''),
-        })
-        return res
+    # @api.model
+    # def _order_fields(self, ui_order):
+    #     res = super(PosOrder, self)._order_fields(ui_order)
+    #     res.update({
+    #         'ticket_hacienda_invoice_number': ui_order.get(
+    #             'simplified_invoice', ''),
+    #     })
+    #     return res
 
     @api.model
     def _process_order(self, order):
