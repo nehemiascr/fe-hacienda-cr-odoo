@@ -337,10 +337,10 @@ class FacturacionElectronica(models.TransientModel):
 				object.state_tributacion = 'recibido'
 			return True
 		else:
-			_logger.info('Error %s %s' % (response.status_code, response.headers['X-Error-Cause'] if 'X-Error-Cause' in response else response.headers))
-			_logger.info('no vamos a continuar, algo inesperado sucedió %s' % response)
+			error_cause = response.headers['X-Error-Cause'] if 'X-Error-Cause' in response.headers else 'Error desconocido'
+			_logger.info('Error %s %s %s' % (response.status_code, error_cause, response.headers))
 			object.state_tributacion = 'error'
-			object.respuesta_tributacion = response.headers['X-Error-Cause'] if response.headers and 'X-Error-Cause' in response.headers else 'No hay de Conexión con Hacienda'
+			object.respuesta_tributacion = error_cause
 
 			if 'ya fue recibido anteriormente' in object.respuesta_tributacion:
 				object.state_tributacion = 'aceptado' if object._name == 'account.invoice' and object.type in ('in_invoice', 'in_refund') else 'recibido'
