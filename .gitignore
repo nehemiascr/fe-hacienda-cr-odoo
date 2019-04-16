@@ -19,3 +19,4 @@ status
 
 *.pyc
 cr_electronic_invoice/bin/factura.xml
+cr_electronic_invoice/bin/firma.p12
