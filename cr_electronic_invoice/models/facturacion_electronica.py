@@ -1458,7 +1458,7 @@ class FacturacionElectronica(models.TransientModel):
 			LineaDetalle.append(UnidadMedida)
 
 			Detalle = etree.Element('Detalle')
-			Detalle.text = linea.product_id.name
+			Detalle.text = linea.name
 			LineaDetalle.append(Detalle)
 
 			PrecioUnitario = etree.Element('PrecioUnitario')
