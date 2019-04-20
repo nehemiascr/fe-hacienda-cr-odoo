@@ -1,112 +1,69 @@
-<?xml version="1.0"?>
+<?xml version="1.0" encoding="utf-8"?>
 <odoo>
-    <!-- POS order form -->
-    <record id="view_pos_pos_form_simplified_invoice" model="ir.ui.view">
-        <field name="name">pos.order.form</field>
-        <field name="model">pos.order</field>
-        <field name="inherit_id" ref="point_of_sale.view_pos_pos_form"/>
-        <field name="arch" type="xml">
-            <field name="name" position="after">
-                <field name="number_electronic" readonly="1"/>
-            </field>
-
-            <xpath expr="//page[4]" position="after">
-                <page string="Tiquete Electrónico">
-                    <group>
-                        <field name="fname_xml_respuesta_tributacion" invisible="1" readonly="1"/>
-                        <field name="xml_respuesta_tributacion" filename="fname_xml_respuesta_tributacion" readonly="1"/>
-                        <field name="respuesta_tributacion" default="Nada aún"/>
-                        <field name="state_tributacion" readonly="1"/>
-                        <field name="fname_xml_comprobante" invisible="1" readonly="1"/>
-                        <field name="xml_comprobante" filename="fname_xml_comprobante" readonly="1"/>
-                    </group>
-                </page>
-            </xpath>
-
-        </field>
-    </record>
-
-    		 <!--<record id="view_state_tributacion_readonly" model="ir.ui.view">-->
-			<!--<field name="name">pos.order.form</field>-->
-			<!--<field name="model">pos.order</field>-->
-			<!--<field name="inherit_id" ref="cr_pos_electronic_invoice.view_pos_pos_form_simplified_invoice" />-->
-			<!--<field name="groups_id" eval="[(6, 0, [ref('base.group_system')])]"/>-->
+	<data>
+		<!--<record id="view_account_journal_pos_electronic_invoice_form" model="ir.ui.view">-->
+			<!--<field name="name">account.journal.pos.electronic.invoice.form</field>-->
+			<!--<field name="model">account.journal</field>-->
+			<!--<field name="inherit_id" ref="point_of_sale.view_account_journal_pos_user_form"/>-->
 			<!--<field name="arch" type="xml">-->
-				<!--<xpath expr="//field[@name='state_tributacion']" position="attributes">-->
-					<!--<attribute name="readonly">False</attribute>-->
-				<!--</xpath>-->
+				<!--<field name="amount_authorized_diff" position="after">-->
+					<!--<field name="payment_method_id"/>-->
+				<!--</field>-->
 			<!--</field>-->
 		<!--</record>-->
 
-    <!-- POS order tree -->
-    <record id="view_pos_order_tree" model="ir.ui.view">
-        <field name="model">pos.order</field>
-        <field name="inherit_id" ref="point_of_sale.view_pos_order_tree"/>
-        <field name="arch" type="xml">
-            <field name="state" position="before">
-				<field name="state_tributacion"/>
-                <field name="respuesta_tributacion"/>
-            </field>
-        </field>
-    </record>
+		<record id="view_pos_config_electronic_invoice_form" model="ir.ui.view">
+			<field name="name">pos.config.electronic.invoice.form</field>
+			<field name="model">pos.config</field>
+			<field name="inherit_id" ref="point_of_sale.pos_config_view_form"/>
+			<field name="arch" type="xml">
+				<!--<field name="default_fiscal_position_id" position="after">-->
+					<!--<field name="sucursal"/>-->
+					<!--<field name="terminal"/>-->
+				<!--</field>-->
+				<field name="sequence_id" position="after">
+					<field name="return_sequence_id"/>
+				</field>
+			</field>
+		</record>
 
-    <!-- POS order search -->
-    <!--<record id="view_pos_order_filter_simplified_invoice" model="ir.ui.view">-->
-        <!--<field name="name">POS Order (add filters for simplified field)</field>-->
-        <!--<field name="model">pos.order</field>-->
-        <!--<field name="inherit_id" ref="point_of_sale.view_pos_order_filter"/>-->
-        <!--<field name="priority">20</field>-->
-        <!--<field name="arch" type="xml">-->
-            <!--<field name="user_id" position="before">-->
-                <!--<separator/>-->
-                <!--<filter string="Invoices" name="invoices" domain="[('number_electronic', '=', False)]"/>-->
-                <!--<filter string="Simplified invoices" name="invoices" domain="[('number_electronic', '!=', False)]"/>-->
-                <!--<field name="number_electronic"/>-->
-            <!--</field>-->
-        <!--</field>-->
-    <!--</record>-->
+		<record id="view_pos_order_electronic_invoice_form" model="ir.ui.view">
+			<field name="name">pos.order.electronic.invoice.form</field>
+			<field name="model">pos.order</field>
+			<field name="inherit_id" ref="point_of_sale.view_pos_pos_form"/>
+			<field name="arch" type="xml">
+				<field name="name" position="after">
+					<field name="number_electronic" readonly="1"/>
+				</field>
+				<field name="date_order" position="after">
+					<field name="date_issuance" readonly="1"/>
+				</field>
+				<field name="account_move" position="after">
+					<!--<field name="reference_code_id" attrs="{'required':[('pos_order_id','!=',False)]}"/>-->
+					<!--<field name="pos_order_id"/>-->
+					<field name="state_tributacion" readonly="1"/>
+					<field name="fname_xml_respuesta_tributacion" invisible="1" readonly="1"/>
+					<field name="xml_respuesta_tributacion" filename="fname_xml_respuesta_tributacion" readonly="1"/>
+					<field name="fname_xml_comprobante" invisible="1" readonly="1"/>
+					<field name="xml_comprobante" filename="fname_xml_comprobante" readonly="1"/>
+				</field>
+			</field>
+		</record>
+		<record id="view_pos_order_electronic_invoice_tree" model="ir.ui.view">
+			<field name="name">pos.order.electronic.invoice.tree</field>
+			<field name="model">pos.order</field>
+			<field name="inherit_id" ref="point_of_sale.view_pos_order_tree"/>
+			<field name="arch" type="xml">
+				<field name="state" position="before">
+					<field name="state_tributacion"/>
+					<!--<field name="state_email"/>-->
+				</field>
+			</field>
+		</record>
 
-    <!-- POS config form -->
-    <!--<record id="view_pos_config_form" model="ir.ui.view">-->
-        <!--<field name="name">pos.config.form</field>-->
-        <!--<field name="model">pos.config</field>-->
-        <!--<field name="inherit_id" ref="point_of_sale.pos_config_view_form"/>-->
-        <!--<field name="arch" type="xml">-->
-            <!--<xpath expr="//div[@id='receipt']" position="inside">-->
-                <!--<div class="col-xs-12 col-md-6 o_setting_box" id="l10n_es_pos_simp_seq">-->
-                    <!--<div class="o_setting_left_pane">-->
-                        <!--<field name="iface_ticket_hacienda_simplified_invoice"/>-->
-                    <!--</div>-->
-                    <!--<div class="o_setting_right_pane">-->
-                        <!--<label string="Simplified Invoice Sequence"/>-->
-                        <!--<div class="text-muted">-->
-                            <!--Set simplified invoice sequence for this POS-->
-                        <!--</div>-->
-                        <!--<div class="content-group mt16" groups="base.group_no_one">-->
-                            <!--<field name="ticket_hacienda_invoice_sequence_id"/>-->
-                        <!--</div>-->
-                    <!--</div>-->
-                <!--</div>-->
-                <!--<div class="col-xs-12 col-md-6 o_setting_box" id="l10n_es_pos_simp_limit"-->
-                     <!--attrs="{'invisible': [('iface_ticket_hacienda_simplified_invoice', '=', False)]}">-->
-                    <!--<div class="o_setting_right_pane">-->
-                        <!--<label string="Simplified Invoice Limit"/>-->
-                        <!--<div class="text-muted">-->
-                            <!--Above this limit the simplified invoice won't be made-->
-                        <!--</div>-->
-                        <!--<div class="content-group mt16">-->
-                            <!--<field name="ticket_hacienda_invoice_limit" class="oe_inline"/>-->
-                        <!--</div>-->
-                    <!--</div>-->
-                <!--</div>-->
-            <!--</xpath>-->
-            <!--<xpath expr="//form/sheet/h2[last()]" position="attributes">-->
-                <!--<attribute name="attrs">{}</attribute>-->
-            <!--</xpath>-->
-            <!--<xpath expr="//form/sheet/div[last()]" position="attributes">-->
-                <!--<attribute name="attrs">{}</attribute>-->
-            <!--</xpath>-->
-        <!--</field>-->
-    <!--</record>-->
+
+
+    </data>
+
 
 </odoo>

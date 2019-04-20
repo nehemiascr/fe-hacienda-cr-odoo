@@ -4,6 +4,8 @@
 
 import logging
 from odoo import models, fields, api, _
+from odoo.tools import float_compare
+from odoo.addons import decimal_precision as dp
 import datetime
 import pytz
 
@@ -12,12 +14,7 @@ _logger = logging.getLogger(__name__)
 
 class PosOrder(models.Model):
     _inherit = 'pos.order'
-    #
-    # ticket_hacienda_invoice_number = fields.Char(
-    #     'Simplified invoice',
-    #     copy=False,
-    #     oldname='simplified_invoice',
-    # )
+
     number_electronic = fields.Char(string="Clave", copy=False, index=True)
     fecha = fields.Datetime('Fecha de Emisión', readonly=True, default=fields.Datetime.now(), copy=False)
 
@@ -45,23 +42,26 @@ class PosOrder(models.Model):
     fname_xml_comprobante = fields.Char(string="Nombre de archivo Comprobante XML", required=False, copy=False,
                                         attachment=True)
 
+    @api.model
+    def sequence_number_sync(self, vals):
+        next = vals.get('_sequence_ref_number', False)
+        next = int(next) if next else False
+        if vals.get('session_id') and next is not False:
+            session = self.env['pos.session'].sudo().browse(vals['session_id'])
+            if next != session.config_id.sequence_id.number_next_actual:
+                session.config_id.sequence_id.number_next_actual = next
+        if vals.get('_sequence_ref_number') is not None:
+            del vals['_sequence_ref_number']
+        if vals.get('_sequence_ref') is not None:
+            del vals['_sequence_ref']
+        _logger.info('%s %s %s' % (self, vals, next))
 
-    # @api.model
-    # def _simplified_limit_check(self, amount_total, limit=3000):
-    #     precision_digits = dp.get_precision('Account')(self.env.cr)[1]
-    #     # -1 or 0: amount_total <= limit, simplified
-    #     #       1: amount_total > limit, can not be simplified
-    #     return float_compare(
-    #         amount_total, limit, precision_digits=precision_digits) < 0
-
-    # @api.model
-    # def _order_fields(self, ui_order):
-    #     res = super(PosOrder, self)._order_fields(ui_order)
-    #     res.update({
-    #         'ticket_hacienda_invoice_number': ui_order.get(
-    #             'simplified_invoice', ''),
-    #     })
-    #     return res
+    @api.model
+    def _order_fields(self, ui_order):
+        vals = super(PosOrder, self)._order_fields(ui_order)
+        vals['_sequence_ref_number'] = ui_order.get('sequence_ref_number')
+        vals['_sequence_ref'] = ui_order.get('sequence_ref')
+        return vals
 
     @api.model
     def _process_order(self, order):
