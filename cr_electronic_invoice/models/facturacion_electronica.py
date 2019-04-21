@@ -1102,9 +1102,9 @@ class FacturacionElectronica(models.TransientModel):
 
 		if order.amount_tax:
 			TotalImpuesto = etree.Element('TotalImpuesto')
-			totalImpuesto = order.amount_tax
+			totalImpuesto = round(order.amount_tax, decimales)
 			if servicio:
-				totalImpuesto -= (order.amount_total - order.amount_tax) * 10.0 / 100.0
+				totalImpuesto -= round((round(order.amount_total, decimales) - round(order.amount_tax, decimales)) * 10.0 / 100.0, decimales)
 			TotalImpuesto.text = str(round(totalImpuesto, decimales))
 			ResumenFactura.append(TotalImpuesto)
 
