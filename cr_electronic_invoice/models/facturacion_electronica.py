@@ -97,6 +97,7 @@ class FacturacionElectronica(models.TransientModel):
 		if object._name == 'account.invoice':
 			numeracion = object.number
 			diario = object.journal_id
+			tipo = '05'
 			if object.type == 'out_invoice':
 				tipo = '01'  # Factura Electrónica
 			elif object.type == 'out_refund' and object.amount_total_signed > 0:
@@ -1719,7 +1720,7 @@ class FacturacionElectronica(models.TransientModel):
 
 		# Mensaje
 		Mensaje = etree.Element('Mensaje')
-		Mensaje.text = invoice.state_invoice_partner # state_invoice_partner
+		Mensaje.text = invoice.state_invoice_partner or '01' # state_invoice_partner
 		Documento.append(Mensaje)
 
 		# DetalleMensaje
