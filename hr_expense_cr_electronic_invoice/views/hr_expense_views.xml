@@ -1,0 +1,69 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+	<data>
+		<!--<record id="view_account_journal_pos_electronic_invoice_form" model="ir.ui.view">-->
+			<!--<field name="name">account.journal.pos.electronic.invoice.form</field>-->
+			<!--<field name="model">account.journal</field>-->
+			<!--<field name="inherit_id" ref="point_of_sale.view_account_journal_pos_user_form"/>-->
+			<!--<field name="arch" type="xml">-->
+				<!--<field name="amount_authorized_diff" position="after">-->
+					<!--<field name="payment_method_id"/>-->
+				<!--</field>-->
+			<!--</field>-->
+		<!--</record>-->
+
+		<!--<record id="view_pos_config_electronic_invoice_form" model="ir.ui.view">-->
+			<!--<field name="name">pos.config.electronic.invoice.form</field>-->
+			<!--<field name="model">pos.config</field>-->
+			<!--<field name="inherit_id" ref="point_of_sale.pos_config_view_form"/>-->
+			<!--<field name="arch" type="xml">-->
+				<!--&lt;!&ndash;<field name="default_fiscal_position_id" position="after">&ndash;&gt;-->
+					<!--&lt;!&ndash;<field name="sucursal"/>&ndash;&gt;-->
+					<!--&lt;!&ndash;<field name="terminal"/>&ndash;&gt;-->
+				<!--&lt;!&ndash;</field>&ndash;&gt;-->
+				<!--<field name="sequence_id" position="after">-->
+					<!--<field name="return_sequence_id"/>-->
+				<!--</field>-->
+			<!--</field>-->
+		<!--</record>-->
+
+		<!--<record id="view_pos_order_electronic_invoice_form" model="ir.ui.view">-->
+			<!--<field name="name">pos.order.electronic.invoice.form</field>-->
+			<!--<field name="model">pos.order</field>-->
+			<!--<field name="inherit_id" ref="point_of_sale.view_pos_pos_form"/>-->
+			<!--<field name="arch" type="xml">-->
+				<!--<field name="name" position="after">-->
+					<!--<field name="number_electronic" readonly="1"/>-->
+				<!--</field>-->
+				<!--<field name="date_order" position="after">-->
+					<!--<field name="date_issuance" readonly="1"/>-->
+				<!--</field>-->
+				<!--<field name="account_move" position="after">-->
+					<!--&lt;!&ndash;<field name="reference_code_id" attrs="{'required':[('pos_order_id','!=',False)]}"/>&ndash;&gt;-->
+					<!--&lt;!&ndash;<field name="pos_order_id"/>&ndash;&gt;-->
+					<!--<field name="state_tributacion" readonly="1"/>-->
+					<!--<field name="fname_xml_respuesta_tributacion" invisible="1" readonly="1"/>-->
+					<!--<field name="xml_respuesta_tributacion" filename="fname_xml_respuesta_tributacion" readonly="1"/>-->
+					<!--<field name="fname_xml_comprobante" invisible="1" readonly="1"/>-->
+					<!--<field name="xml_comprobante" filename="fname_xml_comprobante" readonly="1"/>-->
+				<!--</field>-->
+			<!--</field>-->
+		<!--</record>-->
+		<!--<record id="view_pos_order_electronic_invoice_tree" model="ir.ui.view">-->
+			<!--<field name="name">pos.order.electronic.invoice.tree</field>-->
+			<!--<field name="model">pos.order</field>-->
+			<!--<field name="inherit_id" ref="point_of_sale.view_pos_order_tree"/>-->
+			<!--<field name="arch" type="xml">-->
+				<!--<field name="state" position="before">-->
+					<!--<field name="state_tributacion"/>-->
+					<!--&lt;!&ndash;<field name="state_email"/>&ndash;&gt;-->
+				<!--</field>-->
+			<!--</field>-->
+		<!--</record>-->
+
+
+
+    </data>
+
+
+</odoo>
