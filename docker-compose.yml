@@ -1,0 +1,57 @@
+version: '2'
+services:
+  odoo:
+    build: .
+    image: odoo-fe_cr:11
+    restart: always
+    depends_on:
+      - postgres
+    ports:
+      - 8069:8069
+      - 8072:8072
+    volumes:
+      - postgres-shared-socket:/var/run/postgresql
+      - odoo-web-data:/var/lib/odoo
+    networks:
+      erp:
+        aliases:
+          - odoo
+    container_name: erp-odoo
+  postgres:
+    image: postgres:9.4
+    restart: always
+    environment:
+      - POSTGRES_USER=odoo
+      - POSTGRES_PASSWORD=odoo
+      - PGDATA=/var/lib/postgresql/data/pgdata
+    volumes:
+      - odoo-db-data:/var/lib/postgresql/data/pgdata
+      - postgres-shared-socket:/var/run/postgresql
+    ports:
+      - 5432:5432
+    networks:
+      erp:
+        aliases:
+          - db
+    container_name: erp-postgres
+  adminer:
+    image: adminer
+    container_name: erp-adminer
+    ports:
+    - 8073:8080
+    networks:
+      erp:
+        aliases:
+          - adminer
+    depends_on:
+      - postgres
+volumes:
+  odoo-web-data:
+    driver: local
+  odoo-db-data:
+    driver: local
+  postgres-shared-socket:
+    driver: local
+networks:
+  erp:
+    driver: bridge
