@@ -195,15 +195,19 @@ class AccountInvoiceElectronic(models.Model):
 				else:
 					is_company = False
 
-				proveedor = self.env['res.partner'].with_context(ctx).create({'name': Emisor.find('Nombre').text,
-																			  'email': Emisor.find('CorreoElectronico').text,
-																			  'phone_code': Emisor.find('Telefono').find('CodigoPais').text or '506',
-																			  'phone': Emisor.find('Telefono').find('NumTelefono').text or '00000000',
-																			  'vat':emisor,
-																			  'identification_id': tipo_de_identificacion.id,
-																			  'is_company': is_company,
-																			  'customer': False,
-																			  'supplier': True})
+				datos = {'name': Emisor.find('Nombre').text,
+						 'email': Emisor.find('CorreoElectronico').text,
+						 'vat':emisor,
+						 'identification_id': tipo_de_identificacion.id,
+						 'is_company': is_company,
+						 'customer': False,
+						 'supplier': True}
+
+				if Emisor.find('Telefono') and Emisor.find('Telefono').find('CodigoPais') and Emisor.find('Telefono').find('NumTelefono'):
+					datos['phone_code'] = Emisor.find('Telefono').find('CodigoPais').text
+					datos['phone'] = Emisor.find('Telefono').find('NumTelefono').text
+
+				proveedor = self.env['res.partner'].with_context(ctx).create(datos)
 				_logger.info('nuevo proveedor %s' % proveedor)
 
 			self.partner_id = proveedor
