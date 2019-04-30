@@ -79,8 +79,8 @@
 			<field name="inherit_id" ref="account.invoice_supplier_form"/>
 			<field name="arch" type="xml">
 				<xpath expr="//button[@name='action_invoice_cancel']" position="after">
-					<button name="send_acceptance_message" type="object" string="Enviar Mensaje Receptor" colspan="2" attrs="{'invisible':[('state_tributacion','!=', False)]}"/>
-					<button name="action_consultar_hacienda" type="object" string="Consultar Hacienda" colspan="2" />
+					<button name="action_enviar_aceptacion" type="object" string="Enviar Mensaje Receptor" colspan="2" attrs="{'invisible':[('state_tributacion','in', [None, 'na'])]}"/>
+					<button name="action_consultar_recepcion" type="object" string="Consultar Hacienda" colspan="2" attrs="{'invisible':[('state_tributacion','not in', ['aceptado', 'rechazado', 'recibido', 'error', 'procesando'])]}"/>
 				</xpath>
 				<xpath expr="//group[1]" position="after">
 					<group string="Facturación Electrónica" col="2">
@@ -112,9 +112,9 @@
 		</record>
 
 		<record id="view_state_tributacion_supplier_readonly" model="ir.ui.view">
-			<field name="name">account.invoice.form.inherit</field>
+			<field name="name">account.invoice.supplier.form.inherit</field>
 			<field name="model">account.invoice</field>
-			<field name="inherit_id" ref="cr_electronic_invoice.invoice_form_inherit" />
+			<field name="inherit_id" ref="cr_electronic_invoice.invoice_supplier_form_inherit" />
 			<field name="groups_id" eval="[(6, 0, [ref('base.group_system')])]"/>
 			<field name="arch" type="xml">
 				<xpath expr="//field[@name='state_tributacion']" position="attributes">

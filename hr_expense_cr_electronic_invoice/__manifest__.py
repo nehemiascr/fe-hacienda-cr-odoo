@@ -1,7 +1,7 @@
 # License AGPL-3.0 or later (https://www.gnu.org/licenses/agpl).
 
 {
-    "name": "Facturación Electrónica de Costa Rica en los Gastos",
+    "name": "Gastos - Facturación Electrónica de Costa Rica",
     "category": "Human Resources",
     "author": "Nehemias Herrera",
     "license": "AGPL-3",
