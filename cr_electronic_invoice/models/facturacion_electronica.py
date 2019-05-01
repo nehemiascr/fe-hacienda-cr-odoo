@@ -967,7 +967,7 @@ class FacturacionElectronica(models.TransientModel):
 				MontoDescuento = etree.Element('MontoDescuento')
 				montoDescuento = round(round(montoTotal, decimales) * round(linea.discount, decimales) / round(100.00, decimales), decimales)
 				montoDescuento = round(round(montoTotal, decimales) - round(linea.price_subtotal, decimales), decimales)
-				if linea.invoice_line_tax_ids:
+				if linea.tax_ids_after_fiscal_position:
 					if linea.product_id and linea.product_id.type == 'service':
 						totalDescuentosServiciosGravados += montoDescuento
 					else:
