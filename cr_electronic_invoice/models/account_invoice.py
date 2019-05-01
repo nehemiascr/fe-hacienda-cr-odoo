@@ -14,6 +14,7 @@ _logger = logging.getLogger(__name__)
 
 
 class AccountInvoiceElectronic(models.Model):
+
     _inherit = "account.invoice"
 
     number_electronic = fields.Char(string="Clave", copy=False, index=True)
@@ -395,7 +396,6 @@ class AccountInvoiceElectronic(models.Model):
                 invoice.state_tributacion = 'pendiente'
             else:
                 invoice.state_tributacion = 'error'
-
         else:
             invoice.state_tributacion = 'na'
 
