@@ -577,7 +577,7 @@ class FacturacionElectronica(models.TransientModel):
 		try:
 			expense = self.env['hr.expense']
 		except KeyError:
-			order = None
+			expense = None
 
 		if invoice != None:
 			facturas = invoice.search([('type', 'in', ('out_invoice', 'out_refund','in_invoice')),
