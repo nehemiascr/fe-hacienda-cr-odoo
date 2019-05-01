@@ -365,7 +365,10 @@ class FacturacionElectronica(models.TransientModel):
 			_logger.info('Cliente %s sin email, no vamos a enviar el email' %  object.partner_id)
 			return False
 
-		email_template = self.env.ref('account.email_template_edi_invoice', False)
+		if object._name == 'account.invoice' or object._name == 'hr.expense':
+			email_template = self.env.ref('account.email_template_edi_invoice', False)
+		if object._name == 'pos.order':
+			email_template = self.env.ref('cr_pos_electronic_invoice.email_template_pos_invoice', False)
 
 		comprobante = self.env['ir.attachment'].search(
 			[('res_model', '=', object._name), ('res_id', '=', object.id),
