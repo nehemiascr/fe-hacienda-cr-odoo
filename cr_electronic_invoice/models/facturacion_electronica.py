@@ -57,16 +57,16 @@ class FacturacionElectronica(models.TransientModel):
 		if not object.xml_comprobante:
 			object.xml_comprobante = self.get_xml(object)
 			object.fname_xml_comprobante = 'MensajeReceptor_' + object.number_electronic + '.xml'
-			object.state_tributacion = 'pendiente'
+
+		object.state_tributacion = 'pendiente'
 
 	@api.model
 	def conexion_con_hacienda(self):
-		return True if self.get_token() else False
+		return True if self._get_token() else False
 
-	@api.model
-	def get_token(self):
+	def _get_token(self):
 
-		return self.refresh_token()
+		return self._refresh_token()
 
 		if self.env.user.company_id.token:
 			token = ast.literal_eval(self.env.user.company_id.token)
@@ -82,12 +82,11 @@ class FacturacionElectronica(models.TransientModel):
 				return token['access_token']
 			else:
 				_logger.info('token vencido hace %s' % (now - token_expires_on).total_seconds())
-				return self.refresh_token()
+				return self._refresh_token()
 		else:
-			return self.refresh_token()
+			return self._refresh_token()
 
-	@api.model
-	def refresh_token(self):
+	def _refresh_token(self):
 		if self.env.user.company_id.frm_ws_ambiente == 'api-stag':
 			url = 'https://idp.comprobanteselectronicos.go.cr/auth/realms/rut-stag/protocol/openid-connect/token'
 		elif self.env.user.company_id.frm_ws_ambiente == 'api-prod':
@@ -124,7 +123,23 @@ class FacturacionElectronica(models.TransientModel):
 			_logger.info('Exception\n%s' % e)
 			return False
 
-	@api.model
+	def _es_mensaje_receptor(self, object):
+		if object._name == 'account.invoice' and object.type in ('in_invoice', 'in_refund'):
+			return True
+		if object._name == 'hr.expense':
+			return True
+		return False
+
+	def _get_url(self, object):
+		if object.company_id.frm_ws_ambiente == 'api-stag':
+			return 'https://api.comprobanteselectronicos.go.cr/recepcion-sandbox/v1/recepcion/'
+		if object.company_id.frm_ws_ambiente == 'api-prod':
+			return 'https://api.comprobanteselectronicos.go.cr/recepcion/v1/recepcion/'
+		return False
+
+	def _fe_habilitado(self, object):
+		return False if object.company_id.frm_ws_ambiente == 'disabled' else True
+
 	def _get_consecutivo(self, object):
 
 		# tipo de documento
@@ -187,24 +202,17 @@ class FacturacionElectronica(models.TransientModel):
 
 		return consecutivo
 
-	@api.model
 	def _get_clave(self, object):
 
-		if object._name == 'account.invoice':
-			if object.type in ('in_invoice', 'in_refund'):
-				if not object.xml_supplier_approval:
-					_logger.info('Para la clave de los mensajes de aceptación es necesario el xml')
-					return False
-				return self.get_clave(object.xml_supplier_approval)
-			elif object.type in ('out_invoice', 'out_refund'):
-				consecutivo = object.number
-		elif object._name == 'pos.order':
+		if (object._name == 'account.invoice' and object.type in ('in_invoice', 'in_refund')) \
+			or object._name == 'hr.expense':
+			return self._get_clave_de_xml(object.xml_supplier_approval)
+
+		if object._name == 'account.invoice' and object.type in ('out_invoice', 'out_refund'):
+			consecutivo = object.number
+
+		if object._name == 'pos.order':
 			consecutivo = object.name
-		elif object._name == 'hr.expense':
-			if not object.xml_supplier_approval:
-				_logger.info('Para la clave de los mensajes de aceptación es necesario el xml')
-				return False
-			return self.get_clave(object.xml_supplier_approval)
 
 		# f) consecutivo
 		if len(consecutivo) != 20 or not consecutivo.isdigit():
@@ -256,15 +264,10 @@ class FacturacionElectronica(models.TransientModel):
 		_logger.info('se genera la clave %s para %s' % (clave, object))
 		return clave
 
-	@api.multi
 	def _enviar_documento(self, object):
 
-		if object.company_id.frm_ws_ambiente == 'disabled':
+		if not self._fe_habilitado(object):
 			return False
-		elif object.company_id.frm_ws_ambiente == 'api-stag':
-			url = 'https://api.comprobanteselectronicos.go.cr/recepcion-sandbox/v1/recepcion/'
-		elif object.company_id.frm_ws_ambiente == 'api-prod':
-			url = 'https://api.comprobanteselectronicos.go.cr/recepcion/v1/recepcion/'
 
 		_logger.info('validando %s' % object)
 
@@ -313,7 +316,7 @@ class FacturacionElectronica(models.TransientModel):
 		if self._es_mensaje_receptor(object):
 			mensaje['consecutivoReceptor'] = Documento.find('NumeroConsecutivoReceptor').text
 
-		token = self.get_token()
+		token = self._get_token()
 		if token is None or token is False:
 			_logger.info('No hay conexión con hacienda')
 			return False
@@ -321,6 +324,7 @@ class FacturacionElectronica(models.TransientModel):
 		headers = {'Content-Type': 'application/json', 'Authorization': 'Bearer {}'.format(token)}
 
 		try:
+			url = self._get_url(object)
 			_logger.info('validando %s' % Clave.text)
 			response = requests.post(url, data=json.dumps(mensaje), headers=headers)
 			_logger.info('Respuesta de hacienda\n%s' % response)
@@ -347,74 +351,10 @@ class FacturacionElectronica(models.TransientModel):
 
 			return False
 
-	@api.model
-	def _enviar_email(self, object):
-		if object.state_tributacion != 'aceptado':
-			_logger.info('documento %s estado %s, no vamos a enviar el email' % (object, object.state_tributacion))
-			return False
-
-		if not object.partner_id:
-			_logger.info('documento %s sin cliente, no vamos a enviar el email' % object)
-			return False
-
-		if not object.partner_id.email:
-			_logger.info('Cliente %s sin email, no vamos a enviar el email' %  object.partner_id)
-			return False
-
-		if object._name == 'account.invoice' or object._name == 'hr.expense':
-			email_template = self.env.ref('account.email_template_edi_invoice', False)
-		if object._name == 'pos.order':
-			email_template = self.env.ref('cr_pos_electronic_invoice.email_template_pos_invoice', False)
-
-		comprobante = self.env['ir.attachment'].search(
-			[('res_model', '=', object._name), ('res_id', '=', object.id),
-			 ('res_field', '=', 'xml_comprobante')], limit=1)
-		comprobante.name = object.fname_xml_comprobante
-		comprobante.datas_fname = object.fname_xml_comprobante
-
-		attachments = comprobante
-
-		if object.xml_respuesta_tributacion:
-			respuesta = self.env['ir.attachment'].search(
-				[('res_model', '=', object._name), ('res_id', '=', object.id),
-				 ('res_field', '=', 'xml_respuesta_tributacion')], limit=1)
-			respuesta.name = object.fname_xml_respuesta_tributacion
-			respuesta.datas_fname = object.fname_xml_respuesta_tributacion
-
-			attachments = attachments | respuesta
-
-		email_template.attachment_ids = [(6, 0, attachments.mapped('id'))]
-
-		email_to = object.partner_id.email_facturas or object.partner_id.email
-		_logger.info('emailing to %s' % email_to)
-
-		email_template.with_context(type='binary', default_type='binary').send_mail(object.id,
-																					raise_exception=False,
-																					force_send=True,
-																					email_values={'email_to':email_to})  # default_type='binary'
-
-		email_template.attachment_ids = [(5)]
-
-		if object._name == 'account.invoice': object.sent = True
-
-	def _es_mensaje_receptor(self, object):
-		if object._name == 'account.invoice' and object.type in ('in_invoice', 'in_refund'):
-			return True
-		if object._name == 'hr.expense':
-			return True
-		return False
-
-	@api.model
 	def _consultar_documento(self, object):
 
-		if object.company_id.frm_ws_ambiente == 'disabled':
-			_logger.info('FE deshabilitada, no se consultará el documento %s' % object)
+		if not self._fe_habilitado(object):
 			return False
-		elif object.company_id.frm_ws_ambiente == 'api-stag':
-			url = 'https://api.comprobanteselectronicos.go.cr/recepcion-sandbox/v1/recepcion/'
-		elif object.company_id.frm_ws_ambiente == 'api-prod':
-			url = 'https://api.comprobanteselectronicos.go.cr/recepcion/v1/recepcion/'
-
 
 		if object.xml_comprobante:
 			xml = etree.tostring(etree.fromstring(base64.b64decode(object.xml_comprobante))).decode()
@@ -428,7 +368,7 @@ class FacturacionElectronica(models.TransientModel):
 			_logger.error('no vamos a continuar, factura sin xml ni clave')
 			return False
 
-		token = self.get_token()
+		token = self._get_token()
 		if token is None or token is False:
 			_logger.info('No hay conexión con hacienda')
 			return False
@@ -439,6 +379,7 @@ class FacturacionElectronica(models.TransientModel):
 			clave += '-' + object.number
 
 		try:
+			url = self._get_url(object)
 			_logger.info('preguntando a %s por %s' % (url, clave))
 			response = requests.get(url + '/' + clave, data=json.dumps({'clave': clave}), headers=headers)
 
@@ -478,8 +419,57 @@ class FacturacionElectronica(models.TransientModel):
 
 		return True
 
-	@api.model
-	def firmar_xml(self, xml):
+	def _enviar_email(self, object):
+		if object.state_tributacion != 'aceptado':
+			_logger.info('documento %s estado %s, no vamos a enviar el email' % (object, object.state_tributacion))
+			return False
+
+		if not object.partner_id:
+			_logger.info('documento %s sin cliente, no vamos a enviar el email' % object)
+			return False
+
+		if not object.partner_id.email:
+			_logger.info('Cliente %s sin email, no vamos a enviar el email' % object.partner_id)
+			return False
+
+		if object._name == 'account.invoice' or object._name == 'hr.expense':
+			email_template = self.env.ref('account.email_template_edi_invoice', False)
+		if object._name == 'pos.order':
+			email_template = self.env.ref('cr_pos_electronic_invoice.email_template_pos_invoice', False)
+
+		comprobante = self.env['ir.attachment'].search(
+			[('res_model', '=', object._name), ('res_id', '=', object.id),
+			 ('res_field', '=', 'xml_comprobante')], limit=1)
+		comprobante.name = object.fname_xml_comprobante
+		comprobante.datas_fname = object.fname_xml_comprobante
+
+		attachments = comprobante
+
+		if object.xml_respuesta_tributacion:
+			respuesta = self.env['ir.attachment'].search(
+				[('res_model', '=', object._name), ('res_id', '=', object.id),
+				 ('res_field', '=', 'xml_respuesta_tributacion')], limit=1)
+			respuesta.name = object.fname_xml_respuesta_tributacion
+			respuesta.datas_fname = object.fname_xml_respuesta_tributacion
+
+			attachments = attachments | respuesta
+
+		email_template.attachment_ids = [(6, 0, attachments.mapped('id'))]
+
+		email_to = object.partner_id.email_facturas or object.partner_id.email
+		_logger.info('emailing to %s' % email_to)
+
+		email_template.with_context(type='binary', default_type='binary').send_mail(object.id,
+																					raise_exception=False,
+																					force_send=True,
+																					email_values={
+																						'email_to': email_to})  # default_type='binary'
+
+		email_template.attachment_ids = [(5)]
+
+		if object._name == 'account.invoice': object.sent = True
+
+	def _firmar_xml(self, xml):
 
 		xml = base64.b64decode(xml).decode('utf-8')
 		_logger.info('xml decoded %s' % xml)
@@ -509,7 +499,6 @@ class FacturacionElectronica(models.TransientModel):
 			xml = file.read()
 
 		xml_encoded = base64.b64encode(xml).decode('utf-8')
-
 		return xml_encoded
 
 	@api.model
@@ -522,7 +511,6 @@ class FacturacionElectronica(models.TransientModel):
 		try:
 			invoice = self.env['account.invoice']
 		except KeyError as e:
-			_logger.info('KeyError %s' % e)
 			invoice = None
 		except:
 			_logger.info('unknown error %s' % sys.exc_info()[0])
@@ -530,8 +518,14 @@ class FacturacionElectronica(models.TransientModel):
 		try:
 			order = self.env['pos.order']
 		except KeyError as e:
-			_logger.info('KeyError %s' % e)
 			order = None
+		except:
+			_logger.info('unknown error %s' % sys.exc_info()[0])
+
+		try:
+			expense = self.env['hr.expense']
+		except KeyError:
+			expense = None
 		except:
 			_logger.info('unknown error %s' % sys.exc_info()[0])
 
@@ -554,6 +548,17 @@ class FacturacionElectronica(models.TransientModel):
 				if not tiquete.xml_comprobante:
 					pass
 				self._enviar_documento(tiquete)
+				max_documentos -= 1
+
+		if expense != None:
+			gastos = expense.search([('state_tributacion', 'in', ('pendiente',))], limit=max_documentos)
+			_logger.info('Validando %s Gastos' % len(gastos))
+			for indice, gasto in enumerate(gastos):
+				_logger.info('Validando Gasto %s / %s ' % (indice+1, len(gastos)))
+				if not gasto.xml_comprobante:
+					pass
+				self._enviar_documento(gasto)
+				max_documentos -= 1
 
 		_logger.info('Valida - Finalizado Exitosamente')
 
@@ -615,12 +620,16 @@ class FacturacionElectronica(models.TransientModel):
 		_logger.info('Consulta Hacienda - Finalizado Exitosamente')
 
 	@api.model
-	def get_clave(self, xml):
-		xml = base64.b64decode(xml)
-		Documento = etree.tostring(etree.fromstring(xml)).decode()
-		Documento = etree.fromstring(re.sub(' xmlns="[^"]+"', '', Documento, count=1))
-		Clave = Documento.find('Clave')
-		return Clave.text
+	def _get_clave_de_xml(self, xml):
+		try:
+			xml = base64.b64decode(xml)
+			Documento = etree.tostring(etree.fromstring(xml)).decode()
+			Documento = etree.fromstring(re.sub(' xmlns="[^"]+"', '', Documento, count=1))
+			Clave = Documento.find('Clave')
+			return Clave.text
+		except Exception as e:
+			print('Error con % %' % (xml, e))
+			return False
 
 	@api.model
 	def get_xml(self, object):
@@ -638,7 +647,7 @@ class FacturacionElectronica(models.TransientModel):
 		_logger.info ('Documento %s' % Documento)
 		xml = etree.tostring(Documento, encoding='UTF-8', xml_declaration=True, pretty_print=True)
 		xml_base64_encoded = base64.b64encode(xml).decode('utf-8')
-		xml_base64_encoded_firmado = self.firmar_xml(xml_base64_encoded)
+		xml_base64_encoded_firmado = self._firmar_xml(xml_base64_encoded)
 
 		return xml_base64_encoded_firmado
 
