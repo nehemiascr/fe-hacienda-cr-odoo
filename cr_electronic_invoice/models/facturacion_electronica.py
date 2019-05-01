@@ -972,27 +972,27 @@ class FacturacionElectronica(models.TransientModel):
 
 			LineaDetalle.append(MontoTotal)
 
-			# if linea.discount:
-			# 	MontoDescuento = etree.Element('MontoDescuento')
-			# 	montoDescuento = round(round(montoTotal, decimales) * round(linea.discount, decimales) / round(100.00, decimales), decimales)
-			# 	montoDescuento = round(round(montoTotal, decimales) - round(linea.price_subtotal, decimales), decimales)
-			# 	if linea.tax_ids_after_fiscal_position:
-			# 		if linea.product_id and linea.product_id.type == 'service':
-			# 			totalDescuentosServiciosGravados += montoDescuento
-			# 		else:
-			# 			totalDescuentosMercanciasGravadas += montoDescuento
-			# 	else:
-			# 		if linea.product_id and linea.product_id.type == 'service':
-			# 			totalDescuentosServiciosExentos += montoDescuento
-			# 		else:
-			# 			totalDescuentosMercanciasExentas += montoDescuento
-			#
-			# 	MontoDescuento.text = str(montoDescuento)
-			# 	LineaDetalle.append(MontoDescuento)
-			#
-			# 	NaturalezaDescuento = etree.Element('NaturalezaDescuento')
-			# 	NaturalezaDescuento.text = linea.discount_note or 'Descuento Comercial'
-			# 	LineaDetalle.append(NaturalezaDescuento)
+			if linea.discount:
+				MontoDescuento = etree.Element('MontoDescuento')
+				montoDescuento = round(round(montoTotal, decimales) * round(linea.discount, decimales) / round(100.00, decimales), decimales)
+				montoDescuento = round(round(montoTotal, decimales) - round(linea.price_subtotal, decimales), decimales)
+				if linea.tax_ids_after_fiscal_position:
+					if linea.product_id and linea.product_id.type == 'service':
+						totalDescuentosServiciosGravados += montoDescuento
+					else:
+						totalDescuentosMercanciasGravadas += montoDescuento
+				else:
+					if linea.product_id and linea.product_id.type == 'service':
+						totalDescuentosServiciosExentos += montoDescuento
+					else:
+						totalDescuentosMercanciasExentas += montoDescuento
+
+				MontoDescuento.text = str(montoDescuento)
+				LineaDetalle.append(MontoDescuento)
+
+				NaturalezaDescuento = etree.Element('NaturalezaDescuento')
+				NaturalezaDescuento.text =  'Descuento Comercial'
+				LineaDetalle.append(NaturalezaDescuento)
 
 			SubTotal = etree.Element('SubTotal')
 			SubTotal.text = str(round(linea.price_subtotal, decimales))

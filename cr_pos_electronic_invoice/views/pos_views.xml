@@ -38,17 +38,25 @@
 				<field name="date_order" position="after">
 					<field name="date_issuance" readonly="1"/>
 				</field>
-				<field name="account_move" position="after">
-					<!--<field name="reference_code_id" attrs="{'required':[('pos_order_id','!=',False)]}"/>-->
-					<!--<field name="pos_order_id"/>-->
-					<field name="state_tributacion" readonly="1"/>
-					<field name="fname_xml_respuesta_tributacion" invisible="1" readonly="1"/>
-					<field name="xml_respuesta_tributacion" filename="fname_xml_respuesta_tributacion" readonly="1"/>
-					<field name="fname_xml_comprobante" invisible="1" readonly="1"/>
-					<field name="xml_comprobante" filename="fname_xml_comprobante" readonly="1"/>
-				</field>
+				<xpath expr="//page[last()]" position="after">
+					<page string="Facturación Electrónica" name="facturacion_electronica">
+						<group>
+							<field name="date_issuance" readonly="1"/>
+							<field name="number_electronic" readonly="1"/>
+							<field name="state_tributacion" readonly="1"/>
+							<field name="fname_xml_respuesta_tributacion" invisible="1" readonly="1"/>
+							<field name="xml_respuesta_tributacion" filename="fname_xml_respuesta_tributacion"/>
+							<field name="respuesta_tributacion" default="Nada aún"/>
+							<field name="state_tributacion" invisible="1"/>
+							<field name="fname_xml_comprobante" invisible="1" readonly="1"/>
+							<field name="xml_comprobante" filename="fname_xml_comprobante"/>
+						</group>
+					</page>
+				</xpath>
+
 			</field>
 		</record>
+
 		<record id="view_pos_order_electronic_invoice_tree" model="ir.ui.view">
 			<field name="name">pos.order.electronic.invoice.tree</field>
 			<field name="model">pos.order</field>
