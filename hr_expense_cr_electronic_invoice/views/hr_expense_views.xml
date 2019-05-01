@@ -1,0 +1,122 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+	<data>
+		<record id="hr_expense_form_view_inherit" model="ir.ui.view">
+			<field name="name">hr.expense.form.inherit</field>
+            <field name="model">hr.expense</field>
+			<field name="inherit_id" ref="hr_expense.hr_expense_form_view"/>
+			<field name="arch" type="xml">
+				<xpath expr="//header" position="inside">
+					<field name="state_tributacion" invisible="1"/>
+<!--					<button name="action_cargar_xml" type="object" string="Cargar archivo XML" colspan="2" attrs="{'invisible':[('xml_supplier_approval','not in', [None, False])]}" />-->
+					<button name="action_enviar_aceptacion" type="object" string="Enviar Mensaje Receptor" colspan="2" attrs="{'invisible':[('state_tributacion','in', [None, 'na'])]}"/>
+					<button name="action_consultar_recepcion" type="object" string="Consultar Hacienda" colspan="2" attrs="{'invisible':[('state_tributacion','not in', ['aceptado', 'rechazado', 'recibido', 'error', 'procesando'])]}"/>
+				</xpath>
+				<xpath expr="//sheet[1]" position="after">
+					<sheet>
+						<group string="Aceptación de Gasto con Hacienda" col="2">
+						<group>
+							<field name="fname_xml_supplier_approval" invisible="1" />
+							<field name="xml_supplier_approval" filename="fname_xml_supplier_approval" />
+							<field name="state_invoice_partner" />
+
+						</group>
+						<group>
+							<field name="date_issuance" readonly="1"/>
+							<field name="number_electronic" readonly="1"/>
+							<field name="state_tributacion" readonly="1"/>
+							<field name="fname_xml_respuesta_tributacion" invisible="1" readonly="1"/>
+							<field name="xml_respuesta_tributacion" filename="fname_xml_respuesta_tributacion"/>
+							<field name="respuesta_tributacion" default="Nada aún"/>
+							<field name="state_tributacion" invisible="1"/>
+							<field name="fname_xml_comprobante" invisible="1" readonly="1"/>
+							<field name="xml_comprobante" filename="fname_xml_comprobante"/>
+						</group>
+					</group>
+					</sheet>
+
+				</xpath>
+			</field>
+		</record>
+
+		<record id="facturacion_electronica_form" model="ir.ui.view">
+			<field name="name">facturacion_electronica.form</field>
+			<field name="model">facturacion_electronica</field>
+			<field name="arch" type="xml">
+				<form string="Documentos Electrónicos">
+					<field name="token" />
+					<field name="timestamp" />
+					<field name="ttl" />
+				</form>
+			</field>
+		</record>
+
+<!--		<record id="hr_expense_cargar_xml_action" model="ir.actions.act_window">-->
+<!--			<field name="name">Import Bills</field>-->
+<!--			<field name="res_model">hr.expense</field>-->
+<!--			<field name="view_mode">form</field>-->
+<!--			<field name="context"></field>-->
+<!--		</record>-->
+		<!--<record id="view_account_journal_pos_electronic_invoice_form" model="ir.ui.view">-->
+			<!--<field name="name">account.journal.pos.electronic.invoice.form</field>-->
+			<!--<field name="model">account.journal</field>-->
+			<!--<field name="inherit_id" ref="point_of_sale.view_account_journal_pos_user_form"/>-->
+			<!--<field name="arch" type="xml">-->
+				<!--<field name="amount_authorized_diff" position="after">-->
+					<!--<field name="payment_method_id"/>-->
+				<!--</field>-->
+			<!--</field>-->
+		<!--</record>-->
+
+		<!--<record id="view_pos_config_electronic_invoice_form" model="ir.ui.view">-->
+			<!--<field name="name">pos.config.electronic.invoice.form</field>-->
+			<!--<field name="model">pos.config</field>-->
+			<!--<field name="inherit_id" ref="point_of_sale.pos_config_view_form"/>-->
+			<!--<field name="arch" type="xml">-->
+				<!--&lt;!&ndash;<field name="default_fiscal_position_id" position="after">&ndash;&gt;-->
+					<!--&lt;!&ndash;<field name="sucursal"/>&ndash;&gt;-->
+					<!--&lt;!&ndash;<field name="terminal"/>&ndash;&gt;-->
+				<!--&lt;!&ndash;</field>&ndash;&gt;-->
+				<!--<field name="sequence_id" position="after">-->
+					<!--<field name="return_sequence_id"/>-->
+				<!--</field>-->
+			<!--</field>-->
+		<!--</record>-->
+
+		<!--<record id="view_pos_order_electronic_invoice_form" model="ir.ui.view">-->
+			<!--<field name="name">pos.order.electronic.invoice.form</field>-->
+			<!--<field name="model">pos.order</field>-->
+			<!--<field name="inherit_id" ref="point_of_sale.view_pos_pos_form"/>-->
+			<!--<field name="arch" type="xml">-->
+				<!--<field name="name" position="after">-->
+					<!--<field name="number_electronic" readonly="1"/>-->
+				<!--</field>-->
+				<!--<field name="date_order" position="after">-->
+					<!--<field name="date_issuance" readonly="1"/>-->
+				<!--</field>-->
+				<!--<field name="account_move" position="after">-->
+					<!--&lt;!&ndash;<field name="reference_code_id" attrs="{'required':[('pos_order_id','!=',False)]}"/>&ndash;&gt;-->
+					<!--&lt;!&ndash;<field name="pos_order_id"/>&ndash;&gt;-->
+					<!--<field name="state_tributacion" readonly="1"/>-->
+					<!--<field name="fname_xml_respuesta_tributacion" invisible="1" readonly="1"/>-->
+					<!--<field name="xml_respuesta_tributacion" filename="fname_xml_respuesta_tributacion" readonly="1"/>-->
+					<!--<field name="fname_xml_comprobante" invisible="1" readonly="1"/>-->
+					<!--<field name="xml_comprobante" filename="fname_xml_comprobante" readonly="1"/>-->
+				<!--</field>-->
+			<!--</field>-->
+		<!--</record>-->
+		<!--<record id="view_pos_order_electronic_invoice_tree" model="ir.ui.view">-->
+			<!--<field name="name">pos.order.electronic.invoice.tree</field>-->
+			<!--<field name="model">pos.order</field>-->
+			<!--<field name="inherit_id" ref="point_of_sale.view_pos_order_tree"/>-->
+			<!--<field name="arch" type="xml">-->
+				<!--<field name="state" position="before">-->
+					<!--<field name="state_tributacion"/>-->
+					<!--&lt;!&ndash;<field name="state_email"/>&ndash;&gt;-->
+				<!--</field>-->
+			<!--</field>-->
+		<!--</record>-->
+
+    </data>
+
+</odoo>
