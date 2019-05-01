@@ -314,7 +314,7 @@ class FacturacionElectronica(models.TransientModel):
 			mensaje['consecutivoReceptor'] = Documento.find('NumeroConsecutivoReceptor').text
 
 		token = self.get_token()
-		if not token:
+		if token is None or token is False:
 			_logger.info('No hay conexión con hacienda')
 			return False
 
@@ -429,8 +429,8 @@ class FacturacionElectronica(models.TransientModel):
 			return False
 
 		token = self.get_token()
-		if not token:
-			_logger.error('No hay conexión con hacienda')
+		if token is None or token is False:
+			_logger.info('No hay conexión con hacienda')
 			return False
 
 		headers = {'Content-Type': 'application/json', 'Authorization': 'Bearer {}'.format(token)}
