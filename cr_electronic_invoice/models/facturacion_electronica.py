@@ -46,7 +46,7 @@ class FacturacionElectronica(models.TransientModel):
 	@api.model
 	def enviar_aceptacion(self, object):
 
-		if not self._es_mensaje_receptor(object):
+		if not self._es_mensaje_aceptacion(object):
 			_logger.info('%s sin documento electronico que aceptar' % object)
 			return False
 
@@ -66,50 +66,59 @@ class FacturacionElectronica(models.TransientModel):
 
 	def _get_token(self):
 
-		return self._refresh_token()
+		# return self._refresh_token()
+		company = self.env.user.company_id
 
-		if self.env.user.company_id.token:
-			token = ast.literal_eval(self.env.user.company_id.token)
+		if company.token:
+			token = ast.literal_eval(company.token)
 
 			token_timestamp = datetime.strptime(token['timestamp'], '%Y-%m-%d %H:%M:%S')
-
+			_logger.info('token_timestamp %s' % token_timestamp)
 			token_expires_on = token_timestamp + timedelta(seconds=token['expires_in'])
-
+			_logger.info('token_expires_on %s' % token_expires_on)
 			now = datetime.now()
+			_logger.info('now %s' % now)
 
 			if token_expires_on > (now - timedelta(seconds=100)):
-				_logger.info('token actual con ttl %s' % (token_expires_on - now).total_seconds())
+				_logger.info('token ttl %s' % (token_expires_on - now).total_seconds())
 				return token['access_token']
-			else:
-				_logger.info('token vencido hace %s' % (now - token_expires_on).total_seconds())
-				return self._refresh_token()
-		else:
-			return self._refresh_token()
+
+		return self._refresh_token()
 
 	def _refresh_token(self):
-		if self.env.user.company_id.frm_ws_ambiente == 'api-stag':
-			url = 'https://idp.comprobanteselectronicos.go.cr/auth/realms/rut-stag/protocol/openid-connect/token'
-		elif self.env.user.company_id.frm_ws_ambiente == 'api-prod':
-			url = 'https://idp.comprobanteselectronicos.go.cr/auth/realms/rut/protocol/openid-connect/token'
+		company = self.env.user.company_id
 
 		data = {
-			'client_id': self.env.user.company_id.frm_ws_ambiente,
+			'client_id': company.frm_ws_ambiente,
 			'client_secret': '',
 			'grant_type': 'password',
-			'username': self.env.user.company_id.frm_ws_identificador,
-			'password': self.env.user.company_id.frm_ws_password}
+			'username': company.frm_ws_identificador,
+			'password': company.frm_ws_password}
 
 		try:
+			_logger.info('data %s' % data)
+
+			url = self._get_url_token()
+			_logger.info('url %s' % url)
+
+
 			response = requests.post(url, data=data)
+			_logger.info('response %s' % response)
 
 			respuesta = response.json()
+			_logger.info('respuesta %s' % respuesta)
 
 			respuesta['timestamp'] = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
 
-			_logger.info('token length %s type %s' % (len(respuesta['access_token']), respuesta['token_type']) if 'acces_token' in respuesta else 'No hay conexión con hacienda')
-			# self.env.user.company_id.token = respuesta
+			_logger.info('respuesta %s' % respuesta)
 
-			return respuesta['access_token']
+			_logger.info('token length %s type %s' % (len(respuesta['access_token']), respuesta['token_type']) if 'access_token' in respuesta else 'No hay conexión con hacienda')
+
+			if 'access_token' in respuesta:
+				company.token = respuesta
+				return respuesta['access_token']
+			else:
+				return False
 
 		except requests.exceptions.RequestException as e:
 			_logger.info('RequestException\n%s' % e)
@@ -123,22 +132,27 @@ class FacturacionElectronica(models.TransientModel):
 			_logger.info('Exception\n%s' % e)
 			return False
 
-	def _es_mensaje_receptor(self, object):
-		if object._name == 'account.invoice' and object.type in ('in_invoice', 'in_refund'):
+	def _es_mensaje_aceptacion(self, object):
+		if object._name == 'account.invoice' and object.type in ('in_invoice', 'in_refund') \
+			or object._name == 'hr.expense':
 			return True
-		if object._name == 'hr.expense':
-			return True
-		return False
+		else:
+			return False
 
-	def _get_url(self, object):
-		if object.company_id.frm_ws_ambiente == 'api-stag':
-			return 'https://api.comprobanteselectronicos.go.cr/recepcion-sandbox/v1/recepcion/'
-		if object.company_id.frm_ws_ambiente == 'api-prod':
-			return 'https://api.comprobanteselectronicos.go.cr/recepcion/v1/recepcion/'
-		return False
+	def _get_url(self):
+		url = 'https://api.comprobanteselectronicos.go.cr/recepcion/v1/recepcion/'
+		if self.env.user.company_id.frm_ws_ambiente == 'api-stag':
+			url = url.replace('/recepcion/', '/recepcion-sandbox/', 1)
+		return url
 
-	def _fe_habilitado(self, object):
-		return False if object.company_id.frm_ws_ambiente == 'disabled' else True
+	def _get_url_token(self):
+		url = 'https://idp.comprobanteselectronicos.go.cr/auth/realms/rut/protocol/openid-connect/token'
+		if self.env.user.company_id.frm_ws_ambiente == 'api-stag':
+			url = url.replace('/rut/', '/rut-stag/', 1)
+		return url
+
+	def _fe_habilitado(self):
+		return False if self.env.user.company_id.frm_ws_ambiente == 'disabled' else True
 
 	def _get_consecutivo(self, object):
 
@@ -266,7 +280,7 @@ class FacturacionElectronica(models.TransientModel):
 
 	def _enviar_documento(self, object):
 
-		if not self._fe_habilitado(object):
+		if not self._fe_habilitado():
 			return False
 
 		_logger.info('validando %s' % object)
@@ -287,7 +301,7 @@ class FacturacionElectronica(models.TransientModel):
 
 		_logger.info('Documento %s' % Documento)
 
-		if self._es_mensaje_receptor(object):
+		if self._es_mensaje_aceptacion(object):
 			xml_factura_proveedor = object.xml_supplier_approval
 			xml_factura_proveedor = base64.b64decode(xml_factura_proveedor)
 			FacturaElectronica = etree.tostring(etree.fromstring(xml_factura_proveedor)).decode()
@@ -313,7 +327,7 @@ class FacturacionElectronica(models.TransientModel):
 
 		mensaje['comprobanteXml'] = base64.b64encode(xml).decode('utf-8')
 
-		if self._es_mensaje_receptor(object):
+		if self._es_mensaje_aceptacion(object):
 			mensaje['consecutivoReceptor'] = Documento.find('NumeroConsecutivoReceptor').text
 
 		token = self._get_token()
@@ -324,7 +338,7 @@ class FacturacionElectronica(models.TransientModel):
 		headers = {'Content-Type': 'application/json', 'Authorization': 'Bearer {}'.format(token)}
 
 		try:
-			url = self._get_url(object)
+			url = self._get_url()
 			_logger.info('validando %s' % Clave.text)
 			response = requests.post(url, data=json.dumps(mensaje), headers=headers)
 			_logger.info('Respuesta de hacienda\n%s' % response)
@@ -353,7 +367,7 @@ class FacturacionElectronica(models.TransientModel):
 
 	def _consultar_documento(self, object):
 
-		if not self._fe_habilitado(object):
+		if not self._fe_habilitado():
 			return False
 
 		if object.xml_comprobante:
@@ -375,11 +389,11 @@ class FacturacionElectronica(models.TransientModel):
 
 		headers = {'Content-Type': 'application/json', 'Authorization': 'Bearer {}'.format(token)}
 
-		if self._es_mensaje_receptor(object):
+		if self._es_mensaje_aceptacion(object):
 			clave += '-' + object.number
 
 		try:
-			url = self._get_url(object)
+			url = self._get_url()
 			_logger.info('preguntando a %s por %s' % (url, clave))
 			response = requests.get(url + '/' + clave, data=json.dumps({'clave': clave}), headers=headers)
 

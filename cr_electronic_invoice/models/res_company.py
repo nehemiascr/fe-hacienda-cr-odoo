@@ -49,8 +49,9 @@ class CompanyElectronic(models.Model):
 	def action_renovar_token(self):
 
 		_logger.info('dumping old token %s' % self.token)
+		self.token = None
 
-		self.env['facturacion_electronica'].refresh_token()
+		self.env['facturacion_electronica']._refresh_token()
 
 		_logger.info('new token saved %s' % self.token)
 
