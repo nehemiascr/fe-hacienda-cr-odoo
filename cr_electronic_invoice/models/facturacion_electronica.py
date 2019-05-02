@@ -77,7 +77,8 @@ class FacturacionElectronica(models.TransientModel):
 			now = datetime.now()
 			_logger.info('now %s' % now)
 
-			if token_expires_on > (now - timedelta(seconds=100)):
+			extra_time = 30
+			if (token_expires_on - now).total_seconds() - extra_time > 0:
 				_logger.info('token ttl %s' % (token_expires_on - now).total_seconds())
 				return token['access_token']
 

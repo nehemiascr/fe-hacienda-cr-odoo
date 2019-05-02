@@ -52,6 +52,8 @@
 				<xpath expr="//page[1]" position="after">
 					<page string="Facturación Electrónica">
 						<button name="action_renovar_token" string="Renovar token" type="object" class="btn-primary"/>
+						<button name="action_revisar_token" string="Revisar token" type="object" class="btn-primary"/>
+
 						<!--<div style="margin-top:5px"  class="oe_button_box" name="expense_button_box">-->
 							<!--<field name="is_active" invisible="False"/>-->
 							<!--<button name="to_register_client" type="object" attrs="{'invisible':[('is_active','=',True)]}" string="Activar o Registrar Cliente"/>-->
