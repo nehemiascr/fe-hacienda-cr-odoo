@@ -65,8 +65,6 @@ class FacturacionElectronica(models.TransientModel):
 		return True if self._get_token() else False
 
 	def _get_token(self):
-
-		# return self._refresh_token()
 		company = self.env.user.company_id
 
 		if company.token:
@@ -96,26 +94,19 @@ class FacturacionElectronica(models.TransientModel):
 			'password': company.frm_ws_password}
 
 		try:
-			_logger.info('data %s' % data)
-
 			url = self._get_url_token()
-			_logger.info('url %s' % url)
-
 
 			response = requests.post(url, data=data)
-			_logger.info('response %s' % response)
 
 			respuesta = response.json()
-			_logger.info('respuesta %s' % respuesta)
 
 			respuesta['timestamp'] = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
 
-			_logger.info('respuesta %s' % respuesta)
-
-			_logger.info('token length %s type %s' % (len(respuesta['access_token']), respuesta['token_type']) if 'access_token' in respuesta else 'No hay conexión con hacienda')
+			# _logger.info('token length %s type %s' % (len(respuesta['access_token']), respuesta['token_type']) if 'access_token' in respuesta else 'No hay conexión con hacienda')
 
 			if 'access_token' in respuesta:
 				company.token = respuesta
+				_logger.info('token renovado')
 				return respuesta['access_token']
 			else:
 				return False
@@ -155,7 +146,6 @@ class FacturacionElectronica(models.TransientModel):
 		return False if self.env.user.company_id.frm_ws_ambiente == 'disabled' else True
 
 	def _get_consecutivo(self, object):
-
 		# tipo de documento
 		if object._name == 'account.invoice':
 			numeracion = object.number
@@ -339,16 +329,16 @@ class FacturacionElectronica(models.TransientModel):
 
 		try:
 			url = self._get_url()
-			_logger.info('validando %s' % Clave.text)
+			_logger.info('validando %s %s' % (object, Clave.text))
 			response = requests.post(url, data=json.dumps(mensaje), headers=headers)
 			_logger.info('Respuesta de hacienda\n%s' % response)
 
 		except requests.exceptions.RequestException as e:
-			_logger.info('Exception %s' % e)
+			_logger.info('RequestException %s' % e)
 			raise Exception(e)
 
 		if response.status_code == 202:
-			_logger.info('documento recibido por hacienda %s' % response)
+			_logger.info('documento entregado %s' % response)
 			object.state_tributacion = 'recibido'
 			return True
 		else:
@@ -393,9 +383,9 @@ class FacturacionElectronica(models.TransientModel):
 			clave += '-' + object.number
 
 		try:
-			url = self._get_url()
-			_logger.info('preguntando a %s por %s' % (url, clave))
-			response = requests.get(url + '/' + clave, data=json.dumps({'clave': clave}), headers=headers)
+			url = self._get_url() + '/' + clave
+			_logger.info('preguntando con %s' % url)
+			response = requests.get(url, data=json.dumps({'clave': clave}), headers=headers)
 
 		except requests.exceptions.RequestException as e:
 			_logger.info('no vamos a continuar, Exception %s' % e)
