@@ -979,7 +979,6 @@ class FacturacionElectronica(models.TransientModel):
 
 			if linea.discount:
 				MontoDescuento = etree.Element('MontoDescuento')
-				montoDescuento = round(round(montoTotal, decimales) * round(linea.discount, decimales) / round(100.00, decimales), decimales)
 				montoDescuento = montoTotal - linea.price_subtotal
 				if linea.tax_ids_after_fiscal_position:
 					if linea.product_id and linea.product_id.type == 'service':
@@ -1023,7 +1022,7 @@ class FacturacionElectronica(models.TransientModel):
 
 						Monto = etree.Element('Monto')
 						monto = linea.price_subtotal * impuesto.amount / 100.0
-						totalImpuesto += round(monto, decimales)
+						totalImpuesto += monto
 						Monto.text = str(round(monto, decimales))
 						Impuesto.append(Monto)
 
