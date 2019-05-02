@@ -1698,12 +1698,10 @@ class FacturacionElectronica(models.TransientModel):
 
 		return Documento
 
-	@api.model
 	def _get_xml_MR_hr_expense(self, expense):
 		expense.number = self._get_consecutivo(expense)
 		return  self._get_xml_MR(expense, expense.number)
 
-	@api.model
 	def _get_xml_MR_account_invoice(self, invoice):
 		if not invoice.number:
 			_logger.error('Factura sin consecutivo %s', invoice)
@@ -1722,7 +1720,6 @@ class FacturacionElectronica(models.TransientModel):
 			invoice.number = consecutivo
 		return  self._get_xml_MR(invoice, invoice.number)
 
-	@api.model
 	def _get_xml_MR(self, object, consecutivo):
 		xml = base64.b64decode(object.xml_supplier_approval)
 		_logger.info('xml %s' % xml)
