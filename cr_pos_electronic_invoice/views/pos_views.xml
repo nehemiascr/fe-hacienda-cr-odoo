@@ -69,16 +69,36 @@
 			</field>
 		</record>
 
+				   <record id="paperformat_posreceipt" model="report.paperformat">
+            <field name="name">Point Of Sale Receipt</field>
+            <field name="default" eval="True"/>
+            <field name="format">custom</field>
+            <field name="page_height">150</field>
+            <field name="page_width">60</field>
+            <field name="orientation">Portrait</field>
+            <field name="margin_top">3</field>
+            <field name="margin_bottom">3</field>
+            <field name="margin_left">3</field>
+            <field name="margin_right">3</field>
+            <field name="header_line" eval="False" />
+            <field name="header_spacing">3</field>
+            <field name="dpi">130</field>
+        </record>
+
 				<report
             id="pos_orders"
             model="pos.order"
-            string="PosOrders"
+            string="Imprimir Tiquete"
             report_type="qweb-pdf"
-            name="cr_pos_electronic_invoice.pos_order_report"
-            file="cr_pos_electronic_invoice.pos_order_report"
-            attachment_use="True"
-            attachment="(object.state in ('paid','done','invoiced')) and ('TE_'+(object.number_electronic or '').replace('/','')+'.pdf')"
+            name="cr_pos_electronic_invoice.pos_order2_report_view"
+            file="cr_pos_electronic_invoice.pos_order2_report_view"
+			print_report_name="'TiqueteElectronico_'+(object.name or '')"
+			paperformat="paperformat_posreceipt"
         />
+
+
+
+
 
 
 		<record id="email_template_pos_invoice" model="mail.template">
@@ -88,7 +108,7 @@
             <field name="partner_to">${object.partner_id.id}</field>
             <field name="model_id" ref="point_of_sale.model_pos_order"/>
             <field name="auto_delete" eval="False"/>
-            <field name="report_template" ref="cr_pos_electronic_invoice.pos_orders"/>
+            <field name="report_template" ref="point_of_sale.pos_invoice_report"/>
             <field name="report_name">TE_${(object.number_electronic or '').replace('/','_')}_${object.state == 'draft' and 'draft' or ''}</field>
             <field name="lang">${object.partner_id.lang}</field>
             <field name="body_html"><![CDATA[
@@ -150,6 +170,137 @@
 
 
     </data>
+
+	<data noupdate="0">
+		<template id="pos_order2_report_view">
+
+			<t t-call="web.html_container">
+        <t t-foreach="docs" t-as="o">
+            <div class="article">
+				<img src='/web/binary/company_logo' style="width: 40%;padding: 2px 8px 0px 13px;float: right;"/>
+				<h4>Tiquete Electrónico</h4>
+					<h2 t-esc="o.company_id.commercial_name"/>
+                    <t t-esc="o.company_id.name"/><br />
+                    Ced.Jur: <t t-esc="o.company_id.vat"/><br />
+                    Tel: <t t-esc="o.company_id.phone"/><br />
+                    <t t-esc="o.company_id.email"/><br />
+                    <br />
+            <div class="pos-center-align pos-disc-font">
+                  Consecutivo: <t t-esc="o.name"/>
+            </div>
+
+
+                <div class="text-center">
+
+                    <table>
+                        <tr>
+                            <td>Clave Numerica:</td>
+                        </tr>
+                        <tr>
+                            <td><t t-esc="o.number_electronic"/></td>
+                        </tr>
+                    </table>
+                </div>
+
+                <div class="row">
+                    <div class="col-xs-12 text-center">
+                        Cajero: <span t-field="o.user_id"/><br/>
+                        Fecha: <span t-field="o.date_order"/><br/>
+						<t t-if="o.partner_id">
+							Cliente: <span t-field="o.partner_id.name"/><br/>
+						</t>
+						<t t-if="o.partner_id.vat">
+							Cedula: <span t-field="o.partner_id.vat"/><br/>
+						</t>
+                    </div>
+                </div>
+
+                <div class="row">
+                </div>
+
+                <table class="table table-condensed">
+                    <thead>
+                        <tr>
+                            <th>Descripcion</th>
+                            <th class="text-right">Cant</th>
+                            <th class="text-right">Precio</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr t-foreach="o.lines" t-as="line">
+                            <td><span t-field="line.product_id"/></td>
+                            <td class="text-right">
+                                <t t-if="o.state != 'cancel' and o.statement_ids">
+                                    <span t-field="line.qty"/>
+                                </t>
+                            </td>
+                            <td class="text-right">
+                                <t t-if="o.state != 'cancel' and o.statement_ids">
+                                    <span t-esc="line.price_subtotal_incl"/>
+                                </t>
+                                <t t-if="line.discount != 0.0">
+                                    <span t-esc="line.discount"/>%
+                                </t>
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+
+                <div class="row">
+                    <div class="col-xs-12 pull-right">
+                        <table class="table table-condensed">
+							<tr>
+                                <td><strong>Sub-Total</strong></td>
+                                <td class="text-right">
+                                    <strong t-esc="o.amount_total - o.amount_tax"/>
+                                </td>
+                            </tr>
+							<tr t-if="o.amount_tax" class="border-black">
+                                <td><strong>Impuestos y Cargos</strong></td>
+                                <td class="text-right">
+                                    <strong t-esc="o.amount_tax"/>
+                                </td>
+                            </tr>
+                            <tr>
+                                <td><strong>Total</strong></td>
+                                <td class="text-right">
+                                    <strong t-esc="o.amount_total"/>
+                                </td>
+                            </tr>
+
+                        </table>
+                    </div>
+                </div>
+
+                <table class="table table-condensed">
+                    <thead>
+                        <tr>
+                            <th>Pago</th>
+                            <th>Monto</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr t-foreach="o.statement_ids" t-as="d">
+                            <td>
+                                <span t-esc="d.statement_id.journal_id.name"/>
+                            </td>
+                            <td>
+                                <span t-esc="d.amount"/>
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+                <div style='text-align:center'>
+                    Res DGT-R-48-2016 del 07/10/2016
+                </div>
+
+
+			</div>
+		  </t>
+	  </t>
+		</template>
+
+	</data>
 
 
 </odoo>

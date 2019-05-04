@@ -60,10 +60,6 @@ class FacturacionElectronica(models.TransientModel):
 
 		object.state_tributacion = 'pendiente'
 
-	@api.model
-	def conexion_con_hacienda(self):
-		return True if self._get_token() else False
-
 	def _get_token(self):
 		company = self.env.user.company_id
 

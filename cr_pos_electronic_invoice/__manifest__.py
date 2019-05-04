@@ -15,7 +15,6 @@
         "data/data.xml",
         "views/pos_templates.xml",
         "views/pos_views.xml",
-        "views/electronic_invoice_views.xml",
     ],
     "qweb": [
         "static/src/xml/pos.xml",
