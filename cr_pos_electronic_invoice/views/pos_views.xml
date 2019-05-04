@@ -236,7 +236,7 @@
                             </td>
                             <td class="text-right">
                                 <t t-if="o.state != 'cancel' and o.statement_ids">
-                                    <span t-esc="line.price_subtotal_incl"/>
+                                    <span t-esc="line.price_subtotal_incl" t-options='{"widget": "monetary", "display_currency": o.company_id.currency_id}'/>
                                 </t>
                                 <t t-if="line.discount != 0.0">
                                     <span t-esc="line.discount"/>%
@@ -252,19 +252,19 @@
 							<tr>
                                 <td><strong>Sub-Total</strong></td>
                                 <td class="text-right">
-                                    <strong t-esc="o.amount_total - o.amount_tax"/>
+                                    <strong t-esc="o.amount_total - o.amount_tax" t-options='{"widget": "monetary", "display_currency": o.company_id.currency_id}'/>
                                 </td>
                             </tr>
 							<tr t-if="o.amount_tax" class="border-black">
                                 <td><strong>Impuestos y Cargos</strong></td>
                                 <td class="text-right">
-                                    <strong t-esc="o.amount_tax"/>
+                                    <strong t-esc="o.amount_tax" t-options='{"widget": "monetary", "display_currency": o.company_id.currency_id}'/>
                                 </td>
                             </tr>
                             <tr>
                                 <td><strong>Total</strong></td>
                                 <td class="text-right">
-                                    <strong t-esc="o.amount_total"/>
+                                    <strong t-esc="o.amount_total" t-options='{"widget": "monetary", "display_currency": o.company_id.currency_id}'/>
                                 </td>
                             </tr>
 
