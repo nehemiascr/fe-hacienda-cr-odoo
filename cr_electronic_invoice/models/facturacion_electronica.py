@@ -1587,6 +1587,15 @@ class FacturacionElectronica(models.TransientModel):
 		# ResumenFactura
 		ResumenFactura = etree.Element('ResumenFactura')
 
+		if invoice.currency_id.name != 'CRC':
+			CodigoMoneda = etree.Element('CodigoMoneda')
+			CodigoMoneda.text = invoice.currency_id.name
+			ResumenFactura.append(CodigoMoneda)
+
+			TipoCambio = etree.Element('TipoCambio')
+			TipoCambio.text = str(round(1.0 / invoice.currency_id.rate, decimales))
+			ResumenFactura.append(TipoCambio)
+
 		if totalServiciosGravados:
 			TotalServGravados = etree.Element('TotalServGravados')
 			TotalServGravados.text = str(round(totalServiciosGravados + totalDescuentosServiciosGravados, decimales))
