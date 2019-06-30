@@ -1,0 +1,45 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+	<data>
+
+		<record id="view_version_tree" model="ir.ui.view">
+            <field name="name">electronic_invoice.version.tree</field>
+            <field name="model">electronic_invoice.version</field>
+            <field name="arch" type="xml">
+                <tree string="Users">
+                    <field name="name"/>
+                    <field name="notes"/>
+                </tree>
+            </field>
+        </record>
+
+		<record id="view_version_form" model="ir.ui.view">
+            <field name="name">electronic_invoice.version.form</field>
+            <field name="model">electronic_invoice.version</field>
+            <field name="arch" type="xml">
+                <form string="Versión">
+                    <sheet>
+                            <group>
+                                <field name="name"/>
+                                <field name="url_reception_endpoint_production"/>
+                                <field name="url_reception_endpoint_testing"/>
+                                <field name="url_auth_endpoint"/>
+                                <field name="schema_ids"/>
+                                <field name="notes"/>
+                            </group>
+                    </sheet>
+                </form>
+            </field>
+        </record>
+
+		<record id="action_version" model="ir.actions.act_window">
+			<field name="name">Versiones</field>
+			<field name="res_model">electronic_invoice.version</field>
+			<field name="view_type">form</field>
+			<field name="view_mode">tree,form</field>
+		</record>
+
+		<menuitem id="menu_schema_version" name="Versiones" parent="menu_electronic_invoice" sequence="10" action="action_version"/>
+
+	</data>
+</odoo>

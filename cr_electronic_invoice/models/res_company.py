@@ -12,48 +12,26 @@ class CompanyElectronic(models.Model):
 
 	commercial_name = fields.Char(string="Nombre comercial")
 	phone_code = fields.Char(string="Código de teléfono",  size=3, default="506")
-	signature = fields.Binary(string="Llave Criptográfica")
+
 	identification_id = fields.Many2one(comodel_name="identification.type", string="Tipo de identificacion")
 	district_id = fields.Many2one(comodel_name="res.country.district", string="Distrito")
 	county_id = fields.Many2one(comodel_name="res.country.county", string="Cantón")
 	neighborhood_id = fields.Many2one(comodel_name="res.country.neighborhood", string="Barrios")
-	frm_ws_identificador = fields.Char(string="Usuario de Factura Electrónica")
-	frm_ws_password = fields.Char(string="Password de Factura Electrónica")
 
-	frm_ws_ambiente = fields.Selection(
-		selection=[('disabled', 'Deshabilitado'), ('api-stag', 'Pruebas'), ('api-prod', 'Producción'), ],
-		string="Ambiente",
-		required=True, default='disabled',
-		help='Es el ambiente en al cual se le está actualizando el certificado. Para el ambiente de calidad (stag) c3RhZw==, '
-			 'para el ambiente de producción (prod) '
-			 'cHJvZA==. Requerido.')
-	frm_pin = fields.Char(string="Pin",  help='Es el pin correspondiente al certificado. Requerido')
-	frm_callback_url = fields.Char(string="Callback Url",  default="https://url_callback/repuesta.php?",
-								   help='Es la URL en a la cual se reenviarán las respuestas de Hacienda.')
+	eicr_version_id = fields.Many2one('electronic_invoice.version', 'Versión de la Facturación Electrónica')
+	eicr_username = fields.Char(string="Usuario")
+	eicr_password = fields.Char(string="Contraseña")
+	eicr_signature = fields.Binary(string="Llave Criptográfica")
+	eicr_pin = fields.Char(string="PIN")
 
-	activated = fields.Boolean('Activado')
-	state = fields.Selection([
-		('draft', 'Draft'),
-		('started', 'Started'),
-		('progress', 'In progress'),
-		('finished', 'Done'),
-	], default='draft')
+	eicr_environment = fields.Selection(selection=[('disabled', 'Deshabilitado'), ('api-stag', 'Pruebas'), ('api-prod', 'Producción')],
+										string="Ambiente",
+										required=True, default='disabled',
+										help='Seleccione el punto de conexión del Ministerio de Hacienda a usar')
 
-	frm_apicr_username = fields.Char(string="Usuario de Api")
-	frm_apicr_password = fields.Char(string="Password de Api")
-	frm_apicr_signaturecode = fields.Char(string="Codigo para Firmar API")
-
-	token = fields.Text('token de sesión para el sistema de recepción de comprobantes del Ministerio de Hacienda')
+	eicr_token = fields.Text('Token de sesión para el sistema de recepción de comprobantes del Ministerio de Hacienda')
 
 	@api.multi
-	def action_renovar_token(self):
-
-		_logger.info('dumping old token %s' % self.token)
-		self.token = None
-		self.env['facturacion_electronica']._refresh_token()
-		_logger.info('new token saved %s' % self.token)
-
-	def action_revisar_token(self):
-		_logger.info('token %s' % self.env['facturacion_electronica']._get_token())
-
-
+	def action_get_token(self):
+		_logger.info('checking token %s' % self.eicr_token)
+		self.env['electronic_invoice'].get_token(self)

@@ -3,7 +3,7 @@
 	<data noupdate="0">
 		<record id="ir_cron_consultahacienda" model="ir.cron">
 			<field name="name">Consulta Hacienda</field>
-			<field name="model_id" ref="model_facturacion_electronica" />
+			<field name="model_id" ref="model_electronic_invoice" />
 			<field name="state">code</field>
 			<field name="code">model._consultahacienda()</field>
 			<field name="interval_number">5</field>
@@ -14,7 +14,7 @@
 
 		<record id="ir_cron_valida_hacienda_invoice" model="ir.cron">
 			<field name="name">Valida Facturas Hacienda</field>
-			<field name="model_id" ref="model_facturacion_electronica" />
+			<field name="model_id" ref="model_electronic_invoice" />
 			<field name="state">code</field>
 			<field name="code">model._validahacienda()</field>
 			<field name="interval_number">5</field>

@@ -26,7 +26,7 @@ class AccountInvoiceRefund(models.TransientModel):
 
 	@api.multi
 	def compute_refund(self, mode='refund'):
-		if self.env.user.company_id.frm_ws_ambiente == 'disabled':
+		if self.invoice_id.company_id.eicr_environment == 'disabled':
 			result = super(AccountInvoiceRefund, self).compute_refund()
 			return result
 		else:

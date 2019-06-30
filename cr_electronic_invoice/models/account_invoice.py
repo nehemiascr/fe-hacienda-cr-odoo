@@ -313,12 +313,12 @@ class AccountInvoiceElectronic(models.Model):
     def action_enviar_aceptacion(self, vals):
         _logger.info('action_enviar_mensaje self %s' % self)
         _logger.info('action_enviar_mensaje vals %s' % vals)
-        self.env['facturacion_electronica'].enviar_aceptacion(self)
+        self.env['electronic_invoice'].enviar_aceptacion(self)
 
     @api.multi
     @api.returns('self')
     def refund(self, date_invoice=None, date=None, description=None, journal_id=None, invoice_id=None, reference_code_id=None):
-        if self.env.user.company_id.frm_ws_ambiente == 'disabled':
+        if self.company_id.eicr_environment == 'disabled':
             new_invoices = super(AccountInvoiceElectronic, self).refund()
             return new_invoices
         else:
@@ -352,24 +352,24 @@ class AccountInvoiceElectronic(models.Model):
         if self.company_id.frm_ws_ambiente != 'disabled':
 
             for invoice in self:
-                self.env['facturacion_electronica']._consultar_documento(invoice)
+                self.env['electronic_invoice']._consultar_documento(invoice)
 
     def _action_out_invoice_open(self, invoice):
 
         if invoice.type not in ('out_invoice', 'out_refund'):
             return invoice
 
-        consecutivo = self.env['facturacion_electronica']._get_consecutivo(invoice)
+        consecutivo = self.env['electronic_invoice']._get_consecutivo(invoice)
         if not consecutivo:
             raise UserError('Error con el consecutivo de la factura %s' % consecutivo)
         invoice.number = consecutivo
 
-        clave = self.env['facturacion_electronica']._get_clave(invoice)
+        clave = self.env['electronic_invoice']._get_clave(invoice)
         if not clave:
             raise UserError('Error con la clave de la factura %s' % clave)
         invoice.number_electronic = clave
 
-        comprobante = self.env['facturacion_electronica'].get_xml(invoice)
+        comprobante = self.env['electronic_invoice'].get_xml(invoice)
 
         if comprobante:
             invoice.xml_comprobante = comprobante
@@ -388,17 +388,17 @@ class AccountInvoiceElectronic(models.Model):
             return invoice
 
         if invoice.xml_supplier_approval:
-            consecutivo = self.env['facturacion_electronica']._get_consecutivo(invoice)
+            consecutivo = self.env['electronic_invoice']._get_consecutivo(invoice)
             if not consecutivo:
                 raise UserError('Error con el consecutivo de la factura %s' % consecutivo)
             invoice.number = consecutivo
 
-            clave = self.env['facturacion_electronica']._get_clave(invoice)
+            clave = self.env['electronic_invoice']._get_clave(invoice)
             if not clave:
                 raise UserError('Error con la clave de la factura %s' % clave)
             invoice.number_electronic = clave
 
-            comprobante = self.env['facturacion_electronica'].get_xml(invoice)
+            comprobante = self.env['electronic_invoice'].get_xml(invoice)
 
             if comprobante:
                 invoice.xml_comprobante = comprobante
@@ -416,7 +416,7 @@ class AccountInvoiceElectronic(models.Model):
         _logger.info('%s of type %s' % (self, self.type))
         super(AccountInvoiceElectronic, self).action_invoice_open()
 
-        if self.company_id.frm_ws_ambiente != 'disabled':
+        if self.company_id.eicr_environment != 'disabled':
 
             for invoice in self:
 

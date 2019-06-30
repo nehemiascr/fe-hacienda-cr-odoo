@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+	<data>
+
+		<record id="action_schema" model="ir.actions.act_window">
+			<field name="name">Esquemas</field>
+			<field name="res_model">electronic_invoice.schema</field>
+			<field name="view_type">form</field>
+			<field name="view_mode">tree,form</field>
+		</record>
+
+		<menuitem id="menu_schema_schema" name="Esquemas" parent="menu_electronic_invoice" sequence="11" action="action_schema"/>
+
+	</data>
+</odoo>
