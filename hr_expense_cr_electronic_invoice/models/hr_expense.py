@@ -69,9 +69,9 @@ class HrExpense(models.Model):
         _logger.info('action_enviar_mensaje vals %s' % vals)
         self.env['electronic_invoice'].enviar_aceptacion(self)
 
-    def action_consultar_recepcion(self, vals):
-        _logger.info('action_consultar_recepcion self %s' % self)
-        _logger.info('action_consultar_recepcion vals %s' % vals)
+    def action_consultar_hacienda(self, vals):
+        _logger.info('action_consultar_hacienda self %s' % self)
+        _logger.info('action_consultar_hacienda vals %s' % vals)
         if self.state_tributacion in ('aceptado', 'rechazado', 'recibido', 'error', 'procesando'):
             self.env['electronic_invoice']._consultar_documento(self)
 

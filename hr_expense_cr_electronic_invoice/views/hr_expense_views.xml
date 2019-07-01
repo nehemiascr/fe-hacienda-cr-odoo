@@ -10,7 +10,7 @@
 					<field name="state_tributacion" invisible="1"/>
 <!--					<button name="action_cargar_xml" type="object" string="Cargar archivo XML" colspan="2" attrs="{'invisible':[('xml_supplier_approval','not in', [None, False])]}" />-->
 					<button name="action_enviar_aceptacion" type="object" string="Enviar Mensaje Receptor" colspan="2" attrs="{'invisible':[('state_tributacion','in', [None, 'na'])]}"/>
-					<button name="action_consultar_recepcion" type="object" string="Consultar Hacienda" colspan="2" attrs="{'invisible':[('state_tributacion','not in', ['aceptado', 'rechazado', 'recibido', 'error', 'procesando'])]}"/>
+					<button name="action_consultar_hacienda" type="object" string="Consultar Hacienda" colspan="2" attrs="{'invisible':[('state_tributacion','not in', ['aceptado', 'rechazado', 'recibido', 'error', 'procesando'])]}"/>
 				</xpath>
 				<xpath expr="//sheet[1]" position="after">
 					<sheet>

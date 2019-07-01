@@ -80,7 +80,7 @@
 			<field name="arch" type="xml">
 				<xpath expr="//button[@name='action_invoice_cancel']" position="after">
 					<button name="action_enviar_aceptacion" type="object" string="Enviar Mensaje Receptor" colspan="2" attrs="{'invisible':[('state_tributacion','in', [None, 'na'])]}"/>
-					<button name="action_consultar_recepcion" type="object" string="Consultar Hacienda" colspan="2" attrs="{'invisible':[('state_tributacion','not in', ['aceptado', 'rechazado', 'recibido', 'error', 'procesando'])]}"/>
+					<button name="action_consultar_hacienda" type="object" string="Consultar Hacienda" colspan="2" attrs="{'invisible':[('state_tributacion','not in', ['aceptado', 'rechazado', 'recibido', 'error', 'procesando'])]}"/>
 				</xpath>
 				<xpath expr="//group[1]" position="after">
 					<group string="Facturación Electrónica" col="2">
