@@ -349,7 +349,7 @@ class AccountInvoiceElectronic(models.Model):
 
     @api.multi
     def action_consultar_hacienda(self):
-        if self.company_id.frm_ws_ambiente != 'disabled':
+        if self.company_id.eicr_environment != 'disabled':
 
             for invoice in self:
                 self.env['electronic_invoice']._consultar_documento(invoice)
