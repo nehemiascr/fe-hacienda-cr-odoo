@@ -76,7 +76,7 @@ class PosOrder(models.Model):
         pos_order.fecha = now_cr.strftime('%Y-%m-%d %H:%M:%S')
         pos_order.date_issuance = now_cr.strftime("%Y-%m-%dT%H:%M:%S-06:00")
 
-        xml_firmado = self.env['facturacion_electronica'].get_xml(pos_order)
+        xml_firmado = self.env['electronic_invoice'].get_xml(pos_order)
 
         if xml_firmado:
             pos_order.xml_comprobante = xml_firmado

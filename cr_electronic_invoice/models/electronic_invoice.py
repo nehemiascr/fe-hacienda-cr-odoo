@@ -695,10 +695,8 @@ class ElectronicInvoice(models.TransientModel):
 
 			for indice, factura in enumerate(facturas):
 				_logger.info('Consultando documento %s / %s ' % (indice+1, len(facturas)))
-				if not factura.xml_comprobante:
-					pass
-				if self._consultar_documento(factura):
-					self._enviar_email(factura)
+				if not factura.xml_comprobante: pass
+				if self._consultar_documento(factura): self._enviar_email(factura)
 				max_documentos -= 1
 
 		if order != None:
@@ -818,7 +816,7 @@ class ElectronicInvoice(models.TransientModel):
 
 		# CodigoActividad
 		CodigoActividad = etree.Element('CodigoActividad')
-		CodigoActividad.text = invoice.company_id.eicr_activity_id.code
+		CodigoActividad.text = order.company_id.eicr_activity_id.code
 		Documento.append(CodigoActividad)
 
 		# NumeroConsecutivo
@@ -1142,7 +1140,11 @@ class ElectronicInvoice(models.TransientModel):
 			MontoTotalLinea = etree.Element('MontoTotalLinea')
 			montoTotalLinea = linea.price_subtotal_incl
 			if servicio:
-				montoTotalLinea -= montoTotalLinea * 10.0 / (100.0 + sum(linea.tax_ids_after_fiscal_position.mapped('amount')))
+				_logger.info('mndl %s' % montoTotalLinea)
+				deduccion = montoTotalLinea * 10.0 / (100.0 + sum(linea.tax_ids_after_fiscal_position.mapped('amount')))
+				_logger.info('mndl %s' % deduccion)
+				montoTotalLinea -= deduccion
+				_logger.info('mndl %s' % montoTotalLinea)
 			MontoTotalLinea.text = str(round(montoTotalLinea, decimales))
 			LineaDetalle.append(MontoTotalLinea)
 
@@ -1170,6 +1172,8 @@ class ElectronicInvoice(models.TransientModel):
 			MontoCargo = etree.Element('MontoCargo')
 			MontoCargo.text = str(round((order.amount_total - order.amount_tax) * 10.0 / 100.0, decimales))
 			OtrosCargos.append(MontoCargo)
+
+			Documento.append(OtrosCargos)
 
 		# ResumenFactura
 		ResumenFactura = etree.Element('ResumenFactura')
