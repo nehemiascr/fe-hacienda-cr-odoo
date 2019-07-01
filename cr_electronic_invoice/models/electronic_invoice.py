@@ -447,6 +447,10 @@ class ElectronicInvoice(models.TransientModel):
 			_logger.info('documento entregado %s' % response)
 			object.state_tributacion = 'recibido'
 			return True
+		if response.status_code in (522, 524):
+			object.state_tributacion = 'error'
+			object.respuesta_tributacion = response.content
+			return False
 		else:
 			error_cause = response.headers['X-Error-Cause'] if 'X-Error-Cause' in response.headers else 'Error desconocido'
 			_logger.info('Error %s %s %s' % (response.status_code, error_cause, response.headers))
