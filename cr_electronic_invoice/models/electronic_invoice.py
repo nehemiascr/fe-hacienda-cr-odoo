@@ -645,7 +645,8 @@ class ElectronicInvoice(models.TransientModel):
 
 		if invoice != None:
 			facturas = invoice.search([('state', 'in', ('open', 'paid')),
-									   ('state_tributacion', 'in', ('pendiente',))], limit=max_documentos)
+									   ('state_tributacion', 'in', ('pendiente',))],
+									  limit=max_documentos).sorted(key=lambda i: i.number)
 			_logger.info('Validando %s FacturaElectronica' % len(facturas))
 			for indice, factura in enumerate(facturas):
 				_logger.info('Validando FacturaElectronica %s / %s ' % (indice+1, len(facturas)))
@@ -655,7 +656,8 @@ class ElectronicInvoice(models.TransientModel):
 				max_documentos -= 1
 
 		if order != None:
-			tiquetes = order.search([('state_tributacion', 'in', ('pendiente',))], limit=max_documentos)
+			tiquetes = order.search([('state_tributacion', 'in', ('pendiente',))],
+									limit=max_documentos).sorted(key=lambda o: o.name)
 			_logger.info('Validando %s TiqueteElectronico' % len(tiquetes))
 			for indice, tiquete in enumerate(tiquetes):
 				_logger.info('Validando TiqueteElectronico %s / %s ' % (indice+1, len(tiquetes)))
@@ -665,7 +667,8 @@ class ElectronicInvoice(models.TransientModel):
 				max_documentos -= 1
 
 		if expense != None:
-			gastos = expense.search([('state_tributacion', 'in', ('pendiente',))], limit=max_documentos)
+			gastos = expense.search([('state_tributacion', 'in', ('pendiente',))],
+									limit=max_documentos).sorted(key=lambda e: e.reference)
 			_logger.info('Validando %s Gastos' % len(gastos))
 			for indice, gasto in enumerate(gastos):
 				_logger.info('Validando Gasto %s / %s ' % (indice+1, len(gastos)))
