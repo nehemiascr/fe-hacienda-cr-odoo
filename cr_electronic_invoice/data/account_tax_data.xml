@@ -32,7 +32,7 @@
         <record id="iva_tax_01" 
             model="account.tax">
             <field name="tax_code">01</field>
-            <field name="name">IVA</field>
+            <field name="name">IVA 13%</field>
             <field name="amount">13</field>
             <field name="type_tax_use">sale</field>
             <field name="description">IVA General 13%</field>
@@ -45,7 +45,7 @@
         <record id="iva_tax_02" 
             model="account.tax">
             <field name="tax_code">01</field>
-            <field name="name">IVA</field>
+            <field name="name">IVA 13%</field>
             <field name="amount">13</field>
             <field name="type_tax_use">purchase</field>
             <field name="description">IVA General 13%</field>
