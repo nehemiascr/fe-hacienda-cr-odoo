@@ -18,6 +18,8 @@ class CompanyElectronic(models.Model):
 	county_id = fields.Many2one(comodel_name="res.country.county", string="Cantón")
 	neighborhood_id = fields.Many2one(comodel_name="res.country.neighborhood", string="Barrios")
 
+	eicr_activity_id = fields.Many2one(comodel_name="economic_activity", string="Actividad Económica")
+
 	eicr_version_id = fields.Many2one('electronic_invoice.version', 'Versión de la Facturación Electrónica')
 	eicr_username = fields.Char(string="Usuario")
 	eicr_password = fields.Char(string="Contraseña")

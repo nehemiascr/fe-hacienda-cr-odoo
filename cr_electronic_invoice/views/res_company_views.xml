@@ -9,16 +9,10 @@
 			<field name="inherit_id" ref="base.view_company_form"/>
 			<field name="arch" type="xml">
 
-				<xpath expr="//sheet[1]" position="after">
-					<div class="oe_chatter">
-						<field name="message_follower_ids" widget="mail_followers" groups="base.group_user"/>
-						<field name="message_ids" widget="mail_thread"/>
-					</div>
-				</xpath>
-
 
 				<field name="partner_id" position="after">
 					<field name="commercial_name"/>
+					<field name="eicr_activity_id"/>
 				</field>
 				<field name="vat" position="replace"/>
 
