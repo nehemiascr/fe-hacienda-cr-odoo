@@ -506,6 +506,8 @@ class ElectronicInvoice(models.TransientModel):
 			if 'no ha sido recibido' in object.respuesta_tributacion: object.state_tributacion = 'pendiente'
 			return False
 
+		_logger.info('respuesta %s' % response)
+
 		respuesta = response.json()
 
 		if 'ind-estado' not in respuesta:
