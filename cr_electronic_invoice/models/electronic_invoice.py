@@ -2117,6 +2117,7 @@ class ElectronicInvoice(models.TransientModel):
 		totalDescuentosServiciosGravados = round(0.00, decimales)
 
 		totalImpuesto = round(0.00, decimales)
+		totalIVADevuelto = round(0.00, decimales)
 
 		for indice, linea in enumerate(invoice.invoice_line_ids.sorted(lambda l: l.sequence)):
 			LineaDetalle = etree.Element('LineaDetalle')
@@ -2199,6 +2200,8 @@ class ElectronicInvoice(models.TransientModel):
 					Codigo.text = impuesto.tax_code
 					Impuesto.append(Codigo)
 
+					monto = round(linea.price_subtotal * impuesto.amount / 100.00, decimales)
+
 					if impuesto.tax_code == '01':
 						CodigoTarifa = etree.Element('CodigoTarifa')
 						CodigoTarifa.text = impuesto.iva_tax_code
@@ -2209,8 +2212,11 @@ class ElectronicInvoice(models.TransientModel):
 						Tarifa.text = str(round(impuesto.amount, decimales))
 						Impuesto.append(Tarifa)
 
+						if impuesto.iva_tax_code == '04' and invoice.payment_methods_id.sequence == '02':
+							totalIVADevuelto += monto
+
 					Monto = etree.Element('Monto')
-					monto = round(round(linea.price_subtotal, decimales) * round(impuesto.amount, decimales) / round(100.00, decimales), decimales)
+
 					totalImpuesto += monto
 					Monto.text = str(round(monto, decimales))
 					Impuesto.append(Monto)
@@ -2301,8 +2307,14 @@ class ElectronicInvoice(models.TransientModel):
 			TotalImpuesto.text = str(round(totalImpuesto, decimales))
 			ResumenFactura.append(TotalImpuesto)
 
+			if totalIVADevuelto:
+				TotalIVADevuelto = etree.Element('TotalIVADevuelto')
+				TotalIVADevuelto.text = str(round(totalIVADevuelto, decimales))
+				ResumenFactura.append(TotalIVADevuelto)
+
+
 		TotalComprobante = etree.Element('TotalComprobante')
-		TotalComprobante.text = str(round(invoice.amount_total, decimales))
+		TotalComprobante.text = str(round(invoice.amount_total - totalIVADevuelto, decimales))
 		ResumenFactura.append(TotalComprobante)
 
 		Documento.append(ResumenFactura)

@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <odoo>
-<data>
+<data noupdate="0">
 <template id="account.report_invoice_document">
      <t t-call="web.external_layout">
         <t t-set="o" t-value="o.with_context({'lang':o.partner_id.lang})"/>
@@ -79,7 +79,10 @@
                     </tr>
                 </thead>
                 <tbody class="invoice_tbody">
+                    <t t-set="totalIVADevuelto" t-value="0.00"/>
+
                     <tr t-foreach="o.invoice_line_ids" t-as="l">
+                        <t t-if="'04' in l.invoice_line_tax_ids.mapped('iva_tax_code') and o.payment_methods_id.sequence == '02'" t-set="totalIVADevuelto" t-value="totalIVADevuelto + (l.price_total - l.price_subtotal)"/>
                         <td><span t-field="l.name"/></td>
                         <td class="hidden"><span t-field="l.origin"/></td>
                         <td class="text-right">
@@ -142,10 +145,16 @@
                                     </t>
                                 </tr>
                             </t>
+                            <tr t-if="totalIVADevuelto" style="border-bottom:1px solid #dddddd;">
+                                <td><span>IVA Devuelto</span></td>
+                                 <td  class="text-right">
+                                    <span t-esc="totalIVADevuelto" t-options="{&quot;widget&quot;: &quot;monetary&quot;, &quot;display_currency&quot;: o.currency_id}"/>
+                                </td>
+                            </tr>
                             <tr class="border-black">
                                 <td><strong>Total</strong></td>
                                 <td class="text-right">
-                                    <span t-field="o.amount_total" t-options="{&quot;widget&quot;: &quot;monetary&quot;, &quot;display_currency&quot;: o.currency_id}"/>
+                                    <span t-esc="o.amount_total - totalIVADevuelto" t-options="{&quot;widget&quot;: &quot;monetary&quot;, &quot;display_currency&quot;: o.currency_id}"/>
                                 </td>
                             </tr>
                         </table>
