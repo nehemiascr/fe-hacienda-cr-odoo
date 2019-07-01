@@ -5,3 +5,5 @@ access_PaymentMethods,payment.methods,model_payment_methods,account.group_accoun
 access_SaleConditions,sale.conditions,model_sale_conditions,account.group_account_invoice,1,0,0,0
 access_ReferenceDocument,reference.document,model_reference_document,account.group_account_invoice,1,0,0,0
 access_ReferenceCode,reference.code,model_reference_code,account.group_account_invoice,1,0,0,0
+access_ElectronicInvoiceSchema,electronic_invoice.schema,model_electronic_invoice_schema,account.group_account_invoice,1,0,0,0
+access_ElectronicInvoiceVersion,electronic_invoice.version,model_electronic_invoice_version,account.group_account_invoice,1,0,0,0
