@@ -157,6 +157,7 @@ class ElectronicInvoice(models.TransientModel):
 		object.state_tributacion = 'pendiente'
 
 	def get_token(self, company_id):
+		_logger.info('checking token')
 
 		if company_id.eicr_token:
 			try:
@@ -175,8 +176,9 @@ class ElectronicInvoice(models.TransientModel):
 		return self._refresh_token(company_id)
 
 	def _refresh_token(self, company_id):
+		_logger.info('refreshing token')
 
-		if company_id.eicr_environment is 'disabled':
+		if company_id.eicr_environment == 'disabled':
 			return False
 
 		data = {
@@ -189,7 +191,8 @@ class ElectronicInvoice(models.TransientModel):
 		_logger.info('data %s' % data)
 
 		try:
-			url = company_id.eicr_version_id.url_auth_endpoint
+
+			url = self._get_url_auth(company_id)
 
 			response = requests.post(url, data=data)
 
@@ -229,6 +232,14 @@ class ElectronicInvoice(models.TransientModel):
 			return company_id.eicr_version_id.url_reception_endpoint_production
 		elif company_id.eicr_environment == 'api-stag':
 			return company_id.eicr_version_id.url_reception_endpoint_testing
+		else:
+			return None
+
+	def _get_url_auth(self, company_id):
+		if company_id.eicr_environment == 'api-prod':
+			return company_id.eicr_version_id.url_auth_endpoint_production
+		elif company_id.eicr_environment == 'api-stag':
+			return company_id.eicr_version_id.url_auth_endpoint_testing
 		else:
 			return None
 

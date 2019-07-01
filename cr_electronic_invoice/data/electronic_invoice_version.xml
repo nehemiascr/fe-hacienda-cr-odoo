@@ -6,8 +6,8 @@
             <field name="name">v4.2</field>
             <field name="url_reception_endpoint_production">https://api.comprobanteselectronicos.go.cr/recepcion/v1/recepcion</field>
             <field name="url_reception_endpoint_testing">https://api.comprobanteselectronicos.go.cr/recepcion-sandbox/v1/recepcion</field>
-            <field name="url_auth_endpoint">https://idp.comprobanteselectronicos.go.cr/auth/realms/rut-stag/protocol/openid-connect/token</field>
-            <field name="notes">Esquema versión 4.2 de la Factura Electrónica del Ministerio de Hacienda de Costa Rica
+            <field name="url_auth_endpoint_production">https://idp.comprobanteselectronicos.go.cr/auth/realms/rut/protocol/openid-connect/token</field>
+            <field name="url_auth_endpoint_testing">https://idp.comprobanteselectronicos.go.cr/auth/realms/rut-stag/protocol/openid-connect/token</field>            <field name="notes">Esquema versión 4.2 de la Factura Electrónica del Ministerio de Hacienda de Costa Rica
 Resolución Nº DGT-R- 25-2017.- San José, a las ocho horas del diecinueve de abril de dos mil diecisiete.
             </field>
         </record>
@@ -16,7 +16,8 @@ Resolución Nº DGT-R- 25-2017.- San José, a las ocho horas del diecinueve de a
             <field name="name">v4.3</field>
             <field name="url_reception_endpoint_production">https://api.comprobanteselectronicos.go.cr/recepcion/v1/recepcion</field>
             <field name="url_reception_endpoint_testing">https://api.comprobanteselectronicos.go.cr/recepcion-sandbox/v1/recepcion</field>
-            <field name="url_auth_endpoint">https://idp.comprobanteselectronicos.go.cr/auth/realms/rut-stag/protocol/openid-connect/token</field>
+            <field name="url_auth_endpoint_production">https://idp.comprobanteselectronicos.go.cr/auth/realms/rut/protocol/openid-connect/token</field>
+            <field name="url_auth_endpoint_testing">https://idp.comprobanteselectronicos.go.cr/auth/realms/rut-stag/protocol/openid-connect/token</field>
             <field name="notes">Esquema versión 4.3 de la Factura Electrónica del Ministerio de Hacienda de Costa Rica
 Resolución Nº DGT-R- 25-2017.- San José, a las ocho horas del diecinueve de abril de dos mil diecisiete.
             </field>
@@ -26,8 +27,8 @@ Resolución Nº DGT-R- 25-2017.- San José, a las ocho horas del diecinueve de a
             <field name="name">v4.4</field>
             <field name="url_reception_endpoint_production">https://api.comprobanteselectronicos.go.cr/recepcion/v1/recepcion</field>
             <field name="url_reception_endpoint_testing">https://api.comprobanteselectronicos.go.cr/recepcion-sandbox/v1/recepcion</field>
-            <field name="url_auth_endpoint">https://idp.comprobanteselectronicos.go.cr/auth/realms/rut-stag/protocol/openid-connect/token</field>
-            <field name="notes">Esquema versión 4.4 de la Factura Electrónica del Ministerio de Hacienda de Costa Rica
+            <field name="url_auth_endpoint_production">https://idp.comprobanteselectronicos.go.cr/auth/realms/rut/protocol/openid-connect/token</field>
+            <field name="url_auth_endpoint_testing">https://idp.comprobanteselectronicos.go.cr/auth/realms/rut-stag/protocol/openid-connect/token</field>            <field name="notes">Esquema versión 4.4 de la Factura Electrónica del Ministerio de Hacienda de Costa Rica
             </field>
         </record>
 

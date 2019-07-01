@@ -21,17 +21,19 @@ class CompanyElectronic(models.Model):
 	eicr_activity_id = fields.Many2one(comodel_name="economic_activity", string="Actividad Económica")
 
 	eicr_version_id = fields.Many2one('electronic_invoice.version', 'Versión de la Facturación Electrónica')
-	eicr_username = fields.Char(string="Usuario")
-	eicr_password = fields.Char(string="Contraseña")
-	eicr_signature = fields.Binary(string="Llave Criptográfica")
-	eicr_pin = fields.Char(string="PIN")
+	eicr_username = fields.Char(string="Usuario", oldname='frm_ws_identificador')
+	eicr_password = fields.Char(string="Contraseña", oldname='frm_ws_password')
+	eicr_signature = fields.Binary(string="Llave Criptográfica", oldname='signature')
+	eicr_pin = fields.Char(string="PIN", oldname='frm_pin')
 
 	eicr_environment = fields.Selection(selection=[('disabled', 'Deshabilitado'), ('api-stag', 'Pruebas'), ('api-prod', 'Producción')],
 										string="Ambiente",
 										required=True, default='disabled',
-										help='Seleccione el punto de conexión del Ministerio de Hacienda a usar')
+										help='Seleccione el punto de conexión del Ministerio de Hacienda a usar',
+										oldname='frm_ws_ambiente')
 
-	eicr_token = fields.Text('Token de sesión para el sistema de recepción de comprobantes del Ministerio de Hacienda')
+	eicr_token = fields.Text('Token de sesión para el sistema de recepción de comprobantes del Ministerio de Hacienda',
+							 oldname='token')
 
 	@api.multi
 	def action_get_token(self):
