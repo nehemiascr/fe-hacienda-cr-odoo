@@ -67,20 +67,20 @@ class HrExpense(models.Model):
     def action_enviar_aceptacion(self, vals):
         _logger.info('action_enviar_mensaje self %s' % self)
         _logger.info('action_enviar_mensaje vals %s' % vals)
-        self.env['facturacion_electronica'].enviar_aceptacion(self)
+        self.env['electronic_invoice'].enviar_aceptacion(self)
 
     def action_consultar_recepcion(self, vals):
         _logger.info('action_consultar_recepcion self %s' % self)
         _logger.info('action_consultar_recepcion vals %s' % vals)
         if self.state_tributacion in ('aceptado', 'rechazado', 'recibido', 'error', 'procesando'):
-            self.env['facturacion_electronica']._consultar_documento(self)
+            self.env['electronic_invoice']._consultar_documento(self)
 
 
     @api.onchange('xml_supplier_approval')
     def _onchange_xml_supplier_approval(self):
         _logger.info('cargando xml de proveedor')
 
-        fe = self.env['facturacion_electronica']
+        fe = self.env['electronic_invoice']
 
         if self.xml_supplier_approval and fe.validar_xml_proveedor(self.xml_supplier_approval):
 
