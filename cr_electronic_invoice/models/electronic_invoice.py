@@ -528,6 +528,7 @@ class ElectronicInvoice(models.TransientModel):
 		_logger.info('respuesta para %s %s' % (object, respuesta['ind-estado']))
 
 		object.state_tributacion = respuesta['ind-estado']
+		if respuesta['ind-estado'] == 'procesando': object.respuesta_tributacion = 'Procesando comprobante'
 
 		# Se actualiza la factura con la respuesta de hacienda
 
