@@ -114,200 +114,28 @@ class AccountInvoiceElectronic(models.Model):
             'context': ctx,
         }
 
+
+
     @api.onchange('xml_supplier_approval')
     def _onchange_xml_supplier_approval(self):
         _logger.info('cargando xml de proveedor')
         if self.xml_supplier_approval:
-            root = ET.fromstring(
-                re.sub(' xmlns="[^"]+"', '', base64.b64decode(self.xml_supplier_approval).decode("utf-8"), count=1))  # quita el namespace de los elementos
 
-            if not root.findall('Clave'):
-                return {'value': {'xml_supplier_approval': False},
-                        'warning': {'title': 'Atención',
-                                    'message': 'El archivo xml no contiene el nodo Clave. Por favor cargue un archivo con el formato correcto.'
-                                    }
-                        }
-            if not root.findall('FechaEmision'):
-                return {'value': {'xml_supplier_approval': False},
-                        'warning': {'title': 'Atención',
-                                    'message': 'El archivo xml no contiene el nodo FechaEmision. Por favor cargue un archivo con el formato correcto.'
-                                    }
-                        }
-            if not root.findall('Emisor'):
-                return {'value': {'xml_supplier_approval': False},
-                        'warning': {'title': 'Atención',
-                                    'message': 'El archivo xml no contiene el nodo Emisor. Por favor cargue un archivo con el formato correcto.'
-                                    }
-                        }
-            if not root.findall('Emisor')[0].findall('Identificacion'):
-                return {'value': {'xml_supplier_approval': False},
-                        'warning': {'title': 'Atención',
-                                    'message': 'El archivo xml no contiene el nodo Identificacion. Por favor cargue un archivo con el formato correcto.'
-                                    }
-                        }
-            if not root.findall('Emisor')[0].findall('Identificacion')[0].findall('Tipo'):
-                return {'value': {'xml_supplier_approval': False},
-                        'warning': {'title': 'Atención',
-                                    'message': 'El archivo xml no contiene el nodo Tipo. Por favor cargue un archivo con el formato correcto.'
-                                    }
-                        }
-            if not root.findall('Emisor')[0].findall('Identificacion')[0].findall('Numero'):
-                return {'value': {'xml_supplier_approval': False},
-                        'warning': {'title': 'Atención',
-                                    'message': 'El archivo xml no contiene el nodo Numero. Por favor cargue un archivo con el formato correcto.'
-                                    }
-                        }
-            if not (root.findall('ResumenFactura') and root.findall('ResumenFactura')[0].findall('TotalComprobante')):
-                return {'value': {'xml_supplier_approval': False},
-                        'warning': {'title': 'Atención',
-                                    'message': 'No se puede localizar el nodo TotalComprobante. Por favor cargue un archivo con el formato correcto.'
-                                    }
-                        }
-
-            xml = base64.b64decode(self.xml_supplier_approval)
-            _logger.info('xml %s' % xml)
-
-            factura = etree.tostring(etree.fromstring(xml)).decode()
-            factura = etree.fromstring(re.sub(' xmlns="[^"]+"', '', factura, count=1))
-
-            Clave = factura.find('Clave')
-            NumeroConsecutivo = factura.find('NumeroConsecutivo')
-            FechaEmision = factura.find('FechaEmision')
-            Emisor = factura.find('Emisor')
-            Receptor = factura.find('Receptor')
-
-            CondicionVenta = factura.find('CondicionVenta')
-            PlazoCredito = factura.find('PlazoCredito')
-
-            emisor = Emisor.find('Identificacion').find('Numero').text
-
-            _logger.info('buscando %s' % emisor)
-            proveedor = self.env['res.partner'].search([('vat', '=', emisor)])
-
-            _logger.info('resultado %s' % proveedor)
-
-            if not proveedor:
-                ctx = self.env.context.copy()
-                ctx.pop('default_type', False)
-                tipo_de_identificacion = self.env['identification.type'].search([('code','=', Emisor.find('Identificacion').find('Tipo').text)])
-
-                if tipo_de_identificacion.code == '02':
-                    is_company = True
-                else:
-                    is_company = False
-
-                phone_code = ''
-                if Emisor.find('Telefono') and Emisor.find('Telefono').find('CodigoPais'):
-                    phone_code = Emisor.find('Telefono').find('CodigoPais').text
-
-                phone = ''
-                if Emisor.find('Telefono') and Emisor.find('Telefono').find('NumTelefono'):
-                    phone = Emisor.find('Telefono').find('NumTelefono').text
-
-
-
-                proveedor = self.env['res.partner'].with_context(ctx).create({'name': Emisor.find('Nombre').text,
-                                                                              'email': Emisor.find('CorreoElectronico').text,
-                                                                              'phone_code': phone_code,
-                                                                              'phone': phone,
-                                                                              'vat':emisor,
-                                                                              'identification_id': tipo_de_identificacion.id,
-                                                                              'is_company': is_company,
-                                                                              'customer': False,
-                                                                              'supplier': True})
-                _logger.info('nuevo proveedor %s' % proveedor)
-
-            self.partner_id = proveedor
-            _logger.info('fecha %s' % FechaEmision.text)
-            self.date_invoice = FechaEmision.text
-
-            _logger.info('NumeroConsecutivo %s' % NumeroConsecutivo)
-            self.reference = NumeroConsecutivo.text
-
-            if CondicionVenta.text == '02': # crédito
-                fecha_de_factura = datetime.datetime.strptime(self.date_invoice, '%Y-%m-%d')
-                plazo = 0
-                try:
-                    plazo = int(re.sub('[^0-9]', '', PlazoCredito.text))
-                except TypeError:
-                    _logger.info('%s no es un número' % PlazoCredito.text)
-                fecha_de_vencimiento = fecha_de_factura + datetime.timedelta(days=plazo)
-                self.date_due = fecha_de_vencimiento.strftime('%Y-%m-%d')
-                _logger.info('date_due %s' % self.date_due)
-
-
-            lineas = factura.find('DetalleServicio')
-            for linea in lineas:
-                _logger.info('linea %s de %s %s' % (lineas.index(linea)+1, len(lineas), linea))
-
-                impuestos = linea.findall('Impuesto')
-                _logger.info('impuestos %s' % impuestos)
-                taxes = self.env['account.tax']
-                for impuesto in impuestos:
-                    _logger.info('impuesto %s de %s %s' % (impuestos.index(impuesto)+1, len(impuestos), impuesto))
-
-                    codigo = impuesto.find('Codigo').text
-
-                    if codigo == '01': # impuesto de ventas
-                        tax = self.env.ref('l10n_cr.1_account_tax_template_IV_1', False)
-                        _logger.info('tax %s' % tax)
-                        taxes += tax
-                    elif codigo == '02': # ISC
-                        tax = self.env.ref('l10n_cr.1_account_tax_template_ISC_0', False)
-                        _logger.info('tax %s' % tax)
-                        taxes += tax
-
-                if taxes:
-                    taxes =  [(6, 0, taxes.mapped('id'))]
-                _logger.info('taxes %s' % taxes)
-
-                cantidad = linea.find('Cantidad').text
-                precio_unitario = linea.find('PrecioUnitario').text
-                descripcion = linea.find('Detalle').text
-                total = linea.find('MontoTotal').text
-
-                _logger.info('%s %s a %s = %s' % (cantidad, descripcion, precio_unitario, total))
-
-                porcentajeDescuento = 0.0
-                if linea.find('MontoDescuento') is not None:
-                    montoDescuento = float(linea.find('MontoDescuento').text)
-                    porcentajeDescuento = montoDescuento * 100 / float(total)
-                    _logger.info('descuento de %s %s ' % (porcentajeDescuento, montoDescuento))
-
-
-                linea2 = self.env['account.invoice.line'].new({
-                    'quantity': cantidad,
-                    'price_unit': precio_unitario,
-                    'invoice_id': self.id,
-                    'name': descripcion,
-                    'account_id': self.partner_id.property_account_payable_id.id,
-                    'invoice_line_tax_ids': taxes,
-                    # 'account_analytic_id': analytic_account.id,
-                    'discount': porcentajeDescuento
-                })
-
-            ResumenFactura = factura.find('ResumenFactura')
-
-        # self.env['account.invoice.line'].new({
-        # 	'quantity': 1,
-        # 	'price_unit': ResumenFactura.find('TotalComprobante').text,
-        # 	'invoice_id': self.id,
-        # 	'name': 'Total de la Factura',
-        # 	'account_id': self.partner_id.property_account_payable_id.id,
-        # 'invoice_line_tax_ids': taxes,
-        # 'account_analytic_id': analytic_account.id,
-        # 'discount': porcentajeDescuento
-        # })
+            self.env['electronic_invoice']._process_supplier_invoice(self)
 
         else:
-            self.state_tributacion = False
-            self.xml_supplier_approval = False
-            self.fname_xml_supplier_approval = False
-            self.xml_respuesta_tributacion = False
-            self.fname_xml_respuesta_tributacion = False
-            self.date_issuance = False
-            self.number_electronic = False
-            self.state_invoice_partner = False
+            self.partner_id = None
+            self.invoice_line_ids = None
+            self.reference = None
+            self.date_invoice = None
+            self.state_tributacion = None
+            self.xml_supplier_approval = None
+            self.fname_xml_supplier_approval = None
+            self.xml_respuesta_tributacion = None
+            self.fname_xml_respuesta_tributacion = None
+            self.date_issuance = None
+            self.number_electronic = None
+            self.state_invoice_partner = None
 
     @api.multi
     def action_enviar_aceptacion(self, vals):

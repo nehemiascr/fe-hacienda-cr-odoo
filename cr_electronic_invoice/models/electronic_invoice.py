@@ -2484,3 +2484,266 @@ class ElectronicInvoice(models.TransientModel):
 		Documento.append(NumeroConsecutivoReceptor)
 
 		return Documento
+
+	def _process_supplier_invoice(self, invoice):
+
+		xml = etree.fromstring(base64.b64decode(invoice.xml_supplier_approval))
+		namespace = xml.nsmap[None]
+		xml = etree.tostring(xml).decode()
+		xml = re.sub(' xmlns="[^"]+"', '', xml)
+		xml = etree.fromstring(xml)
+		document = xml.tag
+
+		v42 = 'https://tribunet.hacienda.go.cr/docs/esquemas/2017/v4.2/facturaElectronica'
+		v43 = 'https://cdn.comprobanteselectronicos.go.cr/xml-schemas/v4.3/facturaElectronica'
+
+		if document != 'FacturaElectronica':
+			return {'value': {'xml_supplier_approval': False},
+					'warning': {'title': 'Atención', 'message': 'El archivo xml no es una Factura Electrónica.'}}
+
+		if not (namespace == v42 or namespace == v43):
+			return {'value': {'xml_supplier_approval': False},
+					'warning': {'title': 'Atención',
+								'message': 'Versión de Factura Electrónica no soportada.\n%s' % namespace}}
+
+		if (xml.find('Clave') is None or
+			xml.find('FechaEmision') is None or
+			xml.find('Emisor') is None or
+			xml.find('Emisor').find('Identificacion') is None or
+			xml.find('Emisor').find('Identificacion').find('Tipo') is None or
+			xml.find('Emisor').find('Identificacion').find('Numero') is None or
+			xml.find('Receptor') is None or
+			xml.find('Receptor').find('Identificacion') is None or
+			xml.find('Receptor').find('Identificacion').find('Tipo') is None or
+			xml.find('Receptor').find('Identificacion').find('Numero') is None or
+			xml.find('ResumenFactura') is None or
+			xml.find('ResumenFactura').find('TotalComprobante') is None ):
+			return {'value': {'xml_supplier_approval': False},
+					'warning': {'title': 'Atención', 'message': 'El xml parece estar incompleto.'}}
+
+		if namespace == v42:
+			return self._proccess_supplier_invoicev42(invoice, xml)
+		elif namespace == v43:
+			return self._proccess_supplier_invoicev43(invoice, xml)
+		else:
+			return {'value': {'xml_supplier_approval': False},
+					'warning': {'title': 'Atención',
+								'message': 'Versión de Factura Electrónica no soportada.\n%s' % namespace}}
+
+	def _proccess_supplier_invoicev42(self, invoice, xml):
+
+		NumeroConsecutivo = xml.find('NumeroConsecutivo')
+		Emisor = xml.find('Emisor')
+
+		PlazoCredito = xml.find('PlazoCredito')
+
+		emisor_vat = Emisor.find('Identificacion').find('Numero').text
+		emisor_tipo = Emisor.find('Identificacion').find('Tipo').text
+
+		supplier = self.env['res.partner'].search([('vat', '=', emisor_vat)])
+
+		if not supplier:
+			ctx = self.env.context.copy()
+			ctx.pop('default_type', False)
+			tipo = self.env['identification.type'].search([('code', '=', emisor_tipo)])
+
+			is_company = True if tipo.code == '02' else False
+
+			phone_code = ''
+			if Emisor.find('Telefono') and Emisor.find('Telefono').find('CodigoPais'):
+				phone_code = Emisor.find('Telefono').find('CodigoPais').text
+
+			phone = ''
+			if Emisor.find('Telefono') and Emisor.find('Telefono').find('NumTelefono'):
+				phone = Emisor.find('Telefono').find('NumTelefono').text
+
+			email = Emisor.find('CorreoElectronico').text
+			name = Emisor.find('Nombre').text
+
+			supplier = self.env['res.partner'].with_context(ctx).create({'name': name,
+																		  'email': email,
+																		  'phone_code': phone_code,
+																		  'phone': phone,
+																		  'vat': emisor_vat,
+																		  'identification_id': tipo.id,
+																		  'is_company': is_company,
+																		  'customer': False,
+																		  'supplier': True})
+			_logger.info('nuevo proveedor %s' % supplier)
+
+		invoice.partner_id = supplier
+		invoice.date_invoice = xml.find('FechaEmision').text
+
+		invoice.reference = NumeroConsecutivo.text
+
+		if xml.find('CondicionVenta').text == '02':  # crédito
+			fecha_de_factura = datetime.strptime(invoice.date_invoice, '%Y-%m-%d')
+			plazo = 0
+			try:
+				plazo = int(re.sub('[^0-9]', '', PlazoCredito.text))
+			except TypeError:
+				_logger.info('%s no es un número' % PlazoCredito.text)
+			fecha_de_vencimiento = fecha_de_factura + timedelta(days=plazo)
+			invoice.date_due = fecha_de_vencimiento.strftime('%Y-%m-%d')
+			_logger.info('date_due %s' % invoice.date_due)
+
+		lineas = xml.find('DetalleServicio')
+		for linea in lineas:
+			_logger.info('linea %s de %s %s' % (lineas.index(linea) + 1, len(lineas), linea))
+
+			impuestos = linea.findall('Impuesto')
+			_logger.info('impuestos %s' % impuestos)
+			taxes = self.env['account.tax']
+			for impuesto in impuestos:
+				_logger.info('impuesto %s de %s %s' % (impuestos.index(impuesto) + 1, len(impuestos), impuesto))
+
+				codigo = impuesto.find('Codigo').text
+
+				if codigo == '01':  # impuesto de ventas
+					tax = self.env.ref('l10n_cr.1_account_tax_template_IV_1', False)
+					_logger.info('tax %s' % tax)
+					taxes += tax
+				elif codigo == '02':  # ISC
+					tax = self.env.ref('l10n_cr.1_account_tax_template_ISC_0', False)
+					_logger.info('tax %s' % tax)
+					taxes += tax
+
+			if taxes:
+				taxes = [(6, 0, taxes.mapped('id'))]
+			_logger.info('taxes %s' % taxes)
+
+			cantidad = linea.find('Cantidad').text
+			precio_unitario = linea.find('PrecioUnitario').text
+			descripcion = linea.find('Detalle').text
+			total = linea.find('MontoTotal').text
+
+			_logger.info('%s %s a %s = %s' % (cantidad, descripcion, precio_unitario, total))
+
+			porcentajeDescuento = 0.0
+			if linea.find('MontoDescuento') is not None:
+				montoDescuento = float(linea.find('MontoDescuento').text)
+				porcentajeDescuento = montoDescuento * 100 / float(total)
+				_logger.info('descuento de %s %s ' % (porcentajeDescuento, montoDescuento))
+
+			self.env['account.invoice.line'].new({
+				'quantity': cantidad,
+				'price_unit': precio_unitario,
+				'invoice_id': invoice.id,
+				'name': descripcion,
+				'account_id': invoice.partner_id.property_account_payable_id.id,
+				'invoice_line_tax_ids': taxes,
+				'discount': porcentajeDescuento
+			})
+
+	def _proccess_supplier_invoicev43(self, invoice, xml):
+
+		NumeroConsecutivo = xml.find('NumeroConsecutivo')
+		Emisor = xml.find('Emisor')
+
+		PlazoCredito = xml.find('PlazoCredito')
+
+		emisor_vat = Emisor.find('Identificacion').find('Numero').text
+		emisor_tipo = Emisor.find('Identificacion').find('Tipo').text
+
+		supplier = self.env['res.partner'].search([('vat', '=', emisor_vat)])
+
+		if not supplier:
+			ctx = self.env.context.copy()
+			ctx.pop('default_type', False)
+			tipo = self.env['identification.type'].search([('code', '=', emisor_tipo)])
+
+			is_company = True if tipo.code == '02' else False
+
+			phone_code = ''
+			if Emisor.find('Telefono') and Emisor.find('Telefono').find('CodigoPais'):
+				phone_code = Emisor.find('Telefono').find('CodigoPais').text
+
+			phone = ''
+			if Emisor.find('Telefono') and Emisor.find('Telefono').find('NumTelefono'):
+				phone = Emisor.find('Telefono').find('NumTelefono').text
+
+			email = Emisor.find('CorreoElectronico').text
+			name = Emisor.find('Nombre').text
+
+			supplier = self.env['res.partner'].with_context(ctx).create({'name': name,
+																		  'email': email,
+																		  'phone_code': phone_code,
+																		  'phone': phone,
+																		  'vat': emisor_vat,
+																		  'identification_id': tipo.id,
+																		  'is_company': is_company,
+																		  'customer': False,
+																		  'supplier': True})
+			_logger.info('nuevo proveedor %s' % supplier)
+
+		invoice.partner_id = supplier
+		invoice.date_invoice = xml.find('FechaEmision').text
+
+		invoice.reference = NumeroConsecutivo.text
+
+		if xml.find('CondicionVenta').text == '02':  # crédito
+			fecha_de_factura = datetime.strptime(invoice.date_invoice, '%Y-%m-%d')
+			plazo = 0
+			try:
+				plazo = int(re.sub('[^0-9]', '', PlazoCredito.text))
+			except TypeError:
+				_logger.info('%s no es un número' % PlazoCredito.text)
+			fecha_de_vencimiento = fecha_de_factura + timedelta(days=plazo)
+			invoice.date_due = fecha_de_vencimiento.strftime('%Y-%m-%d')
+			_logger.info('date_due %s' % invoice.date_due)
+
+		lineas = xml.find('DetalleServicio')
+		for linea in lineas:
+			_logger.info('linea %s de %s %s' % (lineas.index(linea) + 1, len(lineas), linea))
+
+			impuestos = linea.findall('Impuesto')
+			_logger.info('impuestos %s' % impuestos)
+			taxes = self.env['account.tax']
+			for impuesto in impuestos:
+				_logger.info('impuesto %s de %s %s' % (impuestos.index(impuesto) + 1, len(impuestos), impuesto))
+
+				Codigo = impuesto.find('Codigo')
+
+				if Codigo.text == '01':  # iva
+					CodigoTarifa = impuesto.find('CodigoTarifa')
+					tax = self.env['account.tax'].search([('type_tax_use','=','purchase'),('tax_code', '=', Codigo.text),('iva_tax_code', '=', CodigoTarifa.text)])
+					_logger.info('tax %s' % tax)
+					taxes += tax
+				elif Codigo.text == '02':  # ISC
+					tax = self.env.ref('l10n_cr.1_account_tax_template_ISC_0', False)
+					_logger.info('tax %s' % tax)
+					taxes += tax
+
+			if taxes:
+				taxes = [(6, 0, taxes.mapped('id'))]
+			_logger.info('taxes %s' % taxes)
+
+			cantidad = linea.find('Cantidad').text
+			precio_unitario = linea.find('PrecioUnitario').text
+			descripcion = linea.find('Detalle').text
+			total = linea.find('MontoTotal').text
+
+			_logger.info('%s %s a %s = %s' % (cantidad, descripcion, precio_unitario, total))
+
+			porcentajeDescuento = 0.0
+			Descuento = linea.find('Descuento')
+			if Descuento is not None and Descuento.find('MontoDescuento') is not None:
+				_logger.info('hay descuento')
+				montoDescuento = float(Descuento.find('MontoDescuento').text)
+				porcentajeDescuento = montoDescuento * 100 / float(total)
+				_logger.info('descuento de %s %s ' % (porcentajeDescuento, montoDescuento))
+
+			self.env['account.invoice.line'].new({
+				'quantity': cantidad,
+				'price_unit': precio_unitario,
+				'invoice_id': invoice.id,
+				'name': descripcion,
+				'account_id': invoice.partner_id.property_account_payable_id.id,
+				'invoice_line_tax_ids': taxes,
+				'discount': porcentajeDescuento
+			})
+
+
+
+
+
