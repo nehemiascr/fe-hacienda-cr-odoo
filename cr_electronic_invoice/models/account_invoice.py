@@ -118,17 +118,10 @@ class AccountInvoiceElectronic(models.Model):
 
     @api.onchange('xml_supplier_approval')
     def _onchange_xml_supplier_approval(self):
-        _logger.info('cargando xml de proveedor')
-        if self.xml_supplier_approval:
-
-            self.env['electronic_invoice']._process_supplier_invoice(self)
-
-        else:
-            self.partner_id = None
-            self.invoice_line_ids = None
-            self.reference = None
-            self.date_invoice = None
-            self.state_tributacion = None
+        # sin xml limpiamos los campos de la facturacion electronica
+        if not self.xml_supplier_approval:
+            _logger.info('no xml')
+            self.state_tributacion = 'na'
             self.xml_supplier_approval = None
             self.fname_xml_supplier_approval = None
             self.xml_respuesta_tributacion = None
@@ -136,6 +129,14 @@ class AccountInvoiceElectronic(models.Model):
             self.date_issuance = None
             self.number_electronic = None
             self.state_invoice_partner = None
+            return
+        # si la factura es de proveedor y esta en borrador, cargamos las lineas
+        _logger.info('some xml')
+        _logger.info('type %s' % self.type)
+        _logger.info('state %s' % self.state)
+        if self.type in ('in_invoice', 'in_refund') and self.state in ('draft'):
+            _logger.info('processing xml')
+            self.env['electronic_invoice']._process_supplier_invoice(self)
 
     @api.multi
     def action_enviar_aceptacion(self, vals):
