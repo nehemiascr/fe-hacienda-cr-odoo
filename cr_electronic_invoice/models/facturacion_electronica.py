@@ -342,12 +342,12 @@ class FacturacionElectronica(models.TransientModel):
 			error_cause = response.headers['X-Error-Cause'] if 'X-Error-Cause' in response.headers else 'Error desconocido'
 			_logger.info('Error %s %s %s' % (response.status_code, error_cause, response.headers))
 			object.state_tributacion = 'error'
-			object.respuesta_tributacion = error_cause
+			object.respuesta = error_cause
 
-			if 'ya fue recibido anteriormente' in object.respuesta_tributacion:
+			if 'ya fue recibido anteriormente' in object.respuesta:
 				object.state_tributacion = 'recibido'
 
-			if 'no ha sido recibido' in object.respuesta_tributacion:
+			if 'no ha sido recibido' in object.respuesta:
 				object.state_tributacion = 'pendiente'
 
 			return False
@@ -392,9 +392,9 @@ class FacturacionElectronica(models.TransientModel):
 			_logger.info('Error %s %s' % (response.status_code, response.headers['X-Error-Cause']))
 			_logger.info('no vamos a continuar, algo inesperado sucedió %s' % response.__dict__)
 			object.state_tributacion = 'error'
-			object.respuesta_tributacion = response.headers['X-Error-Cause'] if response.headers and 'X-Error-Cause' in response.headers else 'No hay de Conexión con Hacienda'
-			if 'ya fue recibido anteriormente' in object.respuesta_tributacion: object.state_tributacion = 'recibido'
-			if 'no ha sido recibido' in object.respuesta_tributacion: object.state_tributacion = 'pendiente'
+			object.respuesta = response.headers['X-Error-Cause'] if response.headers and 'X-Error-Cause' in response.headers else 'No hay de Conexión con Hacienda'
+			if 'ya fue recibido anteriormente' in object.respuesta: object.state_tributacion = 'recibido'
+			if 'no ha sido recibido' in object.respuesta: object.state_tributacion = 'pendiente'
 			return False
 
 		respuesta = response.json()
@@ -416,7 +416,7 @@ class FacturacionElectronica(models.TransientModel):
 
 			respuesta = etree.tostring(etree.fromstring(base64.b64decode(object.xml_respuesta_tributacion))).decode()
 			respuesta = etree.fromstring(re.sub(' xmlns="[^"]+"', '', respuesta, count=1))
-			object.respuesta_tributacion = respuesta.find('DetalleMensaje').text
+			object.respuesta = respuesta.find('DetalleMensaje').text
 
 		return True
 

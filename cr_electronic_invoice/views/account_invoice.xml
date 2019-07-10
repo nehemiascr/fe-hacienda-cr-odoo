@@ -3,19 +3,19 @@
 	<data noupdate="0">
 
 		<!-- Quitar el boton de Cancelar Factura -->
-		<record id="inherit_invoice_form_cancel_inherit" model="ir.ui.view">
-		    <field name="name">account.invoice.cancel.inherit.inherit</field>
-		    <field name="model">account.invoice</field>
-			<field name="inherit_id" ref="account_cancel.invoice_form_cancel_inherit"/>
-			<field name="arch" type="xml">
-				<xpath expr="//button[@name='action_invoice_cancel']" position="attributes">
-					<attribute name="invisible">True</attribute>
-				</xpath>
-				<xpath expr="//button[@name='action_invoice_sent']" position="attributes">
-					<attribute name="invisible">True</attribute>
-				</xpath>
-			</field>
-		</record>
+<!--		<record id="inherit_invoice_form_cancel_inherit" model="ir.ui.view">-->
+<!--		    <field name="name">account.invoice.cancel.inherit.inherit</field>-->
+<!--		    <field name="model">account.invoice</field>-->
+<!--			<field name="inherit_id" ref="account_cancel.invoice_form_cancel_inherit"/>-->
+<!--			<field name="arch" type="xml">-->
+<!--				<xpath expr="//button[@name='action_invoice_cancel']" position="attributes">-->
+<!--					<attribute name="invisible">True</attribute>-->
+<!--				</xpath>-->
+<!--				<xpath expr="//button[@name='action_invoice_sent']" position="attributes">-->
+<!--					<attribute name="invisible">True</attribute>-->
+<!--				</xpath>-->
+<!--			</field>-->
+<!--		</record>-->
 
 		<record id="invoice_form_inherit" model="ir.ui.view">
 			<field name="name">account.invoice.form.inherit</field>
@@ -39,11 +39,11 @@
 				</field>
 				<field name="fiscal_position_id" position="after">
 					<field name="reference_code_id" attrs="{'readonly':[('state','!=','draft')]}"/>
-					<field name="invoice_id" domain="[('number_electronic', '!=', False)]" attrs="{'readonly':[('state','!=','draft')]}"/>
+					<field name="refund_invoice_id" domain="[('number_electronic', '!=', False)]" attrs="{'readonly':[('state','!=','draft')]}"/>
 					<field name="state_tributacion" readonly="1"/>
-					<field name="fname_xml_respuesta_tributacion" invisible="1" readonly="1"/>
-					<field name="xml_respuesta_tributacion" filename="fname_xml_respuesta_tributacion"/>
-					<field name="respuesta_tributacion" widget="html"/>
+					<field name="fname_xml_respuesta" invisible="1" readonly="1"/>
+					<field name="xml_respuesta" filename="fname_xml_respuesta"/>
+					<field name="respuesta" widget="html"/>
 					<field name="state_invoice_partner" invisible="1"/>
 					<field name="state_tributacion" invisible="1"/>
 					<field name="fname_xml_comprobante" invisible="1" readonly="1"/>
@@ -85,8 +85,8 @@
 				<xpath expr="//group[1]" position="after">
 					<group string="Facturación Electrónica" col="2">
 						<group>
-							<field name="fname_xml_supplier_approval" invisible="1" />
-							<field name="xml_supplier_approval" filename="fname_xml_supplier_approval" />
+							<field name="fname_xml_supplier" invisible="1" />
+							<field name="xml_supplier" filename="fname_xml_supplier" />
 							<field name="state_invoice_partner" />
 							<!--<button name="charge_xml_data" type="object" string="Cargar datos desde XML" colspan="2" attrs="{'invisible':[('state','!=', 'draft')]}" />-->
 						</group>
@@ -94,19 +94,15 @@
 							<field name="date_issuance" readonly="1"/>
 							<field name="number_electronic" readonly="1"/>
 							<field name="state_tributacion" readonly="1"/>
-							<field name="fname_xml_respuesta_tributacion" invisible="1" readonly="1"/>
-							<field name="xml_respuesta_tributacion" filename="fname_xml_respuesta_tributacion"/>
-							<field name="respuesta_tributacion" default="Nada aún"/>
+							<field name="fname_xml_respuesta" invisible="1" readonly="1"/>
+							<field name="xml_respuesta" filename="fname_xml_respuesta"/>
+							<field name="respuesta" default="Nada aún"/>
 							<field name="state_tributacion" invisible="1"/>
 							<field name="fname_xml_comprobante" invisible="1" readonly="1"/>
 							<field name="xml_comprobante" filename="fname_xml_comprobante"/>
 
 						</group>
 					</group>
-				</xpath>
-				<xpath expr="(//field[@name='amount_total'])[last()]" position="after">
-					<field name="amount_tax_electronic_invoice"/>
-					<field name="amount_total_electronic_invoice"/>
 				</xpath>
 			</field>
 		</record>
@@ -175,7 +171,7 @@
 			<field name="groups_id" eval="[(6, 0, [ref('base.group_system')])]"/>
 			<field name="arch" type="xml">
 				<field name="state_tributacion" position="after">
-					<field name="respuesta_tributacion"/>
+					<field name="respuesta"/>
 				</field>
 			</field>
 		</record>

@@ -44,9 +44,9 @@
 							<field name="date_issuance" readonly="1"/>
 							<field name="number_electronic" readonly="1"/>
 							<field name="state_tributacion" readonly="1"/>
-							<field name="fname_xml_respuesta_tributacion" invisible="1" readonly="1"/>
-							<field name="xml_respuesta_tributacion" filename="fname_xml_respuesta_tributacion"/>
-							<field name="respuesta_tributacion" widget="html"/>
+							<field name="fname_xml_respuesta" invisible="1" readonly="1"/>
+							<field name="xml_respuesta" filename="fname_xml_respuesta"/>
+							<field name="respuesta" widget="html"/>
 							<field name="state_tributacion" invisible="1"/>
 							<field name="fname_xml_comprobante" invisible="1" readonly="1"/>
 							<field name="xml_comprobante" filename="fname_xml_comprobante"/>

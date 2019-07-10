@@ -38,16 +38,15 @@ class HrExpense(models.Model):
                                               ('3', 'Rechazado'), ],
                                              'Tipo de Aceptación', copy=False)
 
+    xml_respuesta = fields.Binary("Respuesta Tributación XML", copy=False, attachment=True, oldname='xml_respuesta_tributacion')
+    fname_xml_respuesta = fields.Char("Nombre de archivo XML Respuesta Tributación", copy=False, oldname='fname_xml_respuesta_tributacion')
+    respuesta = fields.Text("Mensaje en la Respuesta de Tributación", readonly=True, copy=False, oldname='respuesta_tributacion')
 
-    xml_supplier_approval = fields.Binary(string="XML Proveedor", copy=False, attachment=True)
-    fname_xml_supplier_approval = fields.Char(string="Nombre de archivo Comprobante XML proveedor", copy=False, attachment=True)
+    xml_comprobante = fields.Binary("Comprobante XML", copy=False, attachment=True)
+    fname_xml_comprobante = fields.Char("Nombre de archivo Comprobante XML", copy=False, attachment=True)
 
-    xml_comprobante = fields.Binary(string="Comprobante XML", copy=False, attachment=True)
-    fname_xml_comprobante = fields.Char(string="Nombre de archivo Comprobante XML", copy=False, attachment=True)
-
-    xml_respuesta_tributacion = fields.Binary(string="Respuesta Tributación XML", copy=False, attachment=True)
-    fname_xml_respuesta_tributacion = fields.Char(string="Nombre de archivo XML Respuesta Tributación", copy=False)
-    respuesta_tributacion = fields.Text(string="Mensaje en la Respuesta de Tributación", readonly=True, copy=False)
+    xml_supplier = fields.Binary("XML Proveedor", copy=False, attachment=True, oldname='xml_supplier_approval')
+    fname_xml_supplier = fields.Char("Nombre de archivo Comprobante XML proveedor", copy=False, attachment=True, oldname='fname_xml_supplier_approval')
 
 
     def action_cargar_xml(self, vals):
@@ -76,15 +75,15 @@ class HrExpense(models.Model):
             self.env['electronic_invoice']._consultar_documento(self)
 
 
-    @api.onchange('xml_supplier_approval')
+    @api.onchange('xml_supplier')
     def _onchange_xml_supplier_approval(self):
         _logger.info('cargando xml de proveedor')
 
         fe = self.env['electronic_invoice']
 
-        if self.xml_supplier_approval and fe.validar_xml_proveedor(self.xml_supplier_approval):
+        if self.xml_supplier and fe.validar_xml_proveedor(self.xml_supplier):
 
-            xml = base64.b64decode(self.xml_supplier_approval)
+            xml = base64.b64decode(self.xml_supplier)
             _logger.info('xml %s' % xml)
 
             factura = etree.tostring(etree.fromstring(xml)).decode()

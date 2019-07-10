@@ -35,26 +35,19 @@ class AccountInvoiceElectronic(models.Model):
                                               ('2', 'Aceptacion parcial'),
                                               ('3', 'Rechazado'),],
                                              'Tipo de Aceptación', copy=False)
-    reference_code_id = fields.Many2one(comodel_name="reference.code", string="Código de referencia", copy=False)
-    payment_methods_id = fields.Many2one(comodel_name="payment.methods", string="Métodos de Pago",
-                                         default=lambda m: m.env.ref('cr_electronic_invoice.PaymentMethods_1'))
-    invoice_id = fields.Many2one(comodel_name="account.invoice", string="Documento de referencia", copy=False)
-    xml_respuesta_tributacion = fields.Binary(string="Respuesta Tributación XML", copy=False, attachment=True)
-    fname_xml_respuesta_tributacion = fields.Char(string="Nombre de archivo XML Respuesta Tributación", copy=False)
 
-    respuesta_tributacion = fields.Text(string="Mensaje en la Respuesta de Tributación", readonly=True, copy=False)
-    xml_comprobante = fields.Binary(string="Comprobante XML", copy=False, attachment=True)
-    fname_xml_comprobante = fields.Char(string="Nombre de archivo Comprobante XML", copy=False, attachment=True)
-    xml_supplier_approval = fields.Binary(string="XML Proveedor", copy=False, attachment=True)
-    fname_xml_supplier_approval = fields.Char(string="Nombre de archivo Comprobante XML proveedor", copy=False, attachment=True)
-    amount_tax_electronic_invoice = fields.Monetary(string='Total de impuestos FE', readonly=True)
-    amount_total_electronic_invoice = fields.Monetary(string='Total FE', readonly=True)
-    tipo_comprobante = fields.Char(string='Tipo Comprobante', readonly=True, )
+    reference_code_id = fields.Many2one("reference.code", "Código de referencia", copy=False)
+    payment_methods_id = fields.Many2one("payment.methods", "Métodos de Pago", default=lambda m: m.env.ref('cr_electronic_invoice.PaymentMethods_1'))
 
-    state_email = fields.Selection([('no_email', 'Sin cuenta de correo'),
-                                    ('sent', 'Enviado'),
-                                    ('fe_error', 'Error FE')], 'Estado email', copy=False)
+    xml_respuesta_tributacion = fields.Binary("Respuesta Tributación XML", copy=False, attachment=True, )
+    fname_xml_respuesta = fields.Char("Nombre de archivo XML Respuesta Tributación", copy=False, oldname='fname_xml_respuesta_tributacion')
+    respuesta = fields.Text("Mensaje en la Respuesta de Tributación", readonly=True, copy=False, oldname='respuesta_tributacion')
 
+    xml_comprobante = fields.Binary("Comprobante XML", copy=False, attachment=True)
+    fname_xml_comprobante = fields.Char("Nombre de archivo Comprobante XML", copy=False, attachment=True)
+
+    xml_supplier_approval = fields.Binary("XML Proveedor", copy=False, attachment=True)
+    fname_xml_supplier = fields.Char("Nombre de archivo Comprobante XML proveedor", copy=False, attachment=True,  oldname='fname_xml_supplier_approval')
 
     _sql_constraints = [
         ('number_electronic_uniq', 'unique (number_electronic)', "La clave de comprobante debe ser única"),
@@ -76,12 +69,12 @@ class AccountInvoiceElectronic(models.Model):
 
         attachments = comprobante
 
-        if self.xml_respuesta_tributacion:
+        if self.xml_respuesta:
             respuesta = self.env['ir.attachment'].search(
                 [('res_model', '=', 'account.invoice'), ('res_id', '=', self.id),
-                 ('res_field', '=', 'xml_respuesta_tributacion')], limit=1)
-            respuesta.name = self.fname_xml_respuesta_tributacion
-            respuesta.datas_fname = self.fname_xml_respuesta_tributacion
+                 ('res_field', '=', 'xml_respuesta')], limit=1)
+            respuesta.name = self.fname_xml_respuesta
+            respuesta.datas_fname = self.fname_xml_respuesta
 
             attachments = attachments | respuesta
 
@@ -116,26 +109,22 @@ class AccountInvoiceElectronic(models.Model):
 
 
 
-    @api.onchange('xml_supplier_approval')
+    @api.onchange('xml_supplier')
     def _onchange_xml_supplier_approval(self):
-        _logger.info('cargando xml de proveedor')
-        if self.xml_supplier_approval:
-
-            self.env['electronic_invoice']._process_supplier_invoice(self)
-
-        else:
-            self.partner_id = None
-            self.invoice_line_ids = None
-            self.reference = None
-            self.date_invoice = None
-            self.state_tributacion = None
-            self.xml_supplier_approval = None
+        # sin xml limpiamos los campos de la facturacion electronica
+        if not self.xml_supplier:
+            self.state_tributacion = 'na'
+            self.xml_supplier = None
             self.fname_xml_supplier_approval = None
-            self.xml_respuesta_tributacion = None
-            self.fname_xml_respuesta_tributacion = None
+            self.xml_respuesta = None
+            self.fname_xml_respuesta = None
             self.date_issuance = None
             self.number_electronic = None
             self.state_invoice_partner = None
+            return
+        # si la factura es de proveedor y esta en borrador, cargamos las lineas
+        if self.type in ('in_invoice', 'in_refund') and self.state is 'draft':
+            self.env['electronic_invoice']._process_supplier_invoice(self)
 
     @api.multi
     def action_enviar_aceptacion(self, vals):
@@ -154,7 +143,7 @@ class AccountInvoiceElectronic(models.Model):
             for invoice in self:
                 # create the new invoice
                 values = self._prepare_refund(invoice, date_invoice=date_invoice, date=date, description=description, journal_id=journal_id)
-                values.update({'invoice_id': invoice_id, 'reference_code_id': reference_code_id})
+                values.update({'refund_invoice_id': invoice_id, 'reference_code_id': reference_code_id})
                 refund_invoice = self.create(values)
 
                 invoice_type = {
@@ -215,7 +204,7 @@ class AccountInvoiceElectronic(models.Model):
         if invoice.type not in ('in_invoice', 'in_refund'):
             return invoice
 
-        if invoice.xml_supplier_approval:
+        if invoice.xml_supplier:
             consecutivo = self.env['electronic_invoice']._get_consecutivo(invoice)
             if not consecutivo:
                 raise UserError('Error con el consecutivo de la factura %s' % consecutivo)

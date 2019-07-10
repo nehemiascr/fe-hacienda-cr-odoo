@@ -29,18 +29,13 @@ class PosOrder(models.Model):
         ('procesando', 'Procesando')], 'Estado FE',
         copy=False)
 
-    respuesta_tributacion = fields.Text(string="Mensaje en la Respuesta de Tributación", readonly=True, copy=False)
+    xml_respuesta = fields.Binary("Respuesta Tributación XML", copy=False, attachment=True, oldname='xml_respuesta_tributacion')
+    fname_xml_respuesta = fields.Char("Nombre de archivo XML Respuesta Tributación", copy=False, oldname='fname_xml_respuesta_tributacion')
+    respuesta = fields.Text("Mensaje en la Respuesta de Tributación", readonly=True, copy=False, oldname='respuesta_tributacion')
 
-    xml_respuesta_tributacion = fields.Binary(string="Respuesta Tributación XML", required=False, copy=False,
-                                              attachment=True)
+    xml_comprobante = fields.Binary("Comprobante XML", copy=False, attachment=True)
+    fname_xml_comprobante = fields.Char("Nombre de archivo Comprobante XML", copy=False, attachment=True)
 
-    fname_xml_respuesta_tributacion = fields.Char(string="Nombre de archivo XML Respuesta Tributación", required=False,
-                                                  copy=False)
-
-    xml_comprobante = fields.Binary(string="Comprobante XML", required=False, copy=False, attachment=True)
-
-    fname_xml_comprobante = fields.Char(string="Nombre de archivo Comprobante XML", required=False, copy=False,
-                                        attachment=True)
 
     @api.model
     def sequence_number_sync(self, vals):

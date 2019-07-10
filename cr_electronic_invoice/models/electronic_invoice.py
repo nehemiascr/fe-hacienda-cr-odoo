@@ -146,7 +146,7 @@ class ElectronicInvoice(models.TransientModel):
 			_logger.info('%s sin documento electronico que aceptar' % object)
 			return False
 
-		if not object.xml_supplier_approval:
+		if not object.xml_supplier:
 			_logger.info('%s sin xml de proveedor' % object)
 			return False
 
@@ -316,7 +316,7 @@ class ElectronicInvoice(models.TransientModel):
 
 		if (object._name == 'account.invoice' and object.type in ('in_invoice', 'in_refund')) \
 			or object._name == 'hr.expense':
-			return self._get_clave_de_xml(object.xml_supplier_approval)
+			return self._get_clave_de_xml(object.xml_supplier)
 
 		if object._name == 'account.invoice' and object.type in ('out_invoice', 'out_refund'):
 			consecutivo = object.number
@@ -398,7 +398,7 @@ class ElectronicInvoice(models.TransientModel):
 		_logger.info('Documento %s' % Documento)
 
 		if self._es_mensaje_aceptacion(object):
-			xml_factura_proveedor = object.xml_supplier_approval
+			xml_factura_proveedor = object.xml_supplier
 			xml_factura_proveedor = base64.b64decode(xml_factura_proveedor)
 			FacturaElectronica = etree.tostring(etree.fromstring(xml_factura_proveedor)).decode()
 			FacturaElectronica = etree.fromstring(re.sub(' xmlns="[^"]+"', '', FacturaElectronica, count=1))
@@ -449,18 +449,18 @@ class ElectronicInvoice(models.TransientModel):
 			return True
 		if response.status_code in (522, 524):
 			object.state_tributacion = 'error'
-			object.respuesta_tributacion = response.content
+			object.respuesta = response.content
 			return False
 		else:
 			error_cause = response.headers['X-Error-Cause'] if 'X-Error-Cause' in response.headers else 'Error desconocido'
 			_logger.info('Error %s %s %s' % (response.status_code, error_cause, response.headers))
 			object.state_tributacion = 'error'
-			object.respuesta_tributacion = error_cause
+			object.respuesta = error_cause
 
-			if 'ya fue recibido anteriormente' in object.respuesta_tributacion:
+			if 'ya fue recibido anteriormente' in object.respuesta:
 				object.state_tributacion = 'recibido'
 
-			if 'no ha sido recibido' in object.respuesta_tributacion:
+			if 'no ha sido recibido' in object.respuesta:
 				object.state_tributacion = 'pendiente'
 
 			return False
@@ -506,13 +506,13 @@ class ElectronicInvoice(models.TransientModel):
 			_logger.info('Error %s %s' % (response.status_code, response.headers['X-Error-Cause']))
 			_logger.info('no vamos a continuar, algo inesperado sucedió %s' % response.__dict__)
 			object.state_tributacion = 'error'
-			object.respuesta_tributacion = response.headers['X-Error-Cause'] if response.headers and 'X-Error-Cause' in response.headers else 'No hay de Conexión con Hacienda'
-			if 'ya fue recibido anteriormente' in object.respuesta_tributacion: object.state_tributacion = 'recibido'
-			if 'no ha sido recibido' in object.respuesta_tributacion: object.state_tributacion = 'pendiente'
+			object.respuesta = response.headers['X-Error-Cause'] if response.headers and 'X-Error-Cause' in response.headers else 'No hay de Conexión con Hacienda'
+			if 'ya fue recibido anteriormente' in object.respuesta: object.state_tributacion = 'recibido'
+			if 'no ha sido recibido' in object.respuesta: object.state_tributacion = 'pendiente'
 			return False
 		if response.status_code in (502,522, 524):
 			object.state_tributacion = 'error'
-			object.respuesta_tributacion = response.content
+			object.respuesta = response.content
 			return False
 
 
@@ -528,17 +528,17 @@ class ElectronicInvoice(models.TransientModel):
 		_logger.info('respuesta para %s %s' % (object, respuesta['ind-estado']))
 
 		object.state_tributacion = respuesta['ind-estado']
-		if respuesta['ind-estado'] == 'procesando': object.respuesta_tributacion = 'Procesando comprobante'
+		if respuesta['ind-estado'] == 'procesando': object.respuesta = 'Procesando comprobante'
 
 		# Se actualiza la factura con la respuesta de hacienda
 
 		if 'respuesta-xml' in respuesta:
-			object.fname_xml_respuesta_tributacion = 'MensajeHacienda_' + respuesta['clave'] + '.xml'
-			object.xml_respuesta_tributacion = respuesta['respuesta-xml']
+			object.fname_xml_respuesta = 'MensajeHacienda_' + respuesta['clave'] + '.xml'
+			object.xml_respuesta = respuesta['respuesta-xml']
 
-			respuesta = etree.tostring(etree.fromstring(base64.b64decode(object.xml_respuesta_tributacion))).decode()
+			respuesta = etree.tostring(etree.fromstring(base64.b64decode(object.xml_respuesta))).decode()
 			respuesta = etree.fromstring(re.sub(' xmlns="[^"]+"', '', respuesta, count=1))
-			object.respuesta_tributacion = respuesta.find('DetalleMensaje').text
+			object.respuesta = respuesta.find('DetalleMensaje').text
 
 		return True
 
@@ -568,12 +568,12 @@ class ElectronicInvoice(models.TransientModel):
 
 		attachments = comprobante
 
-		if object.xml_respuesta_tributacion:
+		if object.xml_respuesta:
 			respuesta = self.env['ir.attachment'].search(
 				[('res_model', '=', object._name), ('res_id', '=', object.id),
-				 ('res_field', '=', 'xml_respuesta_tributacion')], limit=1)
-			respuesta.name = object.fname_xml_respuesta_tributacion
-			respuesta.datas_fname = object.fname_xml_respuesta_tributacion
+				 ('res_field', '=', 'xml_respuesta')], limit=1)
+			respuesta.name = object.fname_xml_respuesta
+			respuesta.datas_fname = object.fname_xml_respuesta
 
 			attachments = attachments | respuesta
 
@@ -1834,8 +1834,8 @@ class ElectronicInvoice(models.TransientModel):
 
 	def _get_xml_FE_NC_ND_43(self, invoice):
 
-		if invoice.type not in ('out_invoice', 'out_refund'):
-			_logger.error('No es factura de cliente %s', invoice)
+		if invoice.type not in ('out_invoice', 'out_refund', 'in_invoice'):
+			_logger.error('No es factura de cliente o de gasto %s', invoice)
 			return False
 
 		if not invoice.number:
@@ -2389,7 +2389,7 @@ class ElectronicInvoice(models.TransientModel):
 		return  self._get_xml_MR(invoice, invoice.number)
 
 	def _get_xml_MR(self, object, consecutivo):
-		xml = base64.b64decode(object.xml_supplier_approval)
+		xml = base64.b64decode(object.xml_supplier)
 		_logger.info('xml %s' % xml)
 
 		factura = etree.tostring(etree.fromstring(xml)).decode()
@@ -2487,7 +2487,7 @@ class ElectronicInvoice(models.TransientModel):
 
 	def _process_supplier_invoice(self, invoice):
 
-		xml = etree.fromstring(base64.b64decode(invoice.xml_supplier_approval))
+		xml = etree.fromstring(base64.b64decode(invoice.xml_supplier))
 		namespace = xml.nsmap[None]
 		xml = etree.tostring(xml).decode()
 		xml = re.sub(' xmlns="[^"]+"', '', xml)
@@ -2498,11 +2498,11 @@ class ElectronicInvoice(models.TransientModel):
 		v43 = 'https://cdn.comprobanteselectronicos.go.cr/xml-schemas/v4.3/facturaElectronica'
 
 		if document != 'FacturaElectronica':
-			return {'value': {'xml_supplier_approval': False},
+			return {'value': {'xml_supplier': False},
 					'warning': {'title': 'Atención', 'message': 'El archivo xml no es una Factura Electrónica.'}}
 
 		if not (namespace == v42 or namespace == v43):
-			return {'value': {'xml_supplier_approval': False},
+			return {'value': {'xml_supplier': False},
 					'warning': {'title': 'Atención',
 								'message': 'Versión de Factura Electrónica no soportada.\n%s' % namespace}}
 
@@ -2518,7 +2518,7 @@ class ElectronicInvoice(models.TransientModel):
 			xml.find('Receptor').find('Identificacion').find('Numero') is None or
 			xml.find('ResumenFactura') is None or
 			xml.find('ResumenFactura').find('TotalComprobante') is None ):
-			return {'value': {'xml_supplier_approval': False},
+			return {'value': {'xml_supplier': False},
 					'warning': {'title': 'Atención', 'message': 'El xml parece estar incompleto.'}}
 
 		if namespace == v42:
@@ -2526,7 +2526,7 @@ class ElectronicInvoice(models.TransientModel):
 		elif namespace == v43:
 			return self._proccess_supplier_invoicev43(invoice, xml)
 		else:
-			return {'value': {'xml_supplier_approval': False},
+			return {'value': {'xml_supplier': False},
 					'warning': {'title': 'Atención',
 								'message': 'Versión de Factura Electrónica no soportada.\n%s' % namespace}}
 
