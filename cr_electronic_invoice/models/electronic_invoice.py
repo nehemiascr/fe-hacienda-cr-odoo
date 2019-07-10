@@ -2630,7 +2630,7 @@ class ElectronicInvoice(models.TransientModel):
 				'price_unit': precio_unitario,
 				'invoice_id': invoice.id,
 				'name': descripcion,
-				'account_id': invoice.partner_id.property_account_payable_id.id,
+				'account_id': 75,
 				'invoice_line_tax_ids': taxes,
 				'discount': porcentajeDescuento
 			})
@@ -2733,12 +2733,14 @@ class ElectronicInvoice(models.TransientModel):
 				porcentajeDescuento = montoDescuento * 100 / float(total)
 				_logger.info('descuento de %s %s ' % (porcentajeDescuento, montoDescuento))
 
+			# default_account = self.env['ir.property'].get('property_account_payable_id', 'res.partner')
+
 			self.env['account.invoice.line'].new({
 				'quantity': cantidad,
 				'price_unit': precio_unitario,
 				'invoice_id': invoice.id,
 				'name': descripcion,
-				'account_id': invoice.partner_id.property_account_payable_id.id,
+				'account_id': 75,
 				'invoice_line_tax_ids': taxes,
 				'discount': porcentajeDescuento
 			})
