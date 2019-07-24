@@ -1822,7 +1822,7 @@ class ElectronicInvoice(models.TransientModel):
 			return False
 		elif partner_id.identification_id.code == '02' and len(identificacion) != 10:
 			return False
-		elif partner_id.identification_id.code == '03' and (len(identificacion) != 11 or len(identificacion) != 12):
+		elif partner_id.identification_id.code == '03' and not (len(identificacion) == 11 or len(identificacion) == 12):
 			return False
 		elif partner_id.identification_id.code == '04' and len(identificacion) != 10:
 			return False
