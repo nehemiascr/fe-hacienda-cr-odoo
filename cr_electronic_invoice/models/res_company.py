@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 
-import logging
+import logging, re
 from odoo import models, fields, api, _
 
 _logger = logging.getLogger(__name__)
@@ -18,7 +18,7 @@ class CompanyElectronic(models.Model):
 	county_id = fields.Many2one(comodel_name="res.country.county", string="Cantón")
 	neighborhood_id = fields.Many2one(comodel_name="res.country.neighborhood", string="Barrios")
 
-	eicr_activity_id = fields.Many2one(comodel_name="economic_activity", string="Actividad Económica")
+	eicr_activity_ids = fields.Many2many('economic_activity', string='Actividades Económicas', oldname='eicr_activity_id')
 
 	eicr_version_id = fields.Many2one('electronic_invoice.version', 'Versión de la Facturación Electrónica')
 	eicr_username = fields.Char(string="Usuario", oldname='frm_ws_identificador')
@@ -32,10 +32,32 @@ class CompanyElectronic(models.Model):
 										help='Seleccione el punto de conexión del Ministerio de Hacienda a usar',
 										oldname='frm_ws_ambiente')
 
-	eicr_token = fields.Text('Token de sesión para el sistema de recepción de comprobantes del Ministerio de Hacienda',
-							 oldname='token')
+	eicr_token = fields.Text('Token de sesión para el sistema de recepción de comprobantes', oldname='token')
 
 	@api.multi
-	def action_get_token(self):
-		_logger.info('checking token %s' % self.eicr_token)
+	def action_get_token(self, var=None):
+		_logger.info('checking token [%s]' % self.eicr_token)
 		self.env['electronic_invoice'].get_token(self)
+
+	def action_update_info(self):
+		info = self.env['electronic_invoice'].get_info_contribuyente(self.vat)
+		if info:
+			self.identification_id = self.env['identification.type'].search([('code', '=', info['tipoIdentificacion'])])
+			actividades = [a['codigo'] for a in info['actividades'] if a['estado'] == 'A']
+			self.eicr_activity_ids = self.env['economic_activity'].search([('code', 'in', actividades)])
+
+	@api.onchange('vat')
+	def _onchange_state(self):
+		identificacion = re.sub('[^0-9]', '', self.vat or '')
+		if len(identificacion) >= 9:
+			info = self.env['electronic_invoice'].get_info_contribuyente(self.vat)
+			if info:
+				self.identification_id = self.env['identification.type'].search([('code', '=', info['tipoIdentificacion'])])
+				actividades = [a['codigo'] for a in info['actividades'] if a['estado'] == 'A']
+				self.eicr_activity_ids = self.env['economic_activity'].search([('code', 'in', actividades)])
+				if not self.name: self.name = info['nombre']
+				if info['tipoIdentificacion'] in ('01', '03', '04'):
+					self.partner_id.is_company = False
+				elif info['tipoIdentificacion'] in ('02'):
+					self.partner_id.is_company = True
+

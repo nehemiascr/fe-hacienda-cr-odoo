@@ -350,8 +350,8 @@ class ElectronicInvoice(models.TransientModel):
 			raise UserError('La Cédula Física del emisor debe de tener 9 dígitos')
 		elif object.company_id.identification_id.code == '02' and len(identificacion) != 10:
 			raise UserError('La Cédula Jurídica del emisor debe de tener 10 dígitos')
-		elif object.company_id.identification_id.code == '03' and (
-				len(identificacion) != 11 or len(identificacion) != 12):
+		elif object.company_id.identification_id.code == '03' and not (
+				len(identificacion) == 11 or len(identificacion) == 12):
 			raise UserError('La identificación DIMEX del emisor debe de tener 11 o 12 dígitos')
 		elif object.company_id.identification_id.code == '04' and len(identificacion) != 10:
 			raise UserError('La identificación NITE del emisor debe de tener 10 dígitos')
@@ -830,7 +830,7 @@ class ElectronicInvoice(models.TransientModel):
 
 		# CodigoActividad
 		CodigoActividad = etree.Element('CodigoActividad')
-		CodigoActividad.text = order.company_id.eicr_activity_id.code
+		CodigoActividad.text = order.company_id.eicr_activity_ids[0].code
 		Documento.append(CodigoActividad)
 
 		# NumeroConsecutivo
@@ -858,7 +858,7 @@ class ElectronicInvoice(models.TransientModel):
 			raise UserError('La Cédula Física del emisor debe de tener 9 dígitos')
 		elif emisor.identification_id.code == '02' and len(identificacion) != 10:
 			raise UserError('La Cédula Jurídica del emisor debe de tener 10 dígitos')
-		elif emisor.identification_id.code == '03' and (len(identificacion) != 11 or len(identificacion) != 12):
+		elif emisor.identification_id.code == '03' and not (len(identificacion) == 11 or len(identificacion) == 12):
 			raise UserError('La identificación DIMEX del emisor debe de tener 11 o 12 dígitos')
 		elif emisor.identification_id.code == '04' and len(identificacion) != 10:
 			raise UserError('La identificación NITE del emisor debe de tener 10 dígitos')
@@ -1908,7 +1908,7 @@ class ElectronicInvoice(models.TransientModel):
 
 		# CodigoActividad
 		CodigoActividad = etree.Element('CodigoActividad')
-		CodigoActividad.text = invoice.company_id.eicr_activity_id.code
+		CodigoActividad.text = invoice.company_id.eicr_activity_ids[0].code
 		Documento.append(CodigoActividad)
 
 		# NumeroConsecutivo
@@ -1936,7 +1936,7 @@ class ElectronicInvoice(models.TransientModel):
 			raise UserError('La Cédula Física del emisor debe de tener 9 dígitos')
 		elif emisor.identification_id.code == '02' and len(identificacion) != 10:
 			raise UserError('La Cédula Jurídica del emisor debe de tener 10 dígitos')
-		elif emisor.identification_id.code == '03' and (len(identificacion) != 11 or len(identificacion) != 12):
+		elif emisor.identification_id.code == '03' and not (len(identificacion) == 11 or len(identificacion) == 12):
 			raise UserError('La identificación DIMEX del emisor debe de tener 11 o 12 dígitos')
 		elif emisor.identification_id.code == '04' and len(identificacion) != 10:
 			raise UserError('La identificación NITE del emisor debe de tener 10 dígitos')
@@ -2745,7 +2745,36 @@ class ElectronicInvoice(models.TransientModel):
 				'discount': porcentajeDescuento
 			})
 
+	def get_info_contribuyente(self, identificacion=None):
+		'''Obtiene la información del contribuyente'''
+		if identificacion is None: identificacion = self.company_id.vat
+		identificacion = re.sub('[^0-9]', '', identificacion or '')
 
+		try:
+			url = 'https://api.hacienda.go.cr/fe/ae'
+			response = requests.get(url, params={'identificacion': identificacion})
+
+		except requests.exceptions.RequestException as e:
+			_logger.info('RequestException %s' % e)
+			return False
+
+		_logger.info('%s %s' % (response, response.__dict__))
+
+		if response.status_code in (200,):
+			_logger.info(response.json())
+			return response.json()
+		else:
+			return False
+
+	def get_actividades_economicas(self, identificacion=None):
+		'''Obtiene las actividades económicas de la compañia'''
+
+		info = self.get_info_contribuyente(identificacion)
+
+		if info:
+			return [x for x in info['actividades'] if x['estado'] == 'A']
+		else:
+			return False
 
 
 
