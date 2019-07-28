@@ -13,6 +13,9 @@
 		''',
 	'depends': ['base', 'account', 'product', 'sale_management', 'sales_team', 'account_invoicing', 'l10n_cr_country_codes', 'account_cancel', 'res_currency_cr_adapter', ],
 	'data': ['data/ir_cron_data.xml',
+			 'data/account_account_tag_data.xml',
+			 'data/account_tax_group_data.xml',
+			 'data/account_tax_template_data.xml',
 			 'data/account_tax_data.xml',
 			 'data/code.type.product.csv',
 	         'data/identification.type.csv',
@@ -33,11 +36,11 @@
 			 'views/electronic_invoice_version_views.xml',
 			 'views/electronic_invoice_schema_views.xml',
 			 'views/res_company_views.xml',
+			 'views/product_views.xml',
+		  	 'views/product_template_views.xml',
+			 'views/product_category_views.xml',
 			 'views/res_partner.xml',
 	         'security/ir.model.access.csv',
-
-			 'data/account_data.xml',
-			 'data/account_tax_template_data.xml'
 
 	         ],
 	'installable': True,

@@ -243,6 +243,15 @@ class AccountInvoiceElectronic(models.Model):
     @api.multi
     def action_invoice_open(self):
         _logger.info('%s of type %s' % (self, self.type))
+        for invoice in self:
+            if invoice.payment_methods_id.sequence == '02':
+                iva4 = self.env['account.tax'].search([('tax_code', '=', '01'), ('iva_tax_code', '=', '04'), ('type_tax_use', '=', 'sale')])
+                iva4_devolucion = self.env['account.tax'].search([('tax_code', '=', '01'),('iva_tax_code', '=', '04D'),('type_tax_use', '=', 'sale')])
+                for line in invoice.invoice_line_ids:
+                    if iva4 in line.invoice_line_tax_ids:
+                        line.invoice_line_tax_ids = [(4, iva4_devolucion.id)]
+                invoice.compute_taxes()
+
         super(AccountInvoiceElectronic, self).action_invoice_open()
 
         if self.company_id.eicr_environment != 'disabled':

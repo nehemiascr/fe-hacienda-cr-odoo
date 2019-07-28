@@ -2199,42 +2199,44 @@ class ElectronicInvoice(models.TransientModel):
 			SubTotal.text = str(round(linea.price_subtotal, decimales))
 			LineaDetalle.append(SubTotal)
 
+			ivaDevuelto = round(0.00, decimales)
 			if linea.invoice_line_tax_ids:
+
 				for impuesto in linea.invoice_line_tax_ids:
-
-					Impuesto = etree.Element('Impuesto')
-
-					Codigo = etree.Element('Codigo')
-					Codigo.text = impuesto.tax_code
-					Impuesto.append(Codigo)
 
 					monto = round(linea.price_subtotal * impuesto.amount / 100.00, decimales)
 
-					if impuesto.tax_code == '01':
-						CodigoTarifa = etree.Element('CodigoTarifa')
-						CodigoTarifa.text = impuesto.iva_tax_code
-						Impuesto.append(CodigoTarifa)
-
-
-						Tarifa = etree.Element('Tarifa')
-						Tarifa.text = str(round(impuesto.amount, decimales))
-						Impuesto.append(Tarifa)
-
-						if impuesto.iva_tax_code == '04' and invoice.payment_methods_id.sequence == '02':
-							totalIVADevuelto += monto
-
-					Monto = etree.Element('Monto')
-
-					totalImpuesto += monto
-					Monto.text = str(round(monto, decimales))
-					Impuesto.append(Monto)
-
-					LineaDetalle.append(Impuesto)
-
-					if linea.product_id and linea.product_id.type == 'service':
-						totalServiciosGravados += linea.price_subtotal
+					if (impuesto.tax_code == '01' and impuesto.iva_tax_code == '04D'):
+						if invoice.payment_methods_id.sequence == '02':
+							ivaDevuelto += abs(monto)
 					else:
-						totalMercanciasGravadas += linea.price_subtotal
+						Impuesto = etree.Element('Impuesto')
+
+						Codigo = etree.Element('Codigo')
+						Codigo.text = impuesto.tax_code
+						Impuesto.append(Codigo)
+
+						if impuesto.tax_code == '01':
+							CodigoTarifa = etree.Element('CodigoTarifa')
+							CodigoTarifa.text = impuesto.iva_tax_code
+							Impuesto.append(CodigoTarifa)
+
+							Tarifa = etree.Element('Tarifa')
+							Tarifa.text = str(round(impuesto.amount, decimales))
+							Impuesto.append(Tarifa)
+
+						Monto = etree.Element('Monto')
+
+						totalImpuesto += monto
+						Monto.text = str(round(monto, decimales))
+						Impuesto.append(Monto)
+
+						LineaDetalle.append(Impuesto)
+
+						if linea.product_id and linea.product_id.type == 'service':
+							totalServiciosGravados += linea.price_subtotal
+						else:
+							totalMercanciasGravadas += linea.price_subtotal
 
 			else:
 				if linea.product_id and linea.product_id.type == 'service':
@@ -2243,10 +2245,12 @@ class ElectronicInvoice(models.TransientModel):
 					totalMercanciasExentas += linea.price_subtotal
 
 			MontoTotalLinea = etree.Element('MontoTotalLinea')
-			MontoTotalLinea.text = str(round(linea.price_total, decimales))
+			MontoTotalLinea.text = str(round(linea.price_total+ivaDevuelto, decimales))
 			LineaDetalle.append(MontoTotalLinea)
 
 			DetalleServicio.append(LineaDetalle)
+
+			totalIVADevuelto += ivaDevuelto
 
 		Documento.append(DetalleServicio)
 
@@ -2268,7 +2272,7 @@ class ElectronicInvoice(models.TransientModel):
 
 		if totalServiciosGravados:
 			TotalServGravados = etree.Element('TotalServGravados')
-			TotalServGravados.text = str(round(totalServiciosGravados + totalDescuentosServiciosGravados, decimales))
+			TotalServGravados.text = str(round(totalServiciosGravados + totalDescuentosServiciosGravados + totalIVADevuelto, decimales))
 			ResumenFactura.append(TotalServGravados)
 
 		if totalServiciosExentos:
@@ -2309,7 +2313,7 @@ class ElectronicInvoice(models.TransientModel):
 		TotalVentaNeta.text = str(round(invoice.amount_untaxed, decimales))
 		ResumenFactura.append(TotalVentaNeta)
 
-		if invoice.amount_tax:
+		if totalImpuesto:
 			TotalImpuesto = etree.Element('TotalImpuesto')
 			# TotalImpuesto.text = str(round(invoice.amount_tax, decimales))
 			TotalImpuesto.text = str(round(totalImpuesto, decimales))
@@ -2322,7 +2326,7 @@ class ElectronicInvoice(models.TransientModel):
 
 
 		TotalComprobante = etree.Element('TotalComprobante')
-		TotalComprobante.text = str(round(invoice.amount_total - totalIVADevuelto, decimales))
+		TotalComprobante.text = str(round(invoice.amount_total, decimales))
 		ResumenFactura.append(TotalComprobante)
 
 		Documento.append(ResumenFactura)
