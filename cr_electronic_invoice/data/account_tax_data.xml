@@ -205,7 +205,7 @@
             model="account.tax">
             <field name="tax_code">01</field>
             <field name="name">Devolución IVA 4%</field>
-            <field name="amount">4</field>
+            <field name="amount">-4</field>
             <field name="type_tax_use">purchase</field>
             <field name="description">Devolución IVA 4%</field>
             <field name="sequence">10</field>
