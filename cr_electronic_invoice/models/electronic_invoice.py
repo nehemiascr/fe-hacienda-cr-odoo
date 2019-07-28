@@ -2272,7 +2272,7 @@ class ElectronicInvoice(models.TransientModel):
 
 		if totalServiciosGravados:
 			TotalServGravados = etree.Element('TotalServGravados')
-			TotalServGravados.text = str(round(totalServiciosGravados + totalDescuentosServiciosGravados + totalIVADevuelto, decimales))
+			TotalServGravados.text = str(round(totalServiciosGravados + totalDescuentosServiciosGravados, decimales))
 			ResumenFactura.append(TotalServGravados)
 
 		if totalServiciosExentos:
