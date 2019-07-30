@@ -4,8 +4,7 @@
     <data noupdate="1">
 
         <record id="l10n_cr.account_tax_template_IVA_00_0" model="account.tax.template">
-            <field name="name">Impuesto al Valor Agregado 0%</field>
-            <field name="include_base_amount" eval="False"/>
+            <field name="name">IVA 0%</field>
             <field name="tax_code">01</field>
             <field name="description">IVA 0%</field>
             <field name="iva_tax_desc">Tarifa 0%</field>
@@ -22,7 +21,7 @@
         </record>
 
         <record id="l10n_cr.account_tax_template_IVA_00_1" model="account.tax.template">
-            <field name="name">Impuesto al Valor Agregado 0%</field>
+            <field name="name">IVA 0%</field>
             <field name="include_base_amount" eval="False"/>
             <field name="tax_code">01</field>
             <field name="description">IVA 0%</field>
@@ -40,10 +39,10 @@
         </record>
 
         <record id="l10n_cr.account_tax_template_IVA_01_0" model="account.tax.template">
-            <field name="name">Impuesto al Valor Agregado 1%</field>
+            <field name="name">IVA 1% (Tarifa Reducida)</field>
             <field name="include_base_amount" eval="False"/>
             <field name="tax_code">01</field>
-            <field name="description">IVA 1%</field>
+            <field name="description">IVA 1% (Tarifa Reducida)</field>
             <field name="iva_tax_desc">Tarifa reducida 1%</field>
             <field name="iva_tax_code">02</field>
             <field name="sequence">10</field>
@@ -58,10 +57,10 @@
         </record>
 
         <record id="l10n_cr.account_tax_template_IVA_01_1" model="account.tax.template">
-            <field name="name">Impuesto al Valor Agregado 1%</field>
+            <field name="name">IVA 1% (Tarifa Reducida)</field>
             <field name="include_base_amount" eval="False"/>
             <field name="tax_code">01</field>
-            <field name="description">IVA 1%</field>
+            <field name="description">IVA 1% (Tarifa Reducida)</field>
             <field name="iva_tax_desc">Tarifa reducida 1%</field>
             <field name="iva_tax_code">02</field>
             <field name="sequence">10</field>
@@ -76,10 +75,10 @@
         </record>
 
         <record id="l10n_cr.account_tax_template_IVA_02_0" model="account.tax.template">
-            <field name="name">Impuesto al Valor Agregado 2%</field>
+            <field name="name">IVA 2% (Tarifa Reducida)</field>
             <field name="include_base_amount" eval="False"/>
             <field name="tax_code">01</field>
-            <field name="description">IVA 2%</field>
+            <field name="description">IVA 2% (Tarifa Reducida)</field>
             <field name="iva_tax_desc">Tarifa reducida 2%</field>
             <field name="iva_tax_code">03</field>
             <field name="sequence">10</field>
@@ -94,10 +93,10 @@
         </record>
 
         <record id="l10n_cr.account_tax_template_IVA_02_1" model="account.tax.template">
-            <field name="name">Impuesto al Valor Agregado 2%</field>
+            <field name="name">IVA 2% (Tarifa Reducida)</field>
             <field name="include_base_amount" eval="False"/>
             <field name="tax_code">01</field>
-            <field name="description">IVA 2%</field>
+            <field name="description">IVA 2% (Tarifa Reducida)</field>
             <field name="iva_tax_desc">Tarifa reducida 2%</field>
             <field name="iva_tax_code">03</field>
             <field name="sequence">10</field>
@@ -112,10 +111,10 @@
         </record>
 
         <record id="l10n_cr.account_tax_template_IVA_04_0" model="account.tax.template">
-            <field name="name">Impuesto al Valor Agregado 4%</field>
+            <field name="name">IVA 4% (Tarifa Reducida)</field>
             <field name="include_base_amount" eval="False"/>
             <field name="tax_code">01</field>
-            <field name="description">IVA 4%</field>
+            <field name="description">IVA 4% (Tarifa Reducida)</field>
             <field name="iva_tax_desc">Tarifa reducida 4%</field>
             <field name="iva_tax_code">04</field>
             <field name="sequence">10</field>
@@ -130,10 +129,10 @@
         </record>
 
         <record id="l10n_cr.account_tax_template_IVA_04_1" model="account.tax.template">
-            <field name="name">Impuesto al Valor Agregado 4%</field>
+            <field name="name">IVA 4% (Tarifa Reducida)</field>
             <field name="include_base_amount" eval="False"/>
             <field name="tax_code">01</field>
-            <field name="description">IVA 4%</field>
+            <field name="description">IVA 4% (Tarifa Reducida)</field>
             <field name="iva_tax_desc">Tarifa reducida 4%</field>
             <field name="iva_tax_code">04</field>
             <field name="sequence">10</field>
@@ -148,11 +147,11 @@
         </record>
 
         <record id="l10n_cr.account_tax_template_IVA_04D_0" model="account.tax.template">
-            <field name="name">Devolución Impuesto al Valor Agregado 4%</field>
+            <field name="name">Devolución IVA 4% (Tarifa Reducida)</field>
             <field name="include_base_amount" eval="False"/>
             <field name="tax_code">01</field>
-            <field name="description">Devolción IVA 4%</field>
-            <field name="iva_tax_desc">Devolción Tarifa reducida 4%</field>
+            <field name="description">Devolución IVA 4% (Tarifa Reducida)</field>
+            <field name="iva_tax_desc">Devolución Tarifa reducida 4%</field>
             <field name="iva_tax_code">04D</field>
             <field name="sequence">10</field>
             <field name="amount">-4</field>
@@ -166,11 +165,11 @@
         </record>
 
         <record id="l10n_cr.account_tax_template_IVA_04D_1" model="account.tax.template">
-            <field name="name">Devolución Impuesto al Valor Agregado 4%</field>
+            <field name="name">Devolución IVA 4% (Tarifa Reducida)</field>
             <field name="include_base_amount" eval="False"/>
             <field name="tax_code">01</field>
-            <field name="description">Devolción IVA 4%</field>
-            <field name="iva_tax_desc">Devolción Tarifa reducida 4%</field>
+            <field name="description">Devolución IVA 4% (Tarifa Reducida)</field>
+            <field name="iva_tax_desc">Devolución Tarifa reducida 4%</field>
             <field name="iva_tax_code">04D</field>
             <field name="sequence">10</field>
             <field name="amount">-4</field>
@@ -184,10 +183,10 @@
         </record>
 
         <record id="l10n_cr.account_tax_template_IVA_13_0" model="account.tax.template">
-            <field name="name">Impuesto al Valor Agregado 13%</field>
+            <field name="name">IVA 13%</field>
             <field name="include_base_amount" eval="False"/>
             <field name="tax_code">01</field>
-            <field name="description">IVA 13%</field>
+            <field name="description">IVA General 13%</field>
             <field name="iva_tax_desc">Tarifa General 13%</field>
             <field name="iva_tax_code">08</field>
             <field name="sequence">10</field>
@@ -202,10 +201,10 @@
         </record>
 
         <record id="l10n_cr.account_tax_template_IVA_13_1" model="account.tax.template">
-            <field name="name">Impuesto al Valor Agregado 13%</field>
+            <field name="name">IVA 13%</field>
             <field name="include_base_amount" eval="False"/>
             <field name="tax_code">01</field>
-            <field name="description">IVA 13%</field>
+            <field name="description">IVA General 13%</field>
             <field name="iva_tax_desc">Tarifa General 13%</field>
             <field name="iva_tax_code">08</field>
             <field name="sequence">10</field>
@@ -220,10 +219,10 @@
         </record>
 
          <record id="l10n_cr.account_tax_template_ISC_0" model="account.tax.template">
-            <field name="name">Impuesto Selectivo de Consumo 2</field>
+            <field name="name">Impuesto Selectivo de Consumo</field>
             <field name="include_base_amount" eval="True"/>
             <field name="tax_code">02</field>
-            <field name="description">ISC</field>
+            <field name="description">Impuesto Selectivo de Consumo</field>
             <field name="sequence">10</field>
             <field name="amount">5</field>
             <field name="amount_type">percent</field>
@@ -236,10 +235,10 @@
         </record>
 
          <record id="l10n_cr.account_tax_template_ISC_1" model="account.tax.template">
-            <field name="name">Impuesto Selectivo de Consumo 2</field>
+            <field name="name">Impuesto Selectivo de Consumo</field>
             <field name="include_base_amount" eval="True"/>
             <field name="tax_code">02</field>
-            <field name="description">ISC</field>
+            <field name="description">Impuesto Selectivo de Consumo</field>
             <field name="sequence">10</field>
             <field name="amount">5</field>
             <field name="amount_type">percent</field>
@@ -255,7 +254,7 @@
             <field name="name">Cargo al Servicio</field>
             <field name="include_base_amount" eval="False"/>
             <field name="tax_code">service</field>
-            <field name="description">IS</field>
+            <field name="description">Cargo al Servicio</field>
             <field name="sequence">10</field>
             <field name="amount">10</field>
             <field name="amount_type">percent</field>
@@ -267,11 +266,11 @@
             <field name="tax_group_id" ref="l10n_cr.tax_group_is"/>
         </record>
 
-        <record id="l10n_cr.account_tax_template_IS_0" model="account.tax.template">
+        <record id="l10n_cr.account_tax_template_IS_1" model="account.tax.template">
             <field name="name">Cargo al Servicio</field>
             <field name="include_base_amount" eval="False"/>
             <field name="tax_code">service</field>
-            <field name="description">IS</field>
+            <field name="description">Cargo al Servicio</field>
             <field name="sequence">10</field>
             <field name="amount">10</field>
             <field name="amount_type">percent</field>
@@ -284,5 +283,4 @@
         </record>
 
     </data>
-
 </odoo>

@@ -305,9 +305,7 @@
             <field name="type_tax_use">sale</field>
             <field name="description">Impuesto Selectivo de Consumo</field>
             <field name="sequence">10</field>
-            <field name="price_include">False</field>
-            <field name="iva_tax_desc">N/A</field>
-            <field name="iva_tax_code">N/A</field>
+            <field name="include_base_amount">True</field>
             <field name="chart_template_id" ref="l10n_cr.account_chart_template_0"/>
             <field name="account_id" ref="l10n_cr.account_account_template_0_212101"/>
             <field name="refund_account_id" ref="l10n_cr.account_account_template_0_212101"/>
@@ -318,14 +316,12 @@
         <record id="iva_tax_16" 
             model="account.tax">
             <field name="tax_code">02b</field>
-            <field name="name">Impuesto Selectivo de Consumo b</field>
+            <field name="name">Impuesto Selectivo de Consumo</field>
             <field name="amount">5</field>
             <field name="type_tax_use">purchase</field>
             <field name="description">Impuesto Selectivo de Consumo b</field>
             <field name="sequence">10</field>
-            <field name="price_include">False</field>
-            <field name="iva_tax_desc">N/A</field>
-            <field name="iva_tax_code">N/A</field>
+            <field name="include_base_amount">True</field>
             <field name="chart_template_id" ref="l10n_cr.account_chart_template_0"/>
             <field name="account_id" ref="l10n_cr.account_account_template_0_212101"/>
             <field name="refund_account_id" ref="l10n_cr.account_account_template_0_212101"/>
