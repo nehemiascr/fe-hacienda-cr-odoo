@@ -29,6 +29,7 @@
 			 'data/economic_activity_data.xml',
 			 'data/electronic_invoice_version.xml',
 			 'data/electronic_invoice_schema.xml',
+
 			 'views/account_tax_views.xml',
 			 'views/account_invoice.xml',
 			 'views/account_journal.xml',
@@ -40,6 +41,9 @@
 		  	 'views/product_template_views.xml',
 			 'views/product_category_views.xml',
 			 'views/res_partner.xml',
+
+			 'report/report_invoice.xml',
+
 	         'security/ir.model.access.csv',
 
 	         ],
