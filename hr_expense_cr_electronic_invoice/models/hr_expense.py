@@ -86,7 +86,7 @@ class HrExpense(models.Model):
 
         fe = self.env['electronic_invoice']
 
-        if self.xml_supplier_approval and fe.validar_xml_proveedor(self.xml_supplier_approval):
+        if self.xml_supplier_approval and fe.validar_xml_proveedor(base64.b64decode(self.xml_supplier_approval).decode("utf-8")):
 
             xml = base64.b64decode(self.xml_supplier_approval)
             _logger.info('xml %s' % xml)
