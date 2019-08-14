@@ -1,10 +1,10 @@
 # -*- coding: utf-8 -*-
 
-
 from . import res_partner
 from . import res_company
 from . import economic_activity
 from . import product
+# from . import product_uom
 from . import product_template
 from . import product_category
 from . import electronic_invoice
@@ -17,3 +17,4 @@ from . import account_invoice_line
 from . import account_invoice_refund
 from . import account_journal
 from . import facturacion_electronica
+from . import identificacion_type
