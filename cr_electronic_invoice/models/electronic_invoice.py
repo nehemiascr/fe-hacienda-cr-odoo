@@ -250,6 +250,8 @@ class ElectronicInvoice(models.TransientModel):
 			tipo = '04'  # Tiquete Electrónico
 		elif object._name == 'hr.expense':
 			diario = self.env['account.journal'].search([('company_id', '=', object.company_id.id), ('type', '=', 'purchase')])
+			if len(diario) > 1:
+				diario = diario.sorted(key=lambda i: i.id)[0]
 			numeracion = object.number or diario.sequence_id.next_by_id()
 			if object.state_invoice_partner == '1' or object.state_invoice_partner is None :
 				tipo = '05'  # Aceptado
