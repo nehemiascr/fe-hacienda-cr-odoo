@@ -650,7 +650,7 @@ class ElectronicInvoice(models.TransientModel):
 
 		if expense != None:
 			gastos = expense.search([('state_tributacion', 'in', ('pendiente',))],
-									limit=max_documentos).sorted(key=lambda e: e.reference)
+									limit=10).sorted(key=lambda e: e.reference)
 			_logger.info('Validando %s Gastos' % len(gastos))
 			for indice, gasto in enumerate(gastos):
 				_logger.info('Validando Gasto %s / %s ' % (indice+1, len(gastos)))
