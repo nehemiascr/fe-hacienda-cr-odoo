@@ -145,16 +145,10 @@
                                     </t>
                                 </tr>
                             </t>
-                            <tr t-if="totalIVADevuelto" style="border-bottom:1px solid #dddddd;">
-                                <td><span>IVA Devuelto</span></td>
-                                 <td  class="text-right">
-                                    <span t-esc="totalIVADevuelto" t-options="{&quot;widget&quot;: &quot;monetary&quot;, &quot;display_currency&quot;: o.currency_id}"/>
-                                </td>
-                            </tr>
                             <tr class="border-black">
                                 <td><strong>Total</strong></td>
                                 <td class="text-right">
-                                    <span t-esc="o.amount_total - totalIVADevuelto" t-options="{&quot;widget&quot;: &quot;monetary&quot;, &quot;display_currency&quot;: o.currency_id}"/>
+                                    <span t-esc="o.amount_total" t-options="{&quot;widget&quot;: &quot;monetary&quot;, &quot;display_currency&quot;: o.currency_id}"/>
                                 </td>
                             </tr>
                         </table>

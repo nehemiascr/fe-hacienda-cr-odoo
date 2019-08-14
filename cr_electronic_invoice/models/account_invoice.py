@@ -55,6 +55,11 @@ class AccountInvoiceElectronic(models.Model):
                                     ('sent', 'Enviado'),
                                     ('fe_error', 'Error FE')], 'Estado email', copy=False)
 
+    credito_iva = fields.Float('Porcentaje del Impuesto a acreditar', digits=(3,2), default=100)
+    credito_iva_condicion = fields.Many2one("credit.conditions", "Condición del Impuesto")
+
+
+
 
     _sql_constraints = [
         ('number_electronic_uniq', 'unique (number_electronic)', "La clave de comprobante debe ser única"),

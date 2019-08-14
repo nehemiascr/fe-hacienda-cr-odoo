@@ -88,6 +88,8 @@
 							<field name="fname_xml_supplier_approval" invisible="1" />
 							<field name="xml_supplier_approval" filename="fname_xml_supplier_approval" />
 							<field name="state_invoice_partner" />
+							<field name="credito_iva" />
+							<field name="credito_iva_condicion" />
 							<!--<button name="charge_xml_data" type="object" string="Cargar datos desde XML" colspan="2" attrs="{'invisible':[('state','!=', 'draft')]}" />-->
 						</group>
 						<group>

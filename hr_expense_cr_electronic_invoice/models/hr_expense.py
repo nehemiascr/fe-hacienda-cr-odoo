@@ -49,6 +49,10 @@ class HrExpense(models.Model):
     fname_xml_respuesta_tributacion = fields.Char(string="Nombre de archivo XML Respuesta Tributación", copy=False)
     respuesta_tributacion = fields.Text(string="Mensaje en la Respuesta de Tributación", readonly=True, copy=False)
 
+    credito_iva = fields.Float('Porcentaje del Impuesto a acreditar', digits=(3,2), default=100)
+    credito_iva_condicion = fields.Many2one("credit.conditions", "Condición del Impuesto")
+
+
 
     def action_cargar_xml(self, vals):
         _logger.info('action_cargar_xml self %s' % self)

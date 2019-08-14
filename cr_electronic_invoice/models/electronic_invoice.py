@@ -18,35 +18,11 @@ import sys
 _logger = logging.getLogger(__name__)
 
 
-class IdentificationType(models.Model):
-	_name = "identification.type"
-
-	code = fields.Char(string="Código", required=False, )
-	name = fields.Char(string="Nombre", required=False, )
-	notes = fields.Text(string="Notas", required=False, )
-
-
 class CodeTypeProduct(models.Model):
 	_name = "code.type.product"
 
 	code = fields.Char(string="Código", required=False, )
 	name = fields.Char(string="Nombre", required=False, )
-
-
-class ProductElectronic(models.Model):
-	_inherit = "product.template"
-
-	@api.model
-	def _default_code_type_id(self):
-		code_type_id = self.env['code.type.product'].search([('code', '=', '04')], limit=1)
-		return code_type_id or False
-
-	commercial_measurement = fields.Char(string="Unidad de Medida Comercial", required=False, )
-	code_type_id = fields.Many2one(comodel_name="code.type.product", string="Tipo de código", required=False,
-								   default=_default_code_type_id)
-
-
-
 
 
 class Exoneration(models.Model):
@@ -73,10 +49,18 @@ class PaymentMethods(models.Model):
 class SaleConditions(models.Model):
 	_name = "sale.conditions"
 
-	active = fields.Boolean(string="Activo", required=False, default=True)
-	sequence = fields.Char(string="Secuencia", required=False, )
-	name = fields.Char(string="Nombre", required=False, )
-	notes = fields.Text(string="Notas", required=False, )
+	active = fields.Boolean(string="Activo", default=True)
+	sequence = fields.Char(string="Secuencia"  )
+	name = fields.Char(string="Nombre")
+	notes = fields.Text(string="Notas")
+
+class CreditConditions(models.Model):
+	_name = "credit.conditions"
+
+	active = fields.Boolean(string="Activo", default=True)
+	sequence = fields.Char(string="Secuencia")
+	name = fields.Char(string="Nombre")
+	notes = fields.Text(string="Notas")
 
 
 class AccountPaymentTerm(models.Model):
@@ -108,17 +92,6 @@ class Resolution(models.Model):
 	date_resolution = fields.Date(string="Fecha de resolución", required=False, )
 
 
-class ProductUom(models.Model):
-	_inherit = "product.uom"
-	code = fields.Char(string="Código", required=False, )
-
-
-class AccountJournal(models.Model):
-	_inherit = "account.journal"
-	nd = fields.Boolean(string="Nota de Débito", required=False, )
-
-
-
 class ElectronicInvoice(models.TransientModel):
 	_name = 'electronic_invoice'
 
@@ -126,7 +99,8 @@ class ElectronicInvoice(models.TransientModel):
 	def validar_xml_proveedor(self, xml):
 		_logger.info('validando xml de proveedor')
 
-		root = ET.fromstring(re.sub(' xmlns="[^"]+"', '', base64.b64decode(xml).decode("utf-8"), count=1))  # quita el namespace de los elementos
+		# root = ET.fromstring(re.sub(' xmlns="[^"]+"', '', base64.b64decode(xml).decode("utf-8"), count=1))  # quita el namespace de los elementos
+		root = ET.fromstring(re.sub(' xmlns="[^"]+"', '', xml, count=1))
 
 		if not root.findall('Clave')  \
 			or not root.findall('FechaEmision') \
@@ -667,6 +641,7 @@ class ElectronicInvoice(models.TransientModel):
 			for indice, tiquete in enumerate(tiquetes):
 				_logger.info('Validando TiqueteElectronico %s / %s ' % (indice+1, len(tiquetes)))
 				if not tiquete.xml_comprobante:
+					tiquete.state_tributacion = 'na'
 					pass
 				self._enviar_documento(tiquete)
 				max_documentos -= 1
@@ -677,8 +652,17 @@ class ElectronicInvoice(models.TransientModel):
 			_logger.info('Validando %s Gastos' % len(gastos))
 			for indice, gasto in enumerate(gastos):
 				_logger.info('Validando Gasto %s / %s ' % (indice+1, len(gastos)))
-				if not gasto.xml_comprobante:
+				if not gasto.xml_supplier_approval:
+					gasto.state_tributacion = 'na'
 					pass
+				elif not gasto.xml_comprobante:
+					xml = self.get_xml(gasto)
+					if xml:
+						gasto.xml_comprobante = xml
+						gasto.fname_xml_comprobante = 'MensajeReceptor_' + gasto.number_electronic + '.xml'
+					else:
+						gasto.state_tributacion = 'na'
+						pass
 				self._enviar_documento(gasto)
 				max_documentos -= 1
 
@@ -762,6 +746,9 @@ class ElectronicInvoice(models.TransientModel):
 			Documento = self._get_xml_TE(object)
 		elif object._name == 'hr.expense':
 			Documento = self._get_xml_MR_hr_expense(object)
+
+		if Documento is None or Documento is False:
+			return False
 
 		_logger.info ('Documento %s' % Documento)
 		xml = etree.tostring(Documento, encoding='UTF-8', xml_declaration=True, pretty_print=True)
@@ -2397,6 +2384,11 @@ class ElectronicInvoice(models.TransientModel):
 		_logger.info('xml %s' % xml)
 
 		factura = etree.tostring(etree.fromstring(xml)).decode()
+
+		if not self.validar_xml_proveedor(factura):
+			return False
+
+
 		factura = etree.fromstring(re.sub(' xmlns="[^"]+"', '', factura, count=1))
 
 		Emisor = factura.find('Emisor')
@@ -2458,6 +2450,27 @@ class ElectronicInvoice(models.TransientModel):
 			MontoTotalImpuesto = etree.Element('MontoTotalImpuesto')
 			MontoTotalImpuesto.text = TotalImpuesto.text  # TotalImpuesto.text
 			Documento.append(MontoTotalImpuesto)
+
+			if Mensaje.text != '3':
+				# CodigoActividad
+				CodigoActividad = etree.Element('CodigoActividad')
+				CodigoActividad.text = object.company_id.eicr_activity_ids[0].code
+				Documento.append(CodigoActividad)
+
+				# CondicionImpuesto
+				if not object.credito_iva_condicion: object.credito_iva_condicion = self.env.ref('cr_electronic_invoice.CreditConditions_1')
+				CondicionImpuesto = etree.Element('CondicionImpuesto')
+				CondicionImpuesto.text = object.credito_iva_condicion.sequence
+				Documento.append(CondicionImpuesto)
+
+				# MontoTotalImpuestoAcreditar
+				if not object.credito_iva:
+					object.credito_iva = 100.0
+				MontoTotalImpuestoAcreditar = etree.Element('MontoTotalImpuestoAcreditar')
+				montoTotalImpuestoAcreditar = float(TotalImpuesto.text) * object.credito_iva / 100.0
+				MontoTotalImpuestoAcreditar.text = str(round(montoTotalImpuestoAcreditar, 2))
+				Documento.append(MontoTotalImpuestoAcreditar)
+
 
 		# TotalFactura
 		TotalFactura = etree.Element('TotalFactura')
