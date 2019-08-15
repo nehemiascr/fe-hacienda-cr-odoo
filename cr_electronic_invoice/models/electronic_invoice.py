@@ -366,7 +366,9 @@ class ElectronicInvoice(models.TransientModel):
 
 		xml = base64.b64decode(object.xml_comprobante)
 
-		if not self.validar_xml_proveedor(xml):
+		factura = etree.tostring(etree.fromstring(xml)).decode()
+
+		if not self.validar_xml_proveedor(factura):
 			object.state_tributacion = 'na'
 			return False
 
