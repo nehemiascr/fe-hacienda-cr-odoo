@@ -366,6 +366,11 @@ class ElectronicInvoice(models.TransientModel):
 
 		xml = base64.b64decode(object.xml_comprobante)
 
+		if not self.validar_xml_proveedor(xml):
+			object.state_tributacion = 'na'
+			return False
+
+
 		Documento = etree.tostring(etree.fromstring(xml)).decode()
 		Documento = etree.fromstring(re.sub(' xmlns="[^"]+"', '', Documento, count=1))
 
