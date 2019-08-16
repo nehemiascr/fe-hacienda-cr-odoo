@@ -2394,7 +2394,7 @@ class ElectronicInvoice(models.TransientModel):
 
 		factura = etree.tostring(etree.fromstring(xml)).decode()
 
-		if not self.validar_xml_proveedor(object.xml_supplier_approva):
+		if not self.validar_xml_proveedor(object.xml_supplier_approval):
 			return False
 
 
