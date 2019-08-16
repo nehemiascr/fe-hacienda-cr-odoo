@@ -99,19 +99,29 @@ class ElectronicInvoice(models.TransientModel):
 	def validar_xml_proveedor(self, xml):
 		_logger.info('validando xml de proveedor')
 
-		# root = ET.fromstring(re.sub(' xmlns="[^"]+"', '', base64.b64decode(xml).decode("utf-8"), count=1))  # quita el namespace de los elementos
-		root = ET.fromstring(re.sub(' xmlns="[^"]+"', '', xml, count=1))
+		xml = base64.b64decode(xml)
+		xml = etree.tostring(etree.fromstring(xml)).decode()
+		xml = re.sub(' xmlns="[^"]+"', '', xml)
+		xml = etree.fromstring(xml)
+		document = xml.tag
 
-		if not root.findall('Clave')  \
-			or not root.findall('FechaEmision') \
-			or not root.findall('Emisor')\
-			or not root.findall('Emisor')[0].findall('Identificacion') \
-			or not root.findall('Emisor')[0].findall('Identificacion')[0].findall('Tipo') \
-			or not root.findall('Emisor')[0].findall('Identificacion')[0].findall('Numero') \
-			or not (root.findall('ResumenFactura') and root.findall('ResumenFactura')[0].findall('TotalComprobante')):
+		if (xml.find('Clave') is None or
+			xml.find('FechaEmision') is None or
+			xml.find('Emisor') is None or
+			xml.find('Emisor').find('Identificacion') is None or
+			xml.find('Emisor').find('Identificacion').find('Tipo') is None or
+			xml.find('Emisor').find('Identificacion').find('Numero') is None or
+			xml.find('Receptor') is None or
+			xml.find('Receptor').find('Identificacion') is None or
+			xml.find('Receptor').find('Identificacion').find('Tipo') is None or
+			xml.find('Receptor').find('Identificacion').find('Numero') is None or
+			xml.find('ResumenFactura') is None or
+			xml.find('ResumenFactura').find('TotalComprobante') is None ):
+
+			_logger.info('xml de proveedor inválido')
 			return False
-		else:
-			return True
+
+		return True
 
 	@api.model
 	def enviar_aceptacion(self, object):
@@ -365,13 +375,6 @@ class ElectronicInvoice(models.TransientModel):
 			return False
 
 		xml = base64.b64decode(object.xml_comprobante)
-
-		factura = etree.tostring(etree.fromstring(xml)).decode()
-
-		if not self.validar_xml_proveedor(factura):
-			object.state_tributacion = 'na'
-			return False
-
 
 		Documento = etree.tostring(etree.fromstring(xml)).decode()
 		Documento = etree.fromstring(re.sub(' xmlns="[^"]+"', '', Documento, count=1))
@@ -2391,7 +2394,7 @@ class ElectronicInvoice(models.TransientModel):
 
 		factura = etree.tostring(etree.fromstring(xml)).decode()
 
-		if not self.validar_xml_proveedor(factura):
+		if not self.validar_xml_proveedor(object.xml_supplier_approva):
 			return False
 
 
