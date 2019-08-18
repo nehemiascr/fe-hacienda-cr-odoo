@@ -59,8 +59,6 @@ class AccountInvoiceElectronic(models.Model):
     credito_iva_condicion = fields.Many2one("credit.conditions", "Condición del Impuesto")
 
 
-
-
     _sql_constraints = [
         ('number_electronic_uniq', 'unique (number_electronic)', "La clave de comprobante debe ser única"),
     ]
@@ -184,7 +182,6 @@ class AccountInvoiceElectronic(models.Model):
     @api.multi
     def action_consultar_hacienda(self):
         if self.company_id.eicr_environment != 'disabled':
-
             for invoice in self:
                 self.env['electronic_invoice']._consultar_documento(invoice)
 

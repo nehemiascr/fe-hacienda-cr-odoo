@@ -5,7 +5,6 @@ import requests
 import json
 from datetime import datetime, timedelta
 from lxml import etree
-import xml.etree.ElementTree as ET
 import logging
 import re
 import random
@@ -16,80 +15,6 @@ import pytz, ast
 import sys
 
 _logger = logging.getLogger(__name__)
-
-
-class CodeTypeProduct(models.Model):
-	_name = "code.type.product"
-
-	code = fields.Char(string="Código", required=False, )
-	name = fields.Char(string="Nombre", required=False, )
-
-
-class Exoneration(models.Model):
-	_name = "exoneration"
-
-	name = fields.Char(string="Nombre", required=False, )
-	code = fields.Char(string="Código", required=False, )
-	type = fields.Char(string="Tipo", required=False, )
-	exoneration_number = fields.Char(string="Número de exoneración", required=False, )
-	name_institution = fields.Char(string="Nombre de institución", required=False, )
-	date = fields.Date(string="Fecha", required=False, )
-	percentage_exoneration = fields.Float(string="Porcentaje de exoneración", required=False, )
-
-
-class PaymentMethods(models.Model):
-	_name = "payment.methods"
-
-	active = fields.Boolean(string="Activo", required=False, default=True)
-	sequence = fields.Char(string="Secuencia", required=False, )
-	name = fields.Char(string="Nombre", required=False, )
-	notes = fields.Text(string="Notas", required=False, )
-
-
-class SaleConditions(models.Model):
-	_name = "sale.conditions"
-
-	active = fields.Boolean(string="Activo", default=True)
-	sequence = fields.Char(string="Secuencia"  )
-	name = fields.Char(string="Nombre")
-	notes = fields.Text(string="Notas")
-
-class CreditConditions(models.Model):
-	_name = "credit.conditions"
-
-	active = fields.Boolean(string="Activo", default=True)
-	sequence = fields.Char(string="Secuencia")
-	name = fields.Char(string="Nombre")
-	notes = fields.Text(string="Notas")
-
-
-class AccountPaymentTerm(models.Model):
-	_inherit = "account.payment.term"
-	sale_conditions_id = fields.Many2one(comodel_name="sale.conditions", string="Condiciones de venta")
-
-
-class ReferenceDocument(models.Model):
-	_name = "reference.document"
-
-	active = fields.Boolean(string="Activo", required=False, default=True)
-	code = fields.Char(string="Código", required=False, )
-	name = fields.Char(string="Nombre", required=False, )
-
-
-class ReferenceCode(models.Model):
-	_name = "reference.code"
-
-	active = fields.Boolean(string="Activo", required=False, default=True)
-	code = fields.Char(string="Código", required=False, )
-	name = fields.Char(string="Nombre", required=False, )
-
-
-class Resolution(models.Model):
-	_name = "resolution"
-
-	active = fields.Boolean(string="Activo", required=False, default=True)
-	name = fields.Char(string="Nombre", required=False, )
-	date_resolution = fields.Date(string="Fecha de resolución", required=False, )
 
 
 class ElectronicInvoice(models.TransientModel):
@@ -661,7 +586,7 @@ class ElectronicInvoice(models.TransientModel):
 									limit=max_documentos).sorted(key=lambda e: e.reference)
 			_logger.info('Validando %s Gastos' % len(gastos))
 			for indice, gasto in enumerate(gastos):
-				_logger.info('Validando Gasto %s / %s ' % (indice+1, len(gastos)))
+				_logger.info('Validando Gasto %s/%s %s' % (indice+1, len(gastos), gasto))
 				if not gasto.xml_supplier_approval:
 					gasto.state_tributacion = 'na'
 					pass

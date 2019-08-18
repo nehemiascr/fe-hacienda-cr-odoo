@@ -16,5 +16,14 @@ from . import account_invoice
 from . import account_invoice_line
 from . import account_invoice_refund
 from . import account_journal
-from . import facturacion_electronica
+from . import account_payment_term
 from . import identificacion_type
+
+from . import code_type_product
+from . import credit_conditions
+from . import exoneration
+from . import payment_methods
+from . import reference_code
+from . import reference_document
+from . import resolution
+from . import sale_conditions

@@ -2,11 +2,11 @@
 
 {
 	'name': 'Facturación electrónica Costa Rica',
-	'version': '0.1',
-	'author': 'CRLibre.org',
-	'license': 'AGPL-3',
-	'website': 'https://crlibre.org/',
-	'category': 'Account',
+	'version': '1.0.0',
+	'author': 'Automatuanis.com',
+	'license': 'OPL-1',
+	'website': 'https://www.automatuanis.com/',
+	'category': 'Invoicing Management',
 	'description':
 		'''
 		Facturación electronica Costa Rica.
@@ -50,4 +50,5 @@
 
 	         ],
 	'installable': True,
+	'application': True,
 }
