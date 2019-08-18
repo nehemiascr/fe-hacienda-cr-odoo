@@ -41,17 +41,17 @@
 			</field>
 		</record>
 
-		<record id="facturacion_electronica_form" model="ir.ui.view">
-			<field name="name">facturacion_electronica.form</field>
-			<field name="model">facturacion_electronica</field>
-			<field name="arch" type="xml">
-				<form string="Documentos Electrónicos">
-					<field name="token" />
-					<field name="timestamp" />
-					<field name="ttl" />
-				</form>
-			</field>
-		</record>
+<!--		<record id="facturacion_electronica_form" model="ir.ui.view">-->
+<!--			<field name="name">facturacion_electronica.form</field>-->
+<!--			<field name="model">facturacion_electronica</field>-->
+<!--			<field name="arch" type="xml">-->
+<!--				<form string="Documentos Electrónicos">-->
+<!--					<field name="token" />-->
+<!--					<field name="timestamp" />-->
+<!--					<field name="ttl" />-->
+<!--				</form>-->
+<!--			</field>-->
+<!--		</record>-->
 
 <!--		<record id="hr_expense_cargar_xml_action" model="ir.actions.act_window">-->
 <!--			<field name="name">Import Bills</field>-->

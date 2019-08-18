@@ -148,8 +148,6 @@ class ElectronicInvoice(models.TransientModel):
 		else:
 			return None
 
-
-
 	def _fe_habilitado(self, company_id):
 		return False if company_id.eicr_environment == 'disabled' else True
 
@@ -375,8 +373,7 @@ class ElectronicInvoice(models.TransientModel):
 	def _consultar_documento(self, object):
 		_logger.info('preguntando por %s' % object)
 
-		if not self._fe_habilitado(object.company_id):
-			return False
+		if not self._fe_habilitado(object.company_id): return False
 
 		if object.xml_comprobante:
 			xml = etree.tostring(etree.fromstring(base64.b64decode(object.xml_comprobante))).decode()
