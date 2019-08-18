@@ -93,8 +93,7 @@ class ElectronicInvoice(models.TransientModel):
 	def _refresh_token(self, company_id):
 		_logger.info('refreshing token')
 
-		if company_id.eicr_environment == 'disabled':
-			return False
+		if company_id.eicr_environment == 'disabled': return False
 
 		data = {
 			'client_id': company_id.eicr_environment,
@@ -103,18 +102,11 @@ class ElectronicInvoice(models.TransientModel):
 			'username': company_id.eicr_username,
 			'password': company_id.eicr_password}
 
-		_logger.info('data %s' % data)
-
 		try:
-
 			url = self._get_url_auth(company_id)
-
 			response = requests.post(url, data=data)
-
 			_logger.info('response %s' % response.__dict__)
-
 			respuesta = response.json()
-
 			if 'access_token' in respuesta:
 				respuesta['timestamp'] = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
 				company_id.eicr_token = respuesta
@@ -126,11 +118,9 @@ class ElectronicInvoice(models.TransientModel):
 		except requests.exceptions.RequestException as e:
 			_logger.info('RequestException\n%s' % e)
 			return False
-
 		except KeyError as e:
 			_logger.info('KeyError\n%s' % e)
 			return False
-
 		except Exception as e:
 			_logger.info('Exception\n%s' % e)
 			return False
