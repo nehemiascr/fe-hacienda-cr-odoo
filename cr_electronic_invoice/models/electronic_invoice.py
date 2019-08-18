@@ -52,18 +52,24 @@ class ElectronicInvoice(models.TransientModel):
 	def enviar_aceptacion(self, object):
 
 		if not self._es_mensaje_aceptacion(object):
-			_logger.info('%s sin documento electronico que aceptar' % object)
+			_logger.info('%s no es documento aceptable por hacienda' % object)
+			object.state_tributacion = 'na'
 			return False
 
 		if not object.xml_supplier_approval:
 			_logger.info('%s sin xml de proveedor' % object)
+			object.state_tributacion = 'na'
 			return False
 
 		if not object.xml_comprobante:
 			object.xml_comprobante = self.get_xml(object)
-			object.fname_xml_comprobante = 'MensajeReceptor_' + object.number_electronic + '.xml'
+			if object.xml_comprobante:
+				object.fname_xml_comprobante = 'MensajeReceptor_' + object.number_electronic + '.xml'
+				object.state_tributacion = 'pendiente'
+			else:
+				object.state_tributacion = 'na'
 
-		object.state_tributacion = 'pendiente'
+
 
 	def get_token(self, company_id):
 		_logger.info('checking token')
