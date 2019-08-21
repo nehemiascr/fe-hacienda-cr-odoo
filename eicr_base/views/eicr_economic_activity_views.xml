@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+	<data>
+
+		<record id="action_eicr_economic_activity" model="ir.actions.act_window">
+			<field name="name">Tipos de códigos de Productos</field>
+			<field name="res_model">eicr.economic_activity</field>
+			<field name="view_type">form</field>
+			<field name="view_mode">tree,form</field>
+		</record>
+
+		<menuitem id="menu_eicr_economic_activity" name="Tipos de códigos de Productos" parent="menu_eicr" sequence="10" action="action_eicr_economic_activity"/>
+
+	</data>
+</odoo>

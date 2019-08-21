@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+	<data>
+
+		<record id="action_eicr_payment_method" model="ir.actions.act_window">
+			<field name="name">Métodos de Pago en FE</field>
+			<field name="res_model">eicr.payment_method</field>
+			<field name="view_type">form</field>
+			<field name="view_mode">tree,form</field>
+		</record>
+
+		<menuitem id="menu_eicr_payment_method" name="Métodos de Pago en FE" parent="menu_eicr" sequence="50" action="action_eicr_payment_method"/>
+
+	</data>
+</odoo>

@@ -1,0 +1,11 @@
+id,name,model_id:id,group_id:id,perm_read,perm_write,perm_create,perm_unlink
+access_eicr_identification_type,eicr.identification_type,model_eicr_identification_type,account.group_account_invoice,1,0,0,0
+access_eicr_product_code,eicr.product_code,model_eicr_product_code,account.group_account_invoice,1,0,0,0
+access_eicr_payment_method,eicr.payment_method,model_eicr_payment_method,account.group_account_invoice,1,0,0,0
+access_eicr_sale_condition,eicr.sale_condition,model_eicr_sale_condition,account.group_account_invoice,1,0,0,0
+access_eicr_reference_document,eicr.reference_document,model_eicr_reference_document,account.group_account_invoice,1,0,0,0
+access_eicr_reference_code,eicr.reference_code,model_eicr_reference_code,account.group_account_invoice,1,0,0,0
+access_eicr_schema,eicr.schema,model_eicr_schema,account.group_account_invoice,1,0,0,0
+access_eicr_version,eicr.version,model_eicr_version,account.group_account_invoice,1,0,0,0
+access_eicr_economic_activity,eicr.economic_activity,model_eicr_economic_activity,account.group_account_invoice,1,0,0,0
+access_eicr_iva_credit_condition,eicr.iva.credit_condition,model_eicr_iva_credit_condition,account.group_account_invoice,1,0,0,0

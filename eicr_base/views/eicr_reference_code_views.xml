@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+	<data>
+
+		<record id="action_eicr_reference_code" model="ir.actions.act_window">
+			<field name="name">Códigos de Referencia de Documentos Electrónicos</field>
+			<field name="res_model">eicr.reference_code</field>
+			<field name="view_type">form</field>
+			<field name="view_mode">tree,form</field>
+		</record>
+
+		<menuitem id="menu_eicr_reference_code" name="Códigos de Referencia" parent="menu_eicr" sequence="60" action="action_eicr_reference_code"/>
+
+	</data>
+</odoo>

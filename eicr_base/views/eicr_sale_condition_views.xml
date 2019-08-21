@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+	<data>
+
+		<record id="action_eicr_sale_condition" model="ir.actions.act_window">
+			<field name="name">Condiciones de la Venta</field>
+			<field name="res_model">eicr.sale_condition</field>
+			<field name="view_type">form</field>
+			<field name="view_mode">tree,form</field>
+		</record>
+
+		<menuitem id="menu_eicr_sale_condition" name="Condición de la Venta" parent="menu_eicr" sequence="80" action="action_eicr_sale_condition"/>
+
+	</data>
+</odoo>

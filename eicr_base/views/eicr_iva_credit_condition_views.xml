@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+	<data>
+
+		<record id="action_eicr_iva_credit_condition" model="ir.actions.act_window">
+			<field name="name">Condición de Crédito del IVA</field>
+			<field name="res_model">eicr.iva.credit_condition</field>
+			<field name="view_type">form</field>
+			<field name="view_mode">tree,form</field>
+		</record>
+
+		<menuitem id="menu_eicr_iva_credit_condition" name="Condición de Crédito del IVA" parent="menu_eicr" sequence="40" action="action_eicr_iva_credit_condition"/>
+
+	</data>
+</odoo>

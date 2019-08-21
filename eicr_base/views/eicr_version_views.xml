@@ -1,0 +1,46 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+	<data>
+
+		<record id="view_version_tree" model="ir.ui.view">
+            <field name="name">eicr.version.tree</field>
+            <field name="model">eicr.version</field>
+            <field name="arch" type="xml">
+                <tree string="Users">
+                    <field name="name"/>
+                    <field name="notes"/>
+                </tree>
+            </field>
+        </record>
+
+		<record id="view_version_form" model="ir.ui.view">
+            <field name="name">eicr.version.form</field>
+            <field name="model">eicr.version</field>
+            <field name="arch" type="xml">
+                <form string="Versión">
+                    <sheet>
+                            <group>
+                                <field name="name"/>
+                                <field name="url_reception_endpoint_production"/>
+                                <field name="url_reception_endpoint_testing"/>
+                                <field name="url_auth_endpoint_production"/>
+                                <field name="url_auth_endpoint_testing"/>
+                                <field name="schema_ids"/>
+                                <field name="notes"/>
+                            </group>
+                    </sheet>
+                </form>
+            </field>
+        </record>
+
+		<record id="eicr_action_version" model="ir.actions.act_window">
+			<field name="name">Versiones</field>
+			<field name="res_model">eicr.version</field>
+			<field name="view_type">form</field>
+			<field name="view_mode">tree,form</field>
+		</record>
+
+		<menuitem id="menu_eicr_version" name="Versiones" parent="menu_eicr" sequence="30" action="eicr_action_version"/>
+
+	</data>
+</odoo>

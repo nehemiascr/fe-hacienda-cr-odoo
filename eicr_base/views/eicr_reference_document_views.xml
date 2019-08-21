@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+	<data>
+
+		<record id="action_eicr_reference_document" model="ir.actions.act_window">
+			<field name="name">Documentos Electrónicos de Referencia</field>
+			<field name="res_model">eicr.reference_document</field>
+			<field name="view_type">form</field>
+			<field name="view_mode">tree,form</field>
+		</record>
+
+		<menuitem id="menu_eicr_reference_document" name="Documentos de Referencia" parent="menu_eicr" sequence="70" action="action_eicr_reference_document"/>
+
+	</data>
+</odoo>

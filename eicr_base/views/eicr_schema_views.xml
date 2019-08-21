@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+	<data>
+
+		<record id="eicr_action_schema" model="ir.actions.act_window">
+			<field name="name">Esquemas</field>
+			<field name="res_model">eicr.schema</field>
+			<field name="view_type">form</field>
+			<field name="view_mode">tree,form</field>
+		</record>
+
+		<menuitem id="menu_eicr_schema" name="Esquemas" parent="menu_eicr" sequence="20" action="eicr_action_schema"/>
+
+	</data>
+</odoo>

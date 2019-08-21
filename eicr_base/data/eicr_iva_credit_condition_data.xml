@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <data noupdate="0">
+
+        <!-- condición de crédito del iva -->
+        <record id="IVACreditCondition_01" model="eicr.iva.credit_condition">
+            <field name="code">01</field>
+            <field name="name">Genera crédito IVA</field>
+            <field name="notes">Se utiliza, cuando el IVA pagado se utilizará en su totalidad como un crédito en la declaración del Impuesto al Valor Agregado.</field>
+        </record>
+
+        <record id="IVACreditCondition_02" model="eicr.iva.credit_condition">
+            <field name="code">02</field>
+            <field name="name">Genera Crédito parcial del IVA</field>
+            <field name="notes">Se utiliza, cuando el crédito que se aplica es proporcional a la tarifa reducida, ejemplo se adquiere una computadora gravada al 13% para servicios médicos, por lo cual del impuesto pagado me acredito un 4% y el restante 9% se constituye como un costo, o la factura posee líneas para diferentes actividades.</field>
+        </record>
+
+        <record id="IVACreditCondition_03" model="eicr.iva.credit_condition">
+            <field name="code">03</field>
+            <field name="name">Bienes de Capital</field>
+            <field name="notes">Se utiliza, cuando se adquieren bienes utilizados en la producción o fabricación de productos (bienes de consumo) que no están incorporados como componentes o materias primas de estos. ejemplo equipos, inmuebles etc.</field>
+        </record>
+
+        <record id="IVACreditCondition_04" model="eicr.iva.credit_condition">
+            <field name="code">04</field>
+            <field name="name">Gasto corriente no genera crédito</field>
+            <field name="notes">Se utiliza, cuando el IVA pagado no es aplicable en la declaración de Impuesto al Valor Agregado, por el contrario representa un gasto en la declaración de utilidades.</field>
+        </record>
+
+        <record id="IVACreditCondition_05" model="eicr.iva.credit_condition">
+            <field name="code">05</field>
+            <field name="name">Proporcionalidad</field>
+            <field name="notes">Se utiliza, cuando al momento que la confirmación de la factura se desconoce si el bien o servicio, será utilizado en la producción o prestación de servicio que se encuentren gravados del IVA, o desconozco la tarifa que puedo aplicar como crédito para cada actividad económica.</field>
+        </record>
+
+    </data>
+</odoo>
