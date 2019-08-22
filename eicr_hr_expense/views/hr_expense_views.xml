@@ -7,31 +7,36 @@
 			<field name="inherit_id" ref="hr_expense.hr_expense_form_view"/>
 			<field name="arch" type="xml">
 				<xpath expr="//header" position="inside">
-					<field name="state_tributacion" invisible="1"/>
-<!--					<button name="action_cargar_xml" type="object" string="Cargar archivo XML" colspan="2" attrs="{'invisible':[('xml_supplier_approval','not in', [None, False])]}" />-->
-					<button name="action_enviar_aceptacion" type="object" string="Enviar Mensaje Receptor" colspan="2" attrs="{'invisible':[('state_tributacion','in', [None, 'na'])]}"/>
-					<button name="action_consultar_hacienda" type="object" string="Consultar Hacienda" colspan="2" attrs="{'invisible':[('state_tributacion','not in', ['aceptado', 'rechazado', 'recibido', 'error', 'procesando'])]}"/>
+					<field name="eicr_state" invisible="1"/>
+					<button name="action_enviar_aceptacion" type="object" string="Enviar Mensaje Receptor" colspan="2" attrs="{'invisible':[('eicr_state','in', [None, 'na'])]}"/>
+					<button name="action_consultar_hacienda" type="object" string="Consultar Hacienda" colspan="2" attrs="{'invisible':[('eicr_state','not in', ['aceptado', 'rechazado', 'recibido', 'error', 'procesando'])]}"/>
 				</xpath>
+
+				<xpath expr="//field[@name='employee_id']" position="after">
+					<field name="partner_id" readonly="1" attrs="{'invisible':[('eicr_documento2_file','in', [False,])]}"/>
+				</xpath>
+
 				<xpath expr="//sheet[1]" position="after">
 					<sheet>
 						<group string="Aceptación de Gasto con Hacienda" col="2">
 						<group>
-							<field name="fname_xml_supplier_approval" invisible="1" />
-							<field name="xml_supplier_approval" filename="fname_xml_supplier_approval" />
-							<field name="state_invoice_partner" />
-							<field name="eicr_credito_iva" context="{'default_eicr_credito_iva': 100}"/>
+							<field name="eicr_documento2_fname" invisible="1" />
+							<field name="eicr_documento2_file" filename="eicr_documento2_fname" />
+							<field name="eicr_aceptacion" />
+							<field name="eicr_credito_iva" />
 							<field name="eicr_credito_iva_condicion" />
 						</group>
 						<group>
-							<field name="date_issuance" readonly="1"/>
-							<field name="number_electronic" readonly="1"/>
-							<field name="state_tributacion" readonly="1"/>
-							<field name="fname_xml_respuesta_tributacion" invisible="1" readonly="1"/>
-							<field name="xml_respuesta_tributacion" filename="fname_xml_respuesta_tributacion"/>
-							<field name="respuesta_tributacion" default="Nada aún"/>
-							<field name="state_tributacion" invisible="1"/>
-							<field name="fname_xml_comprobante" invisible="1" readonly="1"/>
-							<field name="xml_comprobante" filename="fname_xml_comprobante" readonly="1"/>
+							<field name="eicr_date" readonly="1"/>
+							<field name="eicr_clave" readonly="1"/>
+							<field name="eicr_state" readonly="1"/>
+
+							<field name="eicr_mensaje_hacienda_fname" invisible="1" readonly="1"/>
+							<field name="eicr_mensaje_hacienda_file" filename="eicr_mensaje_hacienda_fname" readonly="1"/>
+							<field name="eicr_mensaje_hacienda" readonly="1"/>
+
+							<field name="eicr_documento_fname" invisible="1" readonly="1"/>
+							<field name="eicr_documento_file" filename="eicr_documento_fname" readonly="1"/>
 						</group>
 					</group>
 					</sheet>
