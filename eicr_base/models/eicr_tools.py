@@ -21,14 +21,19 @@ class ElectronicInvoiceCostaRicaTools(models.AbstractModel):
 	_name = 'eicr.tools'
 
 	@api.model
-	def validar_xml_proveedor(self, xml):
-		_logger.info('validando xml de proveedor')
+	def validar_xml_proveedor(self, object):
+		_logger.info('validando xml de proveedor para %s' % object)
 
-		xml = base64.b64decode(xml)
+		xml = base64.b64decode(object.eicr_documento2_file)
 		xml = etree.tostring(etree.fromstring(xml)).decode()
 		xml = re.sub(' xmlns="[^"]+"', '', xml)
 		xml = etree.fromstring(xml)
 		document = xml.tag
+
+		if document not in ('FacturaElectronica', 'TiqueteElectronico'):
+			message = 'El archivo xml debe ser una FacturaElectronica o TiqueteElectronico.\n%s es un documento inválido' % document
+			_logger.info('%s %s' % (object, message))
+			raise UserError(message)
 
 		if (xml.find('Clave') is None or
 			xml.find('FechaEmision') is None or
@@ -43,10 +48,12 @@ class ElectronicInvoiceCostaRicaTools(models.AbstractModel):
 			xml.find('ResumenFactura') is None or
 			xml.find('ResumenFactura').find('TotalComprobante') is None ):
 
-			_logger.info('xml de proveedor inválido')
-			return False
+			message = 'El archivo xml parece estar incompleto, no se puede procesar.\nDocumento %s' % document
+			_logger.info('%s %s' % (object, message))
+			raise UserError(message)
 
 		return True
+
 
 	@api.model
 	def enviar_aceptacion(self, object):
@@ -286,7 +293,7 @@ class ElectronicInvoiceCostaRicaTools(models.AbstractModel):
 
 		_logger.info('validando %s' % object)
 
-		if object.state_tributacion != 'pendiente':
+		if object.eicr_state != 'pendiente':
 			_logger.info('Solo enviamos pendientes, no se va a enviar %s' % object)
 			return False
 		if not object.xml_comprobante:
@@ -554,42 +561,42 @@ class ElectronicInvoiceCostaRicaTools(models.AbstractModel):
 
 		if invoice != None:
 			facturas = invoice.search([('state', 'in', ('open', 'paid')),
-									   ('state_tributacion', 'in', ('pendiente',))],
+									   ('eicr_state', 'in', ('pendiente',))],
 									  limit=max_documentos).sorted(key=lambda i: i.number)
 			_logger.info('Validando %s FacturaElectronica' % len(facturas))
 			for indice, factura in enumerate(facturas):
 				_logger.info('Validando FacturaElectronica %s / %s ' % (indice+1, len(facturas)))
-				if not factura.xml_comprobante:
+				if not factura.eicr_documento_file:
 					pass
 				self._enviar_documento(factura)
 
 		if order != None:
-			tiquetes = order.search([('state_tributacion', 'in', ('pendiente',))],
+			tiquetes = order.search([('eicr_state', 'in', ('pendiente',))],
 									limit=max_documentos).sorted(key=lambda o: o.name)
 			_logger.info('Validando %s TiqueteElectronico' % len(tiquetes))
 			for indice, tiquete in enumerate(tiquetes):
 				_logger.info('Validando TiqueteElectronico %s / %s ' % (indice+1, len(tiquetes)))
-				if not tiquete.xml_comprobante:
-					tiquete.state_tributacion = 'na'
+				if not tiquete.eicr_documento_file:
+					tiquete.eicr_state = 'na'
 					pass
 				self._enviar_documento(tiquete)
 
 		if expense != None:
-			gastos = expense.search([('state_tributacion', 'in', ('pendiente',))],
+			gastos = expense.search([('eicr_state', 'in', ('pendiente',))],
 									limit=max_documentos).sorted(key=lambda e: e.reference)
 			_logger.info('Validando %s Gastos' % len(gastos))
 			for indice, gasto in enumerate(gastos):
 				_logger.info('Validando Gasto %s/%s %s' % (indice+1, len(gastos), gasto))
-				if not gasto.xml_supplier_approval:
-					gasto.state_tributacion = 'na'
+				if not gasto.eicr_documento2_file:
+					gasto.eicr_state = 'na'
 					pass
-				elif not gasto.xml_comprobante:
+				elif not gasto.eicr_documento_file:
 					xml = self.get_xml(gasto)
 					if xml:
-						gasto.xml_comprobante = xml
-						gasto.fname_xml_comprobante = 'MensajeReceptor_' + gasto.number_electronic + '.xml'
+						gasto.eicr_documento_file = xml
+						gasto.eicr_documento_fname = 'MensajeReceptor_' + gasto.eicr_clave + '.xml'
 					else:
-						gasto.state_tributacion = 'na'
+						gasto.eicr_state = 'na'
 						pass
 				self._enviar_documento(gasto)
 

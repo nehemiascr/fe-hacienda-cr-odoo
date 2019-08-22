@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 
 {
-	'name': 'Facturación Electrónica de Costa Rica - base',
+	'name': 'Base - Facturación Electrónica de Costa Rica',
 	'version': '11.0.0',
 	'author': 'Automatuanis.com',
 	'license': 'OPL-1',
@@ -48,6 +48,7 @@
 		'views/eicr_schema_views.xml',
 		'views/eicr_version_views.xml',
 		'views/res_company_views.xml',
+		'views/res_partner_views.xml',
 
 		'security/ir.model.access.csv',
 

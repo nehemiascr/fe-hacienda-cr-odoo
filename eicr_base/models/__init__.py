@@ -17,3 +17,4 @@ from . import eicr_schema
 from . import eicr_tools
 from . import eicr_version
 from . import res_company
+from . import res_partner

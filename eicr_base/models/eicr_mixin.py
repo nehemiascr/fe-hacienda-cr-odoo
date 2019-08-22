@@ -34,8 +34,8 @@ class ElectronicInvoiceCostaRicaMixin(models.AbstractModel):
     eicr_documento2_file = fields.Binary(string="Comprobante XML 2", copy=False, attachment=True)
     eicr_documento2_fname = fields.Char(string="Nombre de archivo Comprobante XML 2", copy=False, attachment=True)
 
-    credito_iva = fields.Float('Porcentaje del Impuesto a acreditar', digits=(3, 2))
-    credito_iva_condicion = fields.Many2one("eicr.credit_condition", "Condición del Impuesto")
+    eicr_credito_iva = fields.Float('Porcentaje del Impuesto a acreditar', digits=(3, 2))
+    eicr_credito_iva_condicion = fields.Many2one("eicr.credit_condition", "Condición del Impuesto")
 
     _sql_constraints = [
         ('eicr_clave_uniq', 'unique (eicr_clave)', "Ya existe un documento con esa clave."),
