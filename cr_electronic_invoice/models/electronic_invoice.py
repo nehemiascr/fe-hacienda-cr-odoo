@@ -2323,7 +2323,7 @@ class ElectronicInvoice(models.TransientModel):
 		TotalImpuesto = factura.find('ResumenFactura').find('TotalImpuesto')
 		TotalComprobante = factura.find('ResumenFactura').find('TotalComprobante')
 
-		emisor = self.env.user.company_id
+		emisor = object.company_id
 
 		# MensajeReceptor 4.3
 
