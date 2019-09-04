@@ -11,7 +11,7 @@ class ElectronicInvoiceCostaRicaVersion(models.Model):
 	_name = 'eicr.version'
 
 	name = fields.Char('Version', required=True)
-	schema_ids = fields.One2many('eicr.schema', 'version_id', 'Esquemas de los documentos')
+	document_ids = fields.One2many('eicr.document', 'version_id', 'Esquemas de los documentos')
 	url_reception_endpoint_production = fields.Char('url recepción producción', required=True)
 	url_reception_endpoint_testing = fields.Char('url recepción pruebas', required=True)
 	url_auth_endpoint_production = fields.Char('url auth producción', required=True )

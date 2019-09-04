@@ -26,11 +26,11 @@ class ElectronicInvoiceCostaRicaMixin(models.AbstractModel):
     eicr_mensaje_hacienda_fname = fields.Char(string="Nombre de archivo XML Mensaje de Hacienda", copy=False)
     eicr_mensaje_hacienda = fields.Text(string="Contenido del Mensaje de Hacienda", readonly=True, copy=False)
 
-    eicr_documento_tipo = fields.Many2one("eicr.schema", "Tipo de Documento", copy=False)
+    eicr_documento_tipo = fields.Many2one("eicr.document", "Tipo de Documento", copy=False)
     eicr_documento_file = fields.Binary(string="Comprobante XML", copy=False, attachment=True)
     eicr_documento_fname = fields.Char(string="Nombre de archivo Comprobante XML", copy=False, attachment=True)
 
-    eicr_documento2_tipo = fields.Many2one("eicr.schema", "Tipo de Documento 2", copy=False)
+    eicr_documento2_tipo = fields.Many2one("eicr.document", "Tipo de Documento 2", copy=False)
     eicr_documento2_file = fields.Binary(string="Comprobante XML 2", copy=False, attachment=True)
     eicr_documento2_fname = fields.Char(string="Nombre de archivo Comprobante XML 2", copy=False, attachment=True)
 

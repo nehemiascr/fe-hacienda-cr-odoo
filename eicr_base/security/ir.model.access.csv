@@ -5,7 +5,7 @@ access_eicr_payment_method,eicr.payment_method,model_eicr_payment_method,account
 access_eicr_sale_condition,eicr.sale_condition,model_eicr_sale_condition,account.group_account_invoice,1,0,0,0
 access_eicr_reference_document,eicr.reference_document,model_eicr_reference_document,account.group_account_invoice,1,0,0,0
 access_eicr_reference_code,eicr.reference_code,model_eicr_reference_code,account.group_account_invoice,1,0,0,0
-access_eicr_schema,eicr.schema,model_eicr_schema,account.group_account_invoice,1,0,0,0
+access_eicr_document,eicr.document,model_eicr_document,account.group_account_invoice,1,0,0,0
 access_eicr_version,eicr.version,model_eicr_version,account.group_account_invoice,1,0,0,0
 access_eicr_economic_activity,eicr.economic_activity,model_eicr_economic_activity,account.group_account_invoice,1,0,0,0
 access_eicr_iva_credit_condition,eicr.iva.credit_condition,model_eicr_iva_credit_condition,account.group_account_invoice,1,0,0,0

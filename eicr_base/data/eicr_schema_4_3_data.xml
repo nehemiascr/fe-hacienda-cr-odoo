@@ -2,7 +2,7 @@
 <odoo>
     <data>
 
-		<record id="MensajeHacienda_V_4_3" model="eicr.schema">
+		<record id="MensajeHacienda_V_4_3" model="eicr.document">
             <field name="name">MensajeHacienda_V4.3</field>
             <field name="url">https://cdn.comprobanteselectronicos.go.cr/xml-schemas/v4.3/facturaElectronica</field>
             <field name="document"></field>
@@ -189,7 +189,7 @@
 			</field>
 		</record>
 
-		<record id="FacturaElectronica_V_4_3" model="eicr.schema">
+		<record id="FacturaElectronica_V_4_3" model="eicr.document">
             <field name="name">FacturaElectronica_V.4.3</field>
             <field name="url">https://cdn.comprobanteselectronicos.go.cr/xml-schemas/v4.3/facturaElectronica</field>
             <field name="document"></field>
@@ -1969,7 +1969,7 @@
 			</field>
         </record>
 
-		<record id="MensajeReceptor_V_4_3" model="eicr.schema">
+		<record id="MensajeReceptor_V_4_3" model="eicr.document">
             <field name="name">MensajeReceptor_V4.3</field>
             <field name="url">https://cdn.comprobanteselectronicos.go.cr/xml-schemas/v4.3/mensajeReceptor</field>
             <field name="document"></field>
@@ -2140,7 +2140,7 @@
 			</field>
 		</record>
 
-		<record id="NotaCreditoElectronica_V_4_3" model="eicr.schema">
+		<record id="NotaCreditoElectronica_V_4_3" model="eicr.document">
             <field name="name">NotaCreditoElectronica_V4.3</field>
             <field name="url">https://cdn.comprobanteselectronicos.go.cr/xml-schemas/v4.3/notaCreditoElectronica</field>
             <field name="document"></field>
@@ -3933,7 +3933,7 @@
 			</field>
 		</record>
 
-		<record id="NotaDebitoElectronica_V_4_3" model="eicr.schema">
+		<record id="NotaDebitoElectronica_V_4_3" model="eicr.document">
             <field name="name">NotaDebitoElectronica_V4.3</field>
             <field name="url">https://cdn.comprobanteselectronicos.go.cr/xml-schemas/v4.3/notaDebitoElectronica</field>
             <field name="document"></field>
@@ -5725,7 +5725,7 @@
 			</field>
 		</record>
 
-		<record id="TiqueteElectronico_V_4_3" model="eicr.schema">
+		<record id="TiqueteElectronico_V_4_3" model="eicr.document">
             <field name="name">TiqueteElectronico_V4.3</field>
             <field name="url">https://cdn.comprobanteselectronicos.go.cr/xml-schemas/v4.3/tiqueteElectronico</field>
             <field name="document"></field>
@@ -7505,7 +7505,7 @@
 			</field>
 		</record>
 
-		<record id="FacturaElectronicaCompra_V_4_3" model="eicr.schema">
+		<record id="FacturaElectronicaCompra_V_4_3" model="eicr.document">
             <field name="name">FacturaElectronicaCompra_V4.3</field>
             <field name="url">https://cdn.comprobanteselectronicos.go.cr/xml-schemas/v4.3/facturaElectronicaCompra</field>
             <field name="document"></field>
@@ -9261,7 +9261,7 @@
 			</field>
 		</record>
 
-		<record id="FacturaElectronicaExportacion_V_4_3" model="eicr.schema">
+		<record id="FacturaElectronicaExportacion_V_4_3" model="eicr.document">
             <field name="name">FacturaElectronicaExportacion_V4.3</field>
             <field name="url">https://cdn.comprobanteselectronicos.go.cr/xml-schemas/v4.3/facturaElectronicaExportacion</field>
             <field name="document"></field>

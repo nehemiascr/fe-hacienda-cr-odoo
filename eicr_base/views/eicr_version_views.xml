@@ -25,7 +25,7 @@
                                 <field name="url_reception_endpoint_testing"/>
                                 <field name="url_auth_endpoint_production"/>
                                 <field name="url_auth_endpoint_testing"/>
-                                <field name="schema_ids"/>
+                                <field name="document_ids"/>
                                 <field name="notes"/>
                             </group>
                     </sheet>
