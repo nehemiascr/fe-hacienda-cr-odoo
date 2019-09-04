@@ -3,7 +3,7 @@
 	<data>
 
 
-		<menuitem id="menu_eicr" name="Facturación electrónica" parent="base.menu_administration" sequence="1"/>
+		<menuitem id="menu_eicr" name="Facturación Electrónica" parent="base.menu_custom" sequence="1"/>
 
 
 	</data>

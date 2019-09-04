@@ -21,6 +21,11 @@ class ElectronicInvoiceCostaRicaTools(models.AbstractModel):
 	_name = 'eicr.tools'
 
 	@api.model
+	def module_installed(self, name):
+		module = self.env['ir.module.module'].search([('name', '=', name)], limit=1)
+		return True if module and module.state == 'installed' else False
+
+	@api.model
 	def validar_xml_proveedor(self, object):
 		_logger.info('validando xml de proveedor para %s' % object)
 
@@ -538,55 +543,38 @@ class ElectronicInvoiceCostaRicaTools(models.AbstractModel):
 	@api.model
 	def _validahacienda(self, max_documentos=4):  # cron
 
-		try:
-			invoice = self.env['account.invoice']
-		except KeyError as e:
-			invoice = None
-		except:
-			_logger.info('unknown error %s' % sys.exc_info()[0])
+		Invoice = self.env['account.invoice'] if self.module_installed('eicr_invoicing') else None
+		Order = self.env['pos.order'] if self.module_installed('eicr_pos') else None
+		Expense = self.env['hr.expense'] if self.module_installed('eicr_expense') else None
 
-		try:
-			order = self.env['pos.order']
-		except KeyError as e:
-			order = None
-		except:
-			_logger.info('unknown error %s' % sys.exc_info()[0])
-
-		try:
-			expense = self.env['hr.expense']
-		except KeyError:
-			expense = None
-		except:
-			_logger.info('unknown error %s' % sys.exc_info()[0])
-
-		if invoice != None:
-			facturas = invoice.search([('state', 'in', ('open', 'paid')),
+		if Invoice:
+			facturas = Invoice.search([('state', 'in', ('open', 'paid')),
 									   ('eicr_state', 'in', ('pendiente',))],
 									  limit=max_documentos).sorted(key=lambda i: i.number)
-			_logger.info('Validando %s FacturaElectronica' % len(facturas))
+			_logger.info('Validating %s Invoices' % len(facturas))
 			for indice, factura in enumerate(facturas):
-				_logger.info('Validando FacturaElectronica %s / %s ' % (indice+1, len(facturas)))
+				_logger.info('Validating Invoice %s / %s ' % (indice+1, len(facturas)))
 				if not factura.eicr_documento_file:
 					pass
 				self._enviar_documento(factura)
 
-		if order != None:
-			tiquetes = order.search([('eicr_state', 'in', ('pendiente',))],
+		if Order:
+			tiquetes = Order.search([('eicr_state', 'in', ('pendiente',))],
 									limit=max_documentos).sorted(key=lambda o: o.name)
-			_logger.info('Validando %s TiqueteElectronico' % len(tiquetes))
+			_logger.info('Validating %s Orders' % len(tiquetes))
 			for indice, tiquete in enumerate(tiquetes):
-				_logger.info('Validando TiqueteElectronico %s / %s ' % (indice+1, len(tiquetes)))
+				_logger.info('Validating Order %s / %s ' % (indice+1, len(tiquetes)))
 				if not tiquete.eicr_documento_file:
 					tiquete.eicr_state = 'na'
 					pass
 				self._enviar_documento(tiquete)
 
-		if expense != None:
-			gastos = expense.search([('eicr_state', 'in', ('pendiente',))],
+		if Expense:
+			gastos = Expense.search([('eicr_state', 'in', ('pendiente',))],
 									limit=max_documentos).sorted(key=lambda e: e.reference)
-			_logger.info('Validando %s Gastos' % len(gastos))
+			_logger.info('Validating %s Expenses' % len(gastos))
 			for indice, gasto in enumerate(gastos):
-				_logger.info('Validando Gasto %s/%s %s' % (indice+1, len(gastos), gasto))
+				_logger.info('Validating Expense %s/%s %s' % (indice+1, len(gastos), gasto))
 				if not gasto.eicr_documento2_file:
 					gasto.eicr_state = 'na'
 					pass
@@ -605,23 +593,12 @@ class ElectronicInvoiceCostaRicaTools(models.AbstractModel):
 	@api.model
 	def _consultahacienda(self, max_documentos=4):  # cron
 
-		try:
-			invoice = self.env['account.invoice']
-		except KeyError:
-			invoice = None
+		Invoice = self.env['account.invoice'] if self.module_installed('eicr_invoicing') else None
+		Order = self.env['pos.order'] if self.module_installed('eicr_pos') else None
+		Expense = self.env['hr.expense'] if self.module_installed('eicr_expense') else None
 
-		try:
-			order = self.env['pos.order']
-		except KeyError:
-			order = None
-
-		try:
-			expense = self.env['hr.expense']
-		except KeyError:
-			expense = None
-
-		if invoice != None:
-			facturas = invoice.search([('type', 'in', ('out_invoice', 'out_refund','in_invoice')),
+		if Invoice:
+			facturas = Invoice.search([('type', 'in', ('out_invoice', 'out_refund','in_invoice')),
 									   ('state', 'in', ('open', 'paid')),
 									   ('state_tributacion', 'in', ('recibido', 'procesando', 'error'))], limit=max_documentos)
 
@@ -631,8 +608,8 @@ class ElectronicInvoiceCostaRicaTools(models.AbstractModel):
 				if self._consultar_documento(factura): self._enviar_email(factura)
 				max_documentos -= 1
 
-		if order != None:
-			tiquetes = order.search([('state_tributacion', 'in', ('recibido', 'procesando', 'error'))], limit=max_documentos)
+		if Order:
+			tiquetes = Order.search([('state_tributacion', 'in', ('recibido', 'procesando', 'error'))], limit=max_documentos)
 
 			for indice, tiquete in enumerate(tiquetes):
 				_logger.info('Consultando documento %s / %s ' % (indice+1, len(tiquetes)))
@@ -642,8 +619,8 @@ class ElectronicInvoiceCostaRicaTools(models.AbstractModel):
 					self._enviar_email(tiquete)
 				max_documentos -= 1
 
-		if expense != None:
-			gastos = expense.search([('state_tributacion', 'in', ('recibido', 'procesando', 'error'))], limit=max_documentos)
+		if Expense:
+			gastos = Expense.search([('state_tributacion', 'in', ('recibido', 'procesando', 'error'))], limit=max_documentos)
 			for indice, gasto in enumerate(gastos):
 				_logger.info('Consultando documento %s / %s ' % (indice + 1, len(gastos)))
 				if not gasto.xml_comprobante:
