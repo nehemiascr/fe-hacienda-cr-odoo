@@ -2,14 +2,14 @@
 <odoo>
 	<data>
 
-		<record id="eicr_action_schema" model="ir.actions.act_window">
-			<field name="name">Esquemas</field>
+		<record id="eicr_action_document" model="ir.actions.act_window">
+			<field name="name">Documentos Electrónicos</field>
 			<field name="res_model">eicr.document</field>
 			<field name="view_type">form</field>
 			<field name="view_mode">tree,form</field>
 		</record>
 
-		<menuitem id="menu_eicr_schema" name="Esquemas" parent="menu_eicr" sequence="20" action="eicr_action_schema"/>
+		<menuitem id="menu_eicr_document" name="Documentos Electrónicos" parent="menu_eicr" sequence="20" action="eicr_action_document"/>
 
 	</data>
 </odoo>

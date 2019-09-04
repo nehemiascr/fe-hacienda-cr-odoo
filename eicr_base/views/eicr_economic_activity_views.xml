@@ -9,7 +9,7 @@
 			<field name="view_mode">tree,form</field>
 		</record>
 
-		<menuitem id="menu_eicr_economic_activity" name="Tipos de códigos de Productos" parent="menu_eicr" sequence="10" action="action_eicr_economic_activity"/>
+		<menuitem id="menu_eicr_economic_activity" name="Actividades Económicas" parent="menu_eicr" sequence="10" action="action_eicr_economic_activity"/>
 
 	</data>
 </odoo>
