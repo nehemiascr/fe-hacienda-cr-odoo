@@ -176,7 +176,7 @@ class ElectronicInvoice(models.TransientModel):
 		elif object._name == 'pos.order':
 			numeracion = object.name
 			diario = object.sale_journal
-			tipo = '04'  # Tiquete Electrónico
+			tipo = '05' if object.partner_id and self._validar_receptor(object.partner_id) else '04'
 		elif object._name == 'hr.expense':
 			diario = self.env['account.journal'].search([('company_id', '=', object.company_id.id), ('type', '=', 'purchase')])
 			if len(diario) > 1:
@@ -670,7 +670,7 @@ class ElectronicInvoice(models.TransientModel):
 			elif object.type in ('in_invoice', 'in_refund'):
 				Documento = self._get_xml_MR_account_invoice(object)
 		elif object._name == 'pos.order':
-			Documento = self._get_xml_TE(object)
+			Documento = self._get_xml_order(object)
 		elif object._name == 'hr.expense':
 			Documento = self._get_xml_MR_hr_expense(object)
 
@@ -684,8 +684,9 @@ class ElectronicInvoice(models.TransientModel):
 
 		return xml_base64_encoded_firmado
 
+
 	@api.model
-	def _get_xml_TE(self, order):
+	def _get_xml_order(self, order):
 
 		if not order.name:
 			_logger.error('Tiquete sin consecutivo %s' % order)
@@ -716,7 +717,7 @@ class ElectronicInvoice(models.TransientModel):
 
 		receptor_valido = self._validar_receptor(receptor)
 
-		# TiqueteElectronico 4.3
+		# FacturacionElectronica 4.3
 		decimales = 2
 
 		if receptor_valido:
@@ -1027,7 +1028,9 @@ class ElectronicInvoice(models.TransientModel):
 			SubTotal.text = str(round(linea.price_subtotal, decimales))
 			LineaDetalle.append(SubTotal)
 
-			if linea.tax_ids_after_fiscal_position:
+			impuestos = linea.tax_ids_after_fiscal_position - impuestoServicio
+
+			if impuestos:
 				for impuesto in linea.tax_ids_after_fiscal_position:
 
 					if impuesto.tax_code != 'service':

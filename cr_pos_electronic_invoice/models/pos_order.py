@@ -80,7 +80,9 @@ class PosOrder(models.Model):
 
         if xml_firmado:
             pos_order.xml_comprobante = xml_firmado
-            pos_order.fname_xml_comprobante = 'TiqueteElectronico_' + pos_order.number_electronic + '.xml'
+
+            documento = 'FacturaElectronica' if self.env['electronic_invoice']._validar_receptor(pos_order.partner_id) else 'TiqueteElectronico'
+            pos_order.fname_xml_comprobante = documento + '_' + pos_order.number_electronic + '.xml'
             pos_order.state_tributacion = 'pendiente'
 
         return pos_order
