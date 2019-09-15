@@ -176,7 +176,7 @@ class ElectronicInvoice(models.TransientModel):
 		elif object._name == 'pos.order':
 			numeracion = object.name
 			diario = object.sale_journal
-			tipo = '05' if object.partner_id and self._validar_receptor(object.partner_id) else '04'
+			tipo = '01' if object.partner_id and self._validar_receptor(object.partner_id) else '04'
 		elif object._name == 'hr.expense':
 			diario = self.env['account.journal'].search([('company_id', '=', object.company_id.id), ('type', '=', 'purchase')])
 			if len(diario) > 1:
