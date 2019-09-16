@@ -2044,6 +2044,9 @@ class ElectronicInvoice(models.TransientModel):
 		totalImpuesto = round(0.00, decimales)
 		totalIVADevuelto = round(0.00, decimales)
 
+		impuestoServicio = self.env['account.tax'].search([('tax_code', '=', 'service')])
+		servicio = True if impuestoServicio in invoice.invoice_line_ids.mapped('invoice_line_tax_ids') else False
+
 		for indice, linea in enumerate(invoice.invoice_line_ids.sorted(lambda l: l.sequence)):
 			LineaDetalle = etree.Element('LineaDetalle')
 
@@ -2117,9 +2120,11 @@ class ElectronicInvoice(models.TransientModel):
 			LineaDetalle.append(SubTotal)
 
 			ivaDevuelto = round(0.00, decimales)
-			if linea.invoice_line_tax_ids:
 
-				for impuesto in linea.invoice_line_tax_ids:
+			impuestos = linea.invoice_line_tax_ids - impuestoServicio
+
+			if impuestos:
+				for impuesto in impuestos:
 
 					monto = round(linea.price_subtotal * impuesto.amount / 100.00, decimales)
 
@@ -2162,14 +2167,44 @@ class ElectronicInvoice(models.TransientModel):
 					totalMercanciasExentas += linea.price_subtotal
 
 			MontoTotalLinea = etree.Element('MontoTotalLinea')
-			MontoTotalLinea.text = str(round(linea.price_total+ivaDevuelto, decimales))
+			montoTotalLinea = linea.price_total+ivaDevuelto
+			if servicio:
+				_logger.info('mndl %s' % montoTotalLinea)
+				deduccion = montoTotalLinea * 10.0 / (100.0 + sum(linea.invoice_line_tax_ids.mapped('amount')))
+				_logger.info('mndl %s' % deduccion)
+				montoTotalLinea -= deduccion
+				_logger.info('mndl %s' % montoTotalLinea)
+			MontoTotalLinea.text = str(round(montoTotalLinea, decimales))
+
 			LineaDetalle.append(MontoTotalLinea)
 
 			DetalleServicio.append(LineaDetalle)
 
-			totalIVADevuelto += ivaDevuelto
-
 		Documento.append(DetalleServicio)
+
+		if servicio:
+			# Otros Cargos
+			OtrosCargos = etree.Element('OtrosCargos')
+
+			TipoDocumento = etree.Element('TipoDocumento')
+			TipoDocumento.text = '06'
+			OtrosCargos.append(TipoDocumento)
+
+			Detalle = etree.Element('Detalle')
+			Detalle.text = 'Cargo de Servicio (10%)'
+			OtrosCargos.append(Detalle)
+
+			Porcentaje = etree.Element('Porcentaje')
+			Porcentaje.text = '10.0'
+			OtrosCargos.append(Porcentaje)
+
+			MontoCargo = etree.Element('MontoCargo')
+			MontoCargo.text = str(round((invoice.amount_total - invoice.amount_tax) * 10.0 / 100.0, decimales))
+			OtrosCargos.append(MontoCargo)
+
+			Documento.append(OtrosCargos)
+
+		totalIVADevuelto += ivaDevuelto
 
 		# ResumenFactura
 		ResumenFactura = etree.Element('ResumenFactura')
@@ -2240,6 +2275,11 @@ class ElectronicInvoice(models.TransientModel):
 				TotalIVADevuelto = etree.Element('TotalIVADevuelto')
 				TotalIVADevuelto.text = str(round(totalIVADevuelto, decimales))
 				ResumenFactura.append(TotalIVADevuelto)
+
+		if servicio:
+			TotalOtrosCargos = etree.Element('TotalOtrosCargos')
+			TotalOtrosCargos.text = str(round((invoice.amount_total - invoice.amount_tax) * 10.0 / 100.0, decimales))
+			ResumenFactura.append(TotalOtrosCargos)
 
 
 		TotalComprobante = etree.Element('TotalComprobante')

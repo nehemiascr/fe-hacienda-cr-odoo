@@ -205,9 +205,13 @@ class AccountInvoiceElectronic(models.Model):
         if comprobante:
             invoice.xml_comprobante = comprobante
 
-            sufijo = 'FacturaElectronica_' if invoice.type == 'out_invoice' else 'NotaCreditoElectronica_'
+            documento = 'TiqueteElectronico'
+            if self.env['electronic_invoice']._validar_receptor(invoice.partner_id):
+                documento = 'FacturaElectronica'
+            elif invoice.type == 'out_refund':
+                documento = 'NotaCreditoElectronica'
 
-        invoice.fname_xml_comprobante = sufijo + invoice.number_electronic + '.xml'
+        invoice.fname_xml_comprobante = documento + '_' + invoice.number_electronic + '.xml'
 
         invoice.state_tributacion = 'pendiente'
 
