@@ -19,6 +19,7 @@ class HrExpense(models.Model):
     _inherit = ['hr.expense', 'eicr.mixin']
 
     partner_id = fields.Many2one('res.partner', 'Proveedor', readonly=True)
+    number = fields.Char(string='Consecutivo', store=True, readonly=True, copy=False)
 
 
     def action_cargar_xml(self, vals):
@@ -115,41 +116,3 @@ class HrExpense(models.Model):
                 self.quantity = 1.0
                 self.eicr_state = 'pendiente'
                 self.eicr_clave = Clave.text
-
-                # respuesta = fe.
-
-
-
-
-
-        # else:
-        #     self.state_tributacion = False
-        #     self.xml_supplier_approval = False
-        #     self.fname_xml_supplier_approval = False
-        #     self.xml_respuesta_tributacion = False
-        #     self.fname_xml_respuesta_tributacion = False
-        #     self.date_issuance = False
-        #     self.number_electronic = False
-        #     self.state_invoice_partner = False
-
-    # @api.model
-    # def _process_order(self, order):
-    #
-    #     _logger.info('order %s' % order)
-    #     pos_order = super(PosOrder, self)._process_order(order)
-    #     _logger.info('pos_order %s' % pos_order.__dict__)
-    #
-    #     now_utc = datetime.datetime.now(pytz.timezone('UTC'))
-    #     now_cr = now_utc.astimezone(pytz.timezone('America/Costa_Rica'))
-    #
-    #     pos_order.fecha = now_cr.strftime('%Y-%m-%d %H:%M:%S')
-    #     pos_order.date_issuance = now_cr.strftime("%Y-%m-%dT%H:%M:%S-06:00")
-    #
-    #     xml_firmado = self.env['facturacion_electronica'].get_xml(pos_order)
-    #
-    #     if xml_firmado:
-    #         pos_order.xml_comprobante = xml_firmado
-    #         pos_order.fname_xml_comprobante = 'TiqueteElectronico_' + pos_order.number_electronic + '.xml'
-    #         pos_order.state_tributacion = 'pendiente'
-    #
-    #     return pos_order

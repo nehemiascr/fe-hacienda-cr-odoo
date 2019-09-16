@@ -47,7 +47,7 @@
     <br />
     <strong>Confirmation Message: </strong> ${object.state_invoice_partner}
     <br />
-    <strong>"Hacienda" status: </strong> ${object.state_tributacion}
+    <strong>"Hacienda" status: </strong> ${object.eicr_state}
 
     <br /><br />
     <strong>Issuing company </strong>

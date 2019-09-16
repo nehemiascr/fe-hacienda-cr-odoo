@@ -3,7 +3,7 @@
 
     <data noupdate="1">
 
-        <record id="l10n_cr.account_tax_template_IVA_00_0" model="account.tax.template">
+        <record id="eicr_base.account_tax_template_IVA_00_0" model="account.tax.template">
             <field name="name">IVA 0%</field>
             <field name="tax_code">01</field>
             <field name="description">IVA 0%</field>
@@ -16,11 +16,11 @@
             <field name="chart_template_id" ref="l10n_cr.account_chart_template_0"/>
             <field name="account_id" ref="l10n_cr.account_account_template_0_212101"/>
             <field name="refund_account_id" ref="l10n_cr.account_account_template_0_212101"/>
-            <field name="tag_ids" eval="[(6,0,[ref('l10n_cr.tag_iva_00')])]"/>
-            <field name="tax_group_id" ref="l10n_cr.tax_group_iva_00"/>
+            <field name="tag_ids" eval="[(6,0,[ref('eicr_base.tag_iva_00')])]"/>
+            <field name="tax_group_id" ref="eicr_base.tax_group_iva_00"/>
         </record>
 
-        <record id="l10n_cr.account_tax_template_IVA_00_1" model="account.tax.template">
+        <record id="eicr_base.account_tax_template_IVA_00_1" model="account.tax.template">
             <field name="name">IVA 0%</field>
             <field name="include_base_amount" eval="False"/>
             <field name="tax_code">01</field>
@@ -34,11 +34,11 @@
             <field name="chart_template_id" ref="l10n_cr.account_chart_template_0"/>
             <field name="account_id" ref="l10n_cr.account_account_template_0_212101"/>
             <field name="refund_account_id" ref="l10n_cr.account_account_template_0_212101"/>
-            <field name="tag_ids" eval="[(6,0,[ref('l10n_cr.tag_iva_00')])]"/>
-            <field name="tax_group_id" ref="l10n_cr.tax_group_iva_00"/>
+            <field name="tag_ids" eval="[(6,0,[ref('eicr_base.tag_iva_00')])]"/>
+            <field name="tax_group_id" ref="eicr_base.tax_group_iva_00"/>
         </record>
 
-        <record id="l10n_cr.account_tax_template_IVA_01_0" model="account.tax.template">
+        <record id="eicr_base.account_tax_template_IVA_01_0" model="account.tax.template">
             <field name="name">IVA 1% (Tarifa Reducida)</field>
             <field name="include_base_amount" eval="False"/>
             <field name="tax_code">01</field>
@@ -52,11 +52,11 @@
             <field name="chart_template_id" ref="l10n_cr.account_chart_template_0"/>
             <field name="account_id" ref="l10n_cr.account_account_template_0_212101"/>
             <field name="refund_account_id" ref="l10n_cr.account_account_template_0_212101"/>
-            <field name="tag_ids" eval="[(6,0,[ref('l10n_cr.tag_iva_01')])]"/>
-            <field name="tax_group_id" ref="l10n_cr.tax_group_iva_01"/>
+            <field name="tag_ids" eval="[(6,0,[ref('eicr_base.tag_iva_01')])]"/>
+            <field name="tax_group_id" ref="eicr_base.tax_group_iva_01"/>
         </record>
 
-        <record id="l10n_cr.account_tax_template_IVA_01_1" model="account.tax.template">
+        <record id="eicr_base.account_tax_template_IVA_01_1" model="account.tax.template">
             <field name="name">IVA 1% (Tarifa Reducida)</field>
             <field name="include_base_amount" eval="False"/>
             <field name="tax_code">01</field>
@@ -70,11 +70,11 @@
             <field name="chart_template_id" ref="l10n_cr.account_chart_template_0"/>
             <field name="account_id" ref="l10n_cr.account_account_template_0_212101"/>
             <field name="refund_account_id" ref="l10n_cr.account_account_template_0_212101"/>
-            <field name="tag_ids" eval="[(6,0,[ref('l10n_cr.tag_iva_01')])]"/>
-            <field name="tax_group_id" ref="l10n_cr.tax_group_iva_01"/>
+            <field name="tag_ids" eval="[(6,0,[ref('eicr_base.tag_iva_01')])]"/>
+            <field name="tax_group_id" ref="eicr_base.tax_group_iva_01"/>
         </record>
 
-        <record id="l10n_cr.account_tax_template_IVA_02_0" model="account.tax.template">
+        <record id="eicr_base.account_tax_template_IVA_02_0" model="account.tax.template">
             <field name="name">IVA 2% (Tarifa Reducida)</field>
             <field name="include_base_amount" eval="False"/>
             <field name="tax_code">01</field>
@@ -88,11 +88,11 @@
             <field name="chart_template_id" ref="l10n_cr.account_chart_template_0"/>
             <field name="account_id" ref="l10n_cr.account_account_template_0_212101"/>
             <field name="refund_account_id" ref="l10n_cr.account_account_template_0_212101"/>
-            <field name="tag_ids" eval="[(6,0,[ref('l10n_cr.tag_iva_02')])]"/>
-            <field name="tax_group_id" ref="l10n_cr.tax_group_iva_02"/>
+            <field name="tag_ids" eval="[(6,0,[ref('eicr_base.tag_iva_02')])]"/>
+            <field name="tax_group_id" ref="eicr_base.tax_group_iva_02"/>
         </record>
 
-        <record id="l10n_cr.account_tax_template_IVA_02_1" model="account.tax.template">
+        <record id="eicr_base.account_tax_template_IVA_02_1" model="account.tax.template">
             <field name="name">IVA 2% (Tarifa Reducida)</field>
             <field name="include_base_amount" eval="False"/>
             <field name="tax_code">01</field>
@@ -106,11 +106,11 @@
             <field name="chart_template_id" ref="l10n_cr.account_chart_template_0"/>
             <field name="account_id" ref="l10n_cr.account_account_template_0_212101"/>
             <field name="refund_account_id" ref="l10n_cr.account_account_template_0_212101"/>
-            <field name="tag_ids" eval="[(6,0,[ref('l10n_cr.tag_iva_02')])]"/>
-            <field name="tax_group_id" ref="l10n_cr.tax_group_iva_02"/>
+            <field name="tag_ids" eval="[(6,0,[ref('eicr_base.tag_iva_02')])]"/>
+            <field name="tax_group_id" ref="eicr_base.tax_group_iva_02"/>
         </record>
 
-        <record id="l10n_cr.account_tax_template_IVA_04_0" model="account.tax.template">
+        <record id="eicr_base.account_tax_template_IVA_04_0" model="account.tax.template">
             <field name="name">IVA 4% (Tarifa Reducida)</field>
             <field name="include_base_amount" eval="False"/>
             <field name="tax_code">01</field>
@@ -124,11 +124,11 @@
             <field name="chart_template_id" ref="l10n_cr.account_chart_template_0"/>
             <field name="account_id" ref="l10n_cr.account_account_template_0_212101"/>
             <field name="refund_account_id" ref="l10n_cr.account_account_template_0_212101"/>
-            <field name="tag_ids" eval="[(6,0,[ref('l10n_cr.tag_iva_04')])]"/>
-            <field name="tax_group_id" ref="l10n_cr.tax_group_iva_04"/>
+            <field name="tag_ids" eval="[(6,0,[ref('eicr_base.tag_iva_04')])]"/>
+            <field name="tax_group_id" ref="eicr_base.tax_group_iva_04"/>
         </record>
 
-        <record id="l10n_cr.account_tax_template_IVA_04_1" model="account.tax.template">
+        <record id="eicr_base.account_tax_template_IVA_04_1" model="account.tax.template">
             <field name="name">IVA 4% (Tarifa Reducida)</field>
             <field name="include_base_amount" eval="False"/>
             <field name="tax_code">01</field>
@@ -142,11 +142,11 @@
             <field name="chart_template_id" ref="l10n_cr.account_chart_template_0"/>
             <field name="account_id" ref="l10n_cr.account_account_template_0_212101"/>
             <field name="refund_account_id" ref="l10n_cr.account_account_template_0_212101"/>
-            <field name="tag_ids" eval="[(6,0,[ref('l10n_cr.tag_iva_04')])]"/>
-            <field name="tax_group_id" ref="l10n_cr.tax_group_iva_04"/>
+            <field name="tag_ids" eval="[(6,0,[ref('eicr_base.tag_iva_04')])]"/>
+            <field name="tax_group_id" ref="eicr_base.tax_group_iva_04"/>
         </record>
 
-        <record id="l10n_cr.account_tax_template_IVA_04D_0" model="account.tax.template">
+        <record id="eicr_base.account_tax_template_IVA_04D_0" model="account.tax.template">
             <field name="name">Devolución IVA 4% (Tarifa Reducida)</field>
             <field name="include_base_amount" eval="False"/>
             <field name="tax_code">01</field>
@@ -160,11 +160,11 @@
             <field name="chart_template_id" ref="l10n_cr.account_chart_template_0"/>
             <field name="account_id" ref="l10n_cr.account_account_template_0_212101"/>
             <field name="refund_account_id" ref="l10n_cr.account_account_template_0_212101"/>
-            <field name="tag_ids" eval="[(6,0,[ref('l10n_cr.tag_iva_04D')])]"/>
-            <field name="tax_group_id" ref="l10n_cr.tax_group_iva_04D"/>
+            <field name="tag_ids" eval="[(6,0,[ref('eicr_base.tag_iva_04D')])]"/>
+            <field name="tax_group_id" ref="eicr_base.tax_group_iva_04D"/>
         </record>
 
-        <record id="l10n_cr.account_tax_template_IVA_04D_1" model="account.tax.template">
+        <record id="eicr_base.account_tax_template_IVA_04D_1" model="account.tax.template">
             <field name="name">Devolución IVA 4% (Tarifa Reducida)</field>
             <field name="include_base_amount" eval="False"/>
             <field name="tax_code">01</field>
@@ -178,11 +178,11 @@
             <field name="chart_template_id" ref="l10n_cr.account_chart_template_0"/>
             <field name="account_id" ref="l10n_cr.account_account_template_0_212101"/>
             <field name="refund_account_id" ref="l10n_cr.account_account_template_0_212101"/>
-            <field name="tag_ids" eval="[(6,0,[ref('l10n_cr.tag_iva_04D')])]"/>
-            <field name="tax_group_id" ref="l10n_cr.tax_group_iva_04D"/>
+            <field name="tag_ids" eval="[(6,0,[ref('eicr_base.tag_iva_04D')])]"/>
+            <field name="tax_group_id" ref="eicr_base.tax_group_iva_04D"/>
         </record>
 
-        <record id="l10n_cr.account_tax_template_IVA_13_0" model="account.tax.template">
+        <record id="eicr_base.account_tax_template_IVA_13_0" model="account.tax.template">
             <field name="name">IVA 13%</field>
             <field name="include_base_amount" eval="False"/>
             <field name="tax_code">01</field>
@@ -196,11 +196,11 @@
             <field name="chart_template_id" ref="l10n_cr.account_chart_template_0"/>
             <field name="account_id" ref="l10n_cr.account_account_template_0_212101"/>
             <field name="refund_account_id" ref="l10n_cr.account_account_template_0_212101"/>
-            <field name="tag_ids" eval="[(6,0,[ref('l10n_cr.tag_iva_13')])]"/>
-            <field name="tax_group_id" ref="l10n_cr.tax_group_iva_13"/>
+            <field name="tag_ids" eval="[(6,0,[ref('eicr_base.tag_iva_13')])]"/>
+            <field name="tax_group_id" ref="eicr_base.tax_group_iva_13"/>
         </record>
 
-        <record id="l10n_cr.account_tax_template_IVA_13_1" model="account.tax.template">
+        <record id="eicr_base.account_tax_template_IVA_13_1" model="account.tax.template">
             <field name="name">IVA 13%</field>
             <field name="include_base_amount" eval="False"/>
             <field name="tax_code">01</field>
@@ -214,11 +214,11 @@
             <field name="chart_template_id" ref="l10n_cr.account_chart_template_0"/>
             <field name="account_id" ref="l10n_cr.account_account_template_0_212101"/>
             <field name="refund_account_id" ref="l10n_cr.account_account_template_0_212101"/>
-            <field name="tag_ids" eval="[(6,0,[ref('l10n_cr.tag_iva_13')])]"/>
-            <field name="tax_group_id" ref="l10n_cr.tax_group_iva_13"/>
+            <field name="tag_ids" eval="[(6,0,[ref('eicr_base.tag_iva_13')])]"/>
+            <field name="tax_group_id" ref="eicr_base.tax_group_iva_13"/>
         </record>
 
-         <record id="l10n_cr.account_tax_template_ISC_0" model="account.tax.template">
+         <record id="eicr_base.account_tax_template_ISC_0" model="account.tax.template">
             <field name="name">Impuesto Selectivo de Consumo s</field>
             <field name="include_base_amount" eval="True"/>
             <field name="tax_code">02</field>
@@ -230,11 +230,11 @@
             <field name="chart_template_id" ref="l10n_cr.account_chart_template_0"/>
             <field name="account_id" ref="l10n_cr.account_account_template_0_212101"/>
             <field name="refund_account_id" ref="l10n_cr.account_account_template_0_212101"/>
-            <field name="tag_ids" eval="[(6,0,[ref('l10n_cr.tag_isc')])]"/>
-            <field name="tax_group_id" ref="l10n_cr.tax_group_isc"/>
+            <field name="tag_ids" eval="[(6,0,[ref('eicr_base.tag_isc')])]"/>
+            <field name="tax_group_id" ref="eicr_base.tax_group_isc"/>
         </record>
 
-         <record id="l10n_cr.account_tax_template_ISC_1" model="account.tax.template">
+         <record id="eicr_base.account_tax_template_ISC_1" model="account.tax.template">
             <field name="name">Impuesto Selectivo de Consumo p</field>
             <field name="include_base_amount" eval="True"/>
             <field name="tax_code">02</field>
@@ -246,11 +246,11 @@
             <field name="chart_template_id" ref="l10n_cr.account_chart_template_0"/>
             <field name="account_id" ref="l10n_cr.account_account_template_0_212101"/>
             <field name="refund_account_id" ref="l10n_cr.account_account_template_0_212101"/>
-            <field name="tag_ids" eval="[(6,0,[ref('l10n_cr.tag_isc')])]"/>
-            <field name="tax_group_id" ref="l10n_cr.tax_group_isc"/>
+            <field name="tag_ids" eval="[(6,0,[ref('eicr_base.tag_isc')])]"/>
+            <field name="tax_group_id" ref="eicr_base.tax_group_isc"/>
         </record>
 
-        <record id="l10n_cr.account_tax_template_IS_0" model="account.tax.template">
+        <record id="eicr_base.account_tax_template_IS_0" model="account.tax.template">
             <field name="name">Cargo al Servicio</field>
             <field name="include_base_amount" eval="False"/>
             <field name="tax_code">service</field>
@@ -262,11 +262,11 @@
             <field name="chart_template_id" ref="l10n_cr.account_chart_template_0"/>
             <field name="account_id" ref="l10n_cr.account_account_template_0_212101"/>
             <field name="refund_account_id" ref="l10n_cr.account_account_template_0_212101"/>
-            <field name="tag_ids" eval="[(6,0,[ref('l10n_cr.tag_is')])]"/>
-            <field name="tax_group_id" ref="l10n_cr.tax_group_is"/>
+            <field name="tag_ids" eval="[(6,0,[ref('eicr_base.tag_is')])]"/>
+            <field name="tax_group_id" ref="eicr_base.tax_group_is"/>
         </record>
 
-        <record id="l10n_cr.account_tax_template_IS_1" model="account.tax.template">
+        <record id="eicr_base.account_tax_template_IS_1" model="account.tax.template">
             <field name="name">Cargo al Servicio</field>
             <field name="include_base_amount" eval="False"/>
             <field name="tax_code">service</field>
@@ -278,8 +278,8 @@
             <field name="chart_template_id" ref="l10n_cr.account_chart_template_0"/>
             <field name="account_id" ref="l10n_cr.account_account_template_0_212101"/>
             <field name="refund_account_id" ref="l10n_cr.account_account_template_0_212101"/>
-            <field name="tag_ids" eval="[(6,0,[ref('l10n_cr.tag_is')])]"/>
-            <field name="tax_group_id" ref="l10n_cr.tax_group_is"/>
+            <field name="tag_ids" eval="[(6,0,[ref('eicr_base.tag_is')])]"/>
+            <field name="tax_group_id" ref="eicr_base.tax_group_is"/>
         </record>
 
     </data>

@@ -1,5 +1,6 @@
 # -*- coding: utf-8 -*-
 from odoo import models, fields, api, _
+from odoo.tools import DEFAULT_SERVER_DATE_FORMAT as DATE_FORMAT, DEFAULT_SERVER_DATETIME_FORMAT as DATETIME_FORMAT
 from odoo.exceptions import UserError
 import requests
 import json
@@ -14,6 +15,8 @@ import base64
 import pytz, ast
 import sys
 
+EICR_DATE_FORMAT = "%Y-%m-%dT%H:%M:%S-06:00"
+
 _logger = logging.getLogger(__name__)
 
 
@@ -24,6 +27,38 @@ class ElectronicInvoiceCostaRicaTools(models.AbstractModel):
 	def module_installed(self, name):
 		module = self.env['ir.module.module'].search([('name', '=', name)], limit=1)
 		return True if module and module.state == 'installed' else False
+
+	@api.model
+	def date_string(self, datetime=None):
+		if datetime is None:
+			now_utc = datetime.now(pytz.timezone('UTC'))
+			datetime = now_utc.astimezone(pytz.timezone('America/Costa_Rica'))
+		return datetime.strftime(EICR_DATE_FORMAT)
+
+	@api.model
+	def date_time(self, date_string=None):
+		if date_string is None:
+			date_string = self.date_string()
+		return datetime.strptime(date_string,EICR_DATE_FORMAT)
+
+
+	@api.model
+	def actualizar_info(self, partner_id):
+		info = self.get_info_contribuyente(partner_id.vat)
+		if info:
+			# tipo de identificación
+			partner_id.identification_id = self.env['eicr.identification_type'].search([('code', '=', info['tipoIdentificacion'])])
+			if info['tipoIdentificacion'] in ('01', '03', '04'):
+				partner_id.is_company = False
+			elif info['tipoIdentificacion'] in ('02'):
+				partner_id.is_company = True
+			# actividad económica
+			actividades = [a['codigo'] for a in info['actividades'] if a['estado'] == 'A']
+			partner_id.eicr_activity_ids = self.env['eicr.economic_activity'].search([('code', 'in', actividades)])
+			# nombre
+			if not partner_id.name or partner_id.name == 'My Company': partner_id.name = info['nombre']
+			# régimen tributario
+			partner_id.eicr_regimen = str(info['regimen']['codigo'])
 
 	@api.model
 	def validar_xml_proveedor(self, object):
@@ -65,21 +100,21 @@ class ElectronicInvoiceCostaRicaTools(models.AbstractModel):
 
 		if not self._es_mensaje_aceptacion(object):
 			_logger.info('%s no es documento aceptable por hacienda' % object)
-			object.state_tributacion = 'na'
+			object.eicr_state = 'na'
 			return False
 
-		if not object.xml_supplier_approval:
+		if not object.eicr_documento2_file:
 			_logger.info('%s sin xml de proveedor' % object)
-			object.state_tributacion = 'na'
+			object.eicr_state = 'na'
 			return False
 
-		if not object.xml_comprobante:
-			object.xml_comprobante = self.get_xml(object)
-			if object.xml_comprobante:
-				object.fname_xml_comprobante = 'MensajeReceptor_' + object.number_electronic + '.xml'
-				object.state_tributacion = 'pendiente'
+		if not object.eicr_documento_file:
+			object.eicr_documento_file = self.get_xml(object)
+			if object.eicr_documento_file:
+				object.eicr_documento_fname = 'MensajeReceptor_' + object.number_electronic + '.xml'
+				object.eicr_state = 'pendiente'
 			else:
-				object.state_tributacion = 'na'
+				object.eicr_state = 'na'
 
 
 
@@ -179,11 +214,11 @@ class ElectronicInvoiceCostaRicaTools(models.AbstractModel):
 			elif object.type == 'out_refund' and object.amount_total_signed <= 0:
 				tipo = '03' # Nota Crédito
 			elif object.type in ('in_invoice', 'in_refund'):
-				if object.state_invoice_partner == '1':
+				if object.eicr_aceptacion == '1':
 					tipo = '05' # Aceptado
-				elif object.state_invoice_partner == '2':
+				elif object.eicr_aceptacion == '2':
 					tipo = '06' # Aceptado Parcialmente
-				elif object.state_invoice_partner == '3':
+				elif object.eicr_aceptacion == '3':
 					tipo = '07' # Rechazado
 		elif object._name == 'pos.order':
 			numeracion = object.name
@@ -194,11 +229,12 @@ class ElectronicInvoiceCostaRicaTools(models.AbstractModel):
 			if len(diario) > 1:
 				diario = diario.sorted(key=lambda i: i.id)[0]
 			numeracion = object.number or diario.sequence_id.next_by_id()
-			if object.state_invoice_partner == '1' or object.state_invoice_partner is None :
+			_logger.info('%s %s' % (diario, numeracion))
+			if object.eicr_aceptacion == '1' or object.eicr_aceptacion is None :
 				tipo = '05'  # Aceptado
-			elif object.state_invoice_partner == '2':
+			elif object.eicr_aceptacion == '2':
 				tipo = '06'  # Aceptado Parcialmente
-			elif object.state_invoice_partner == '3':
+			elif object.eicr_aceptacion == '3':
 				tipo = '07'  # Rechazado
 		else:
 			return False
@@ -233,7 +269,7 @@ class ElectronicInvoiceCostaRicaTools(models.AbstractModel):
 
 		if (object._name == 'account.invoice' and object.type in ('in_invoice', 'in_refund')) \
 			or object._name == 'hr.expense':
-			return self._get_clave_de_xml(object.xml_supplier_approval)
+			return self._get_clave_de_xml(object.eicr_documento2_file)
 
 		if object._name == 'account.invoice' and object.type in ('out_invoice', 'out_refund'):
 			consecutivo = object.number
@@ -301,11 +337,11 @@ class ElectronicInvoiceCostaRicaTools(models.AbstractModel):
 		if object.eicr_state != 'pendiente':
 			_logger.info('Solo enviamos pendientes, no se va a enviar %s' % object)
 			return False
-		if not object.xml_comprobante:
+		if not object.eicr_documento_file:
 			_logger.info('%s sin xml' % object)
 			return False
 
-		xml = base64.b64decode(object.xml_comprobante)
+		xml = base64.b64decode(object.eicr_documento_file)
 
 		Documento = etree.tostring(etree.fromstring(xml)).decode()
 		Documento = etree.fromstring(re.sub(' xmlns="[^"]+"', '', Documento, count=1))
@@ -315,7 +351,7 @@ class ElectronicInvoiceCostaRicaTools(models.AbstractModel):
 		_logger.info('Documento %s' % Documento)
 
 		if self._es_mensaje_aceptacion(object):
-			xml_factura_proveedor = object.xml_supplier_approval
+			xml_factura_proveedor = object.eicr_documento2_file
 			xml_factura_proveedor = base64.b64decode(xml_factura_proveedor)
 			FacturaElectronica = etree.tostring(etree.fromstring(xml_factura_proveedor)).decode()
 			FacturaElectronica = etree.fromstring(re.sub(' xmlns="[^"]+"', '', FacturaElectronica, count=1))
@@ -362,23 +398,23 @@ class ElectronicInvoiceCostaRicaTools(models.AbstractModel):
 
 		if response.status_code == 202:
 			_logger.info('documento entregado %s' % response)
-			object.state_tributacion = 'recibido'
+			object.eicr_state = 'recibido'
 			return True
 		if response.status_code in (522, 524):
-			object.state_tributacion = 'error'
-			object.respuesta_tributacion = response.content
+			object.eicr_state = 'error'
+			object.eicr_mensaje_hacienda = response.content
 			return False
 		else:
 			error_cause = response.headers['X-Error-Cause'] if 'X-Error-Cause' in response.headers else 'Error desconocido'
 			_logger.info('Error %s %s %s' % (response.status_code, error_cause, response.headers))
-			object.state_tributacion = 'error'
-			object.respuesta_tributacion = error_cause
+			object.eicr_state = 'error'
+			object.eicr_mensaje_hacienda = error_cause
 
-			if 'ya fue recibido anteriormente' in object.respuesta_tributacion:
-				object.state_tributacion = 'recibido'
+			if 'ya fue recibido anteriormente' in object.eicr_mensaje_hacienda:
+				object.eicr_state = 'recibido'
 
-			if 'no ha sido recibido' in object.respuesta_tributacion:
-				object.state_tributacion = 'pendiente'
+			if 'no ha sido recibido' in object.eicr_mensaje_hacienda:
+				object.eicr_state = 'pendiente'
 
 			return False
 
@@ -387,12 +423,12 @@ class ElectronicInvoiceCostaRicaTools(models.AbstractModel):
 
 		if not self._fe_habilitado(object.company_id): return False
 
-		if object.xml_comprobante:
-			xml = etree.tostring(etree.fromstring(base64.b64decode(object.xml_comprobante))).decode()
+		if object.eicr_documento_file:
+			xml = etree.tostring(etree.fromstring(base64.b64decode(object.eicr_documento_file))).decode()
 			Documento = etree.fromstring(re.sub(' xmlns="[^"]+"', '', xml, count=1))
 			clave = Documento.find('Clave').text
-			if not object.date_issuance:
-				object.date_issuance = Documento.find('FechaEmision').text
+			if not object.eicr_date:
+				object.eicr_date = self.date_time(Documento.find('FechaEmision').text)
 		elif object.number_electronic:
 			clave = object.number_electronic
 		else:
@@ -421,14 +457,14 @@ class ElectronicInvoiceCostaRicaTools(models.AbstractModel):
 		if response.status_code in (301, 400):
 			_logger.info('Error %s %s' % (response.status_code, response.headers['X-Error-Cause']))
 			_logger.info('no vamos a continuar, algo inesperado sucedió %s' % response.__dict__)
-			object.state_tributacion = 'error'
-			object.respuesta_tributacion = response.headers['X-Error-Cause'] if response.headers and 'X-Error-Cause' in response.headers else 'No hay de Conexión con Hacienda'
-			if 'ya fue recibido anteriormente' in object.respuesta_tributacion: object.state_tributacion = 'recibido'
-			if 'no ha sido recibido' in object.respuesta_tributacion: object.state_tributacion = 'pendiente'
+			object.eicr_state = 'error'
+			object.eicr_mensaje_hacienda = response.headers['X-Error-Cause'] if response.headers and 'X-Error-Cause' in response.headers else 'No hay de Conexión con Hacienda'
+			if 'ya fue recibido anteriormente' in object.eicr_mensaje_hacienda: object.eicr_state = 'recibido'
+			if 'no ha sido recibido' in object.eicr_mensaje_hacienda: object.eicr_state = 'pendiente'
 			return False
 		if response.status_code in (502,522, 524):
-			object.state_tributacion = 'error'
-			object.respuesta_tributacion = response.content
+			object.eicr_state = 'error'
+			object.eicr_mensaje_hacienda = response.content
 			return False
 
 
@@ -443,24 +479,24 @@ class ElectronicInvoiceCostaRicaTools(models.AbstractModel):
 		_logger.info('respuesta de hacienda %s' %  response)
 		_logger.info('respuesta para %s %s' % (object, respuesta['ind-estado']))
 
-		object.state_tributacion = respuesta['ind-estado']
-		if respuesta['ind-estado'] == 'procesando': object.respuesta_tributacion = 'Procesando comprobante'
+		object.eicr_state = respuesta['ind-estado']
+		if respuesta['ind-estado'] == 'procesando': object.eicr_mensaje_hacienda = 'Procesando comprobante'
 
 		# Se actualiza la factura con la respuesta de hacienda
 
 		if 'respuesta-xml' in respuesta:
-			object.fname_xml_respuesta_tributacion = 'MensajeHacienda_' + respuesta['clave'] + '.xml'
-			object.xml_respuesta_tributacion = respuesta['respuesta-xml']
+			object.eicr_mensaje_hacienda_fname = 'MensajeHacienda_' + respuesta['clave'] + '.xml'
+			object.xml_eicr_mensaje_hacienda = respuesta['respuesta-xml']
 
-			respuesta = etree.tostring(etree.fromstring(base64.b64decode(object.xml_respuesta_tributacion))).decode()
+			respuesta = etree.tostring(etree.fromstring(base64.b64decode(object.xml_eicr_mensaje_hacienda))).decode()
 			respuesta = etree.fromstring(re.sub(' xmlns="[^"]+"', '', respuesta, count=1))
-			object.respuesta_tributacion = respuesta.find('DetalleMensaje').text
+			object.eicr_mensaje_hacienda = respuesta.find('DetalleMensaje').text
 
 		return True
 
 	def _enviar_email(self, object):
-		if object.state_tributacion != 'aceptado':
-			_logger.info('documento %s estado %s, no vamos a enviar el email' % (object, object.state_tributacion))
+		if object.eicr_state != 'aceptado':
+			_logger.info('documento %s estado %s, no vamos a enviar el email' % (object, object.eicr_state))
 			return False
 
 		if not object.partner_id:
@@ -478,18 +514,18 @@ class ElectronicInvoiceCostaRicaTools(models.AbstractModel):
 
 		comprobante = self.env['ir.attachment'].search(
 			[('res_model', '=', object._name), ('res_id', '=', object.id),
-			 ('res_field', '=', 'xml_comprobante')], limit=1)
-		comprobante.name = object.fname_xml_comprobante
-		comprobante.datas_fname = object.fname_xml_comprobante
+			 ('res_field', '=', 'eicr_documento_file')], limit=1)
+		comprobante.name = object.eicr_documento_fname
+		comprobante.datas_fname = object.eicr_documento_fname
 
 		attachments = comprobante
 
-		if object.xml_respuesta_tributacion:
+		if object.eicr_mensaje_hacienda_file:
 			respuesta = self.env['ir.attachment'].search(
 				[('res_model', '=', object._name), ('res_id', '=', object.id),
-				 ('res_field', '=', 'xml_respuesta_tributacion')], limit=1)
-			respuesta.name = object.fname_xml_respuesta_tributacion
-			respuesta.datas_fname = object.fname_xml_respuesta_tributacion
+				 ('res_field', '=', 'eicr_mensaje_hacienda_file')], limit=1)
+			respuesta.name = object.eicr_mensaje_hacienda_fname
+			respuesta.datas_fname = object.eicr_mensaje_hacienda_fname
 
 			attachments = attachments | respuesta
 
@@ -547,7 +583,7 @@ class ElectronicInvoiceCostaRicaTools(models.AbstractModel):
 		Order = self.env['pos.order'] if self.module_installed('eicr_pos') else None
 		Expense = self.env['hr.expense'] if self.module_installed('eicr_expense') else None
 
-		if Invoice:
+		if Invoice is not None:
 			facturas = Invoice.search([('state', 'in', ('open', 'paid')),
 									   ('eicr_state', 'in', ('pendiente',))],
 									  limit=max_documentos).sorted(key=lambda i: i.number)
@@ -558,7 +594,7 @@ class ElectronicInvoiceCostaRicaTools(models.AbstractModel):
 					pass
 				self._enviar_documento(factura)
 
-		if Order:
+		if Order is not None:
 			tiquetes = Order.search([('eicr_state', 'in', ('pendiente',))],
 									limit=max_documentos).sorted(key=lambda o: o.name)
 			_logger.info('Validating %s Orders' % len(tiquetes))
@@ -569,7 +605,7 @@ class ElectronicInvoiceCostaRicaTools(models.AbstractModel):
 					pass
 				self._enviar_documento(tiquete)
 
-		if Expense:
+		if Expense is not None:
 			gastos = Expense.search([('eicr_state', 'in', ('pendiente',))],
 									limit=max_documentos).sorted(key=lambda e: e.reference)
 			_logger.info('Validating %s Expenses' % len(gastos))
@@ -597,33 +633,33 @@ class ElectronicInvoiceCostaRicaTools(models.AbstractModel):
 		Order = self.env['pos.order'] if self.module_installed('eicr_pos') else None
 		Expense = self.env['hr.expense'] if self.module_installed('eicr_expense') else None
 
-		if Invoice:
+		if Invoice is not None:
 			facturas = Invoice.search([('type', 'in', ('out_invoice', 'out_refund','in_invoice')),
 									   ('state', 'in', ('open', 'paid')),
-									   ('state_tributacion', 'in', ('recibido', 'procesando', 'error'))], limit=max_documentos)
+									   ('eicr_state', 'in', ('recibido', 'procesando', 'error'))], limit=max_documentos)
 
 			for indice, factura in enumerate(facturas):
 				_logger.info('Consultando documento %s / %s ' % (indice+1, len(facturas)))
-				if not factura.xml_comprobante: pass
+				if not factura.eicr_documento_file: pass
 				if self._consultar_documento(factura): self._enviar_email(factura)
 				max_documentos -= 1
 
-		if Order:
-			tiquetes = Order.search([('state_tributacion', 'in', ('recibido', 'procesando', 'error'))], limit=max_documentos)
+		if Order is not None:
+			tiquetes = Order.search([('eicr_state', 'in', ('recibido', 'procesando', 'error'))], limit=max_documentos)
 
 			for indice, tiquete in enumerate(tiquetes):
 				_logger.info('Consultando documento %s / %s ' % (indice+1, len(tiquetes)))
-				if not tiquete.xml_comprobante:
+				if not tiquete.eicr_documento_file:
 					pass
 				if self._consultar_documento(tiquete):
 					self._enviar_email(tiquete)
 				max_documentos -= 1
 
-		if Expense:
-			gastos = Expense.search([('state_tributacion', 'in', ('recibido', 'procesando', 'error'))], limit=max_documentos)
+		if Expense is not None:
+			gastos = Expense.search([('eicr_state', 'in', ('recibido', 'procesando', 'error'))], limit=max_documentos)
 			for indice, gasto in enumerate(gastos):
 				_logger.info('Consultando documento %s / %s ' % (indice + 1, len(gastos)))
-				if not gasto.xml_comprobante:
+				if not gasto.eicr_documento_file:
 					pass
 				self._consultar_documento(gasto)
 				max_documentos -= 1
@@ -1157,536 +1193,6 @@ class ElectronicInvoiceCostaRicaTools(models.AbstractModel):
 
 		return Documento
 
-	def _get_xml_FE_NC_ND_42(self, invoice):
-
-		if invoice.type not in ('out_invoice', 'out_refund'):
-			_logger.error('No es factura de cliente %s', invoice)
-			return False
-
-		if not invoice.number:
-			_logger.error('Factura sin consecutivo %s', invoice)
-			return False
-
-		if not invoice.number.isdigit():
-			_logger.error('Error de numeración %s', invoice.number)
-			return False
-
-		if len(invoice.number) != 20:
-			consecutivo = self._get_consecutivo(invoice)
-			if not consecutivo:
-				_logger.error('Error de consecutivo %s' % invoice.number)
-				return False
-
-			invoice.number = consecutivo
-
-		if not invoice.number_electronic:
-			clave = self._get_clave(invoice)
-			if not clave:
-				_logger.error('Error de clave %s' % invoice)
-				return False
-
-			invoice.number_electronic = clave
-
-		if len(invoice.number_electronic) != 50:
-			_logger.error('Error de clave %s' % invoice.number_electronic)
-			return False
-
-		emisor = invoice.company_id
-		receptor = invoice.partner_id
-
-		# FacturaElectronica 4.2 y Nota de Crédito 4.2
-		decimales = 2
-
-		if invoice.type == 'out_invoice':
-			documento = 'FacturaElectronica' # Factura Electrónica
-			xmlns = 'https://tribunet.hacienda.go.cr/docs/esquemas/2017/v4.2/facturaElectronica'
-			schemaLocation = 'https://tribunet.hacienda.go.cr/docs/esquemas/2017/v4.2/facturaElectronica  https://tribunet.hacienda.go.cr/docs/esquemas/2017/v4.2/FacturaElectronica_V.4.2.xsd'
-
-		elif invoice.type == 'out_refund':
-			documento = 'NotaCreditoElectronica' # Nota de Crédito
-			xmlns = 'https://tribunet.hacienda.go.cr/docs/esquemas/2017/v4.2/notaCreditoElectronica'
-			schemaLocation = 'https://tribunet.hacienda.go.cr/docs/esquemas/2017/v4.2/notaCreditoElectronica  https://tribunet.hacienda.go.cr/docs/esquemas/2017/v4.2/NotaCreditoElectronica_V4.2.xsd'
-		else:
-			_logger.info('tipo de documento no implementado %s' % invoice.type)
-			return False
-
-		xsi = 'http://www.w3.org/2001/XMLSchema-instance'
-		xsd = 'http://www.w3.org/2001/XMLSchema'
-		ds = 'http://www.w3.org/2000/09/xmldsig#'
-
-		nsmap = {None : xmlns, 'xsd': xsd, 'xsi': xsi, 'ds': ds}
-		attrib = {'{'+xsi+'}schemaLocation':schemaLocation}
-
-		Documento = etree.Element(documento, attrib=attrib, nsmap=nsmap)
-
-		# Clave
-		Clave = etree.Element('Clave')
-		Clave.text = invoice.number_electronic
-		Documento.append(Clave)
-
-		# NumeroConsecutivo
-		NumeroConsecutivo = etree.Element('NumeroConsecutivo')
-		NumeroConsecutivo.text = invoice.number
-		Documento.append(NumeroConsecutivo)
-
-		# FechaEmision
-		FechaEmision = etree.Element('FechaEmision')
-		FechaEmision.text = datetime.strptime(invoice.fecha, '%Y-%m-%d %H:%M:%S').strftime("%Y-%m-%dT%H:%M:%S")
-		Documento.append(FechaEmision)
-
-		# Emisor
-		Emisor = etree.Element('Emisor')
-
-		Nombre = etree.Element('Nombre')
-		Nombre.text = emisor.name
-		Emisor.append(Nombre)
-
-		identificacion = re.sub('[^0-9]', '', emisor.vat or '')
-
-		if not emisor.identification_id:
-			raise UserError('Seleccione el tipo de identificación del emisor en el perfil de la compañía')
-		elif emisor.identification_id.code == '01' and len(identificacion) != 9:
-			raise UserError('La Cédula Física del emisor debe de tener 9 dígitos')
-		elif emisor.identification_id.code == '02' and len(identificacion) != 10:
-			raise UserError('La Cédula Jurídica del emisor debe de tener 10 dígitos')
-		elif emisor.identification_id.code == '03' and (len(identificacion) != 11 or len(identificacion) != 12):
-			raise UserError('La identificación DIMEX del emisor debe de tener 11 o 12 dígitos')
-		elif emisor.identification_id.code == '04' and len(identificacion) != 10:
-			raise UserError('La identificación NITE del emisor debe de tener 10 dígitos')
-
-		Identificacion = etree.Element('Identificacion')
-
-		Tipo = etree.Element('Tipo')
-		Tipo.text = emisor.identification_id.code
-		Identificacion.append(Tipo)
-
-		Numero = etree.Element('Numero')
-		Numero.text = identificacion
-		Identificacion.append(Numero)
-
-		Emisor.append(Identificacion)
-
-		if emisor.commercial_name:
-			NombreComercial = etree.Element('NombreComercial')
-			NombreComercial.text = emisor.commercial_name
-			Emisor.append(NombreComercial)
-
-		if not emisor.state_id:
-			raise UserError('La dirección del emisor está incompleta, no se ha seleccionado la Provincia')
-		if not emisor.county_id:
-			raise UserError('La dirección del emisor está incompleta, no se ha seleccionado el Cantón')
-		if not emisor.district_id:
-			raise UserError('La dirección del emisor está incompleta, no se ha seleccionado el Distrito')
-		if not emisor.street:
-			raise UserError('La dirección del emisor está incompleta, no se han digitado las señas de la dirección')
-
-		Ubicacion = etree.Element('Ubicacion')
-
-		Provincia = etree.Element('Provincia')
-		Provincia.text = emisor.partner_id.state_id.code
-		Ubicacion.append(Provincia)
-
-		Canton = etree.Element('Canton')
-		Canton.text = emisor.county_id.code
-		Ubicacion.append(Canton)
-
-		Distrito = etree.Element('Distrito')
-		Distrito.text = emisor.district_id.code
-		Ubicacion.append(Distrito)
-
-		if emisor.partner_id.neighborhood_id:
-			Barrio = etree.Element('Barrio')
-			Barrio.text = emisor.neighborhood_id.code
-			Ubicacion.append(Barrio)
-
-		OtrasSenas = etree.Element('OtrasSenas')
-		OtrasSenas.text = emisor.street or 'Sin otras señas'
-		Ubicacion.append(OtrasSenas)
-
-		Emisor.append(Ubicacion)
-
-		telefono = emisor.partner_id.phone or emisor.partner_id.mobile
-		if telefono:
-			telefono = re.sub('[^0-9]', '', telefono)
-			if telefono and len(telefono) >= 8 and len(telefono) <= 20:
-				Telefono = etree.Element('Telefono')
-
-				CodigoPais = etree.Element('CodigoPais')
-				CodigoPais.text = '506'
-				Telefono.append(CodigoPais)
-
-				NumTelefono = etree.Element('NumTelefono')
-				NumTelefono.text = telefono[:8]
-
-				Telefono.append(NumTelefono)
-
-				Emisor.append(Telefono)
-
-		if not emisor.email or not re.match('^[(a-z0-9\_\-\.)]+@[(a-z0-9\_\-\.)]+\.[(a-z)]{2,15}$', emisor.email.lower()):
-			raise UserError('El correo electrónico del emisor es inválido.')
-
-		CorreoElectronico = etree.Element('CorreoElectronico')
-		CorreoElectronico.text = emisor.email.lower()
-		Emisor.append(CorreoElectronico)
-
-		Documento.append(Emisor)
-
-		# Receptor
-		if receptor:
-
-			Receptor = etree.Element('Receptor')
-
-			Nombre = etree.Element('Nombre')
-			Nombre.text = receptor.name
-			Receptor.append(Nombre)
-
-			if receptor.identification_id and receptor.vat:
-				identificacion = re.sub('[^0-9]', '', receptor.vat)
-
-				if receptor.identification_id.code == '05':
-					IdentificacionExtranjero = etree.Element('IdentificacionExtranjero')
-					IdentificacionExtranjero.text = identificacion[:20]
-					Receptor.append(IdentificacionExtranjero)
-				else:
-					if receptor.identification_id.code == '01' and len(identificacion) != 9:
-						raise UserError('La Cédula Física del cliente debe de tener 9 dígitos')
-					elif receptor.identification_id.code == '02' and len(identificacion) != 10:
-						raise UserError('La Cédula Jurídica del cliente debe de tener 10 dígitos')
-					elif receptor.identification_id.code == '03' and (len(identificacion) != 11 or len(identificacion) != 12):
-						raise UserError('La identificación DIMEX del cliente debe de tener 11 o 12 dígitos')
-					elif receptor.identification_id.code == '04' and len(identificacion) != 10:
-						raise UserError('La identificación NITE del cliente debe de tener 10 dígitos')
-
-					Identificacion = etree.Element('Identificacion')
-
-					Tipo = etree.Element('Tipo')
-					Tipo.text = receptor.identification_id.code
-					Identificacion.append(Tipo)
-
-					Numero = etree.Element('Numero')
-					Numero.text = identificacion
-					Identificacion.append(Numero)
-
-					Receptor.append(Identificacion)
-
-			if receptor.state_id and receptor.county_id and receptor.district_id and receptor.street:
-				Ubicacion = etree.Element('Ubicacion')
-
-				Provincia = etree.Element('Provincia')
-				Provincia.text = receptor.state_id.code
-				Ubicacion.append(Provincia)
-
-				Canton = etree.Element('Canton')
-				Canton.text = receptor.county_id.code
-				Ubicacion.append(Canton)
-
-				Distrito = etree.Element('Distrito')
-				Distrito.text = receptor.district_id.code
-				Ubicacion.append(Distrito)
-
-				if receptor.neighborhood_id:
-					Barrio = etree.Element('Barrio')
-					Barrio.text = receptor.neighborhood_id.code
-					Ubicacion.append(Barrio)
-
-				OtrasSenas = etree.Element('OtrasSenas')
-				OtrasSenas.text = receptor.street
-				Ubicacion.append(OtrasSenas)
-
-				Receptor.append(Ubicacion)
-
-			telefono = receptor.phone or receptor.mobile
-			if telefono:
-				telefono = re.sub('[^0-9]', '', telefono)
-				if telefono and len(telefono) >= 8 and len(telefono) <= 20:
-					Telefono = etree.Element('Telefono')
-
-					CodigoPais = etree.Element('CodigoPais')
-					CodigoPais.text = '506'
-					Telefono.append(CodigoPais)
-
-					NumTelefono = etree.Element('NumTelefono')
-					NumTelefono.text = telefono[:8]
-					Telefono.append(NumTelefono)
-
-					Receptor.append(Telefono)
-
-			if receptor.email and re.match('^[(a-z0-9\_\-\.)]+@[(a-z0-9\_\-\.)]+\.[(a-z)]{2,15}$', receptor.email.lower()):
-				CorreoElectronico = etree.Element('CorreoElectronico')
-				CorreoElectronico.text = receptor.email
-				Receptor.append(CorreoElectronico)
-
-			Documento.append(Receptor)
-
-		# Condicion Venta
-		CondicionVenta = etree.Element('CondicionVenta')
-		if invoice.payment_term_id:
-			CondicionVenta.text = '02'
-			Documento.append(CondicionVenta)
-
-			PlazoCredito = etree.Element('PlazoCredito')
-			timedelta(7)
-			fecha_de_factura = datetime.strptime(invoice.date_invoice, '%Y-%m-%d')
-			fecha_de_vencimiento = datetime.strptime(invoice.date_due, '%Y-%m-%d')
-			PlazoCredito.text = str((fecha_de_factura - fecha_de_vencimiento).days)
-			Documento.append(PlazoCredito)
-		else:
-			CondicionVenta.text = '01'
-			Documento.append(CondicionVenta)
-
-		# MedioPago
-		MedioPago = etree.Element('MedioPago')
-		MedioPago.text = invoice.payment_methods_id.sequence if invoice.payment_methods_id else '01'
-		Documento.append(MedioPago)
-
-		# DetalleServicio
-		DetalleServicio = etree.Element('DetalleServicio')
-
-		totalServiciosGravados = round(0.00, decimales)
-		totalServiciosExentos = round(0.00, decimales)
-		totalMercanciasGravadas = round(0.00, decimales)
-		totalMercanciasExentas = round(0.00, decimales)
-
-		totalDescuentosMercanciasExentas = round(0.00, decimales)
-		totalDescuentosMercanciasGravadas = round(0.00, decimales)
-		totalDescuentosServiciosExentos = round(0.00, decimales)
-		totalDescuentosServiciosGravados = round(0.00, decimales)
-
-		totalImpuesto = round(0.00, decimales)
-
-		for indice, linea in enumerate(invoice.invoice_line_ids.sorted(lambda l: l.sequence)):
-			LineaDetalle = etree.Element('LineaDetalle')
-
-			NumeroLinea = etree.Element('NumeroLinea')
-			NumeroLinea.text = '%s' % (indice + 1)
-			LineaDetalle.append(NumeroLinea)
-
-			if linea.product_id.default_code:
-				Codigo = etree.Element('Codigo')
-
-				Tipo = etree.Element('Tipo')
-				Tipo.text = '02' if linea.product_id and linea.product_id.type == 'service' else '01'
-
-				Codigo.append(Tipo)
-
-				Codigo2 = etree.Element('Codigo')
-				Codigo2.text = linea.product_id.default_code
-				Codigo.append(Codigo2)
-
-				LineaDetalle.append(Codigo)
-
-			Cantidad = etree.Element('Cantidad')
-			Cantidad.text = str(linea.quantity)
-			LineaDetalle.append(Cantidad)
-
-			UnidadMedida = etree.Element('UnidadMedida')
-			UnidadMedida.text = 'Sp' if (linea.product_id and linea.product_id.type == 'service') else 'Unid'
-
-			LineaDetalle.append(UnidadMedida)
-
-			Detalle = etree.Element('Detalle')
-			Detalle.text = linea.name
-			LineaDetalle.append(Detalle)
-
-			PrecioUnitario = etree.Element('PrecioUnitario')
-			PrecioUnitario.text = str(round(linea.price_unit, decimales))
-			LineaDetalle.append(PrecioUnitario)
-
-			MontoTotal = etree.Element('MontoTotal')
-			montoTotal = round(linea.price_unit, decimales) * round(linea.quantity, decimales)
-			MontoTotal.text = str(round(montoTotal, decimales))
-
-			LineaDetalle.append(MontoTotal)
-
-			if linea.discount:
-				MontoDescuento = etree.Element('MontoDescuento')
-				montoDescuento = round(round(montoTotal, decimales) * round(linea.discount, decimales) / round(100.00, decimales), decimales)
-				montoDescuento = round(round(montoTotal, decimales) - round(linea.price_subtotal, decimales), decimales)
-				if linea.invoice_line_tax_ids:
-					if linea.product_id and linea.product_id.type == 'service':
-						totalDescuentosServiciosGravados += montoDescuento
-					else:
-						totalDescuentosMercanciasGravadas += montoDescuento
-				else:
-					if linea.product_id and linea.product_id.type == 'service':
-						totalDescuentosServiciosExentos += montoDescuento
-					else:
-						totalDescuentosMercanciasExentas += montoDescuento
-
-				MontoDescuento.text = str(montoDescuento)
-				LineaDetalle.append(MontoDescuento)
-
-				NaturalezaDescuento = etree.Element('NaturalezaDescuento')
-				NaturalezaDescuento.text = linea.discount_note or 'Descuento Comercial'
-				LineaDetalle.append(NaturalezaDescuento)
-
-			SubTotal = etree.Element('SubTotal')
-			SubTotal.text = str(round(linea.price_subtotal, decimales))
-			LineaDetalle.append(SubTotal)
-
-			if linea.invoice_line_tax_ids:
-				for impuesto in linea.invoice_line_tax_ids:
-
-					Impuesto = etree.Element('Impuesto')
-
-					Codigo = etree.Element('Codigo')
-					# Codigo.text = impuesto.code
-					Codigo.text = '01'
-					Impuesto.append(Codigo)
-
-					if linea.product_id.type == 'service' and impuesto.tax_code != '07':
-						raise UserError('No se puede aplicar impuesto de ventas a los servicios')
-
-					Tarifa = etree.Element('Tarifa')
-					Tarifa.text = str(round(impuesto.amount, decimales))
-					Impuesto.append(Tarifa)
-
-					Monto = etree.Element('Monto')
-					monto = round(round(linea.price_subtotal, decimales) * round(impuesto.amount, decimales) / round(100.00, decimales), decimales)
-					totalImpuesto += monto
-					Monto.text = str(round(monto, decimales))
-					Impuesto.append(Monto)
-
-					LineaDetalle.append(Impuesto)
-
-					if linea.product_id and linea.product_id.type == 'service':
-						totalServiciosGravados += linea.price_subtotal
-					else:
-						totalMercanciasGravadas += linea.price_subtotal
-
-			else:
-				if linea.product_id and linea.product_id.type == 'service':
-					totalServiciosExentos += linea.price_subtotal
-				else:
-					totalMercanciasExentas += linea.price_subtotal
-
-			MontoTotalLinea = etree.Element('MontoTotalLinea')
-			MontoTotalLinea.text = str(round(linea.price_total, decimales))
-			LineaDetalle.append(MontoTotalLinea)
-
-			DetalleServicio.append(LineaDetalle)
-
-		Documento.append(DetalleServicio)
-
-		# ResumenFactura
-		ResumenFactura = etree.Element('ResumenFactura')
-
-		if invoice.currency_id.name != 'CRC':
-			CodigoMoneda = etree.Element('CodigoMoneda')
-			CodigoMoneda.text = invoice.currency_id.name
-			ResumenFactura.append(CodigoMoneda)
-
-			TipoCambio = etree.Element('TipoCambio')
-			TipoCambio.text = str(round(1.0 / invoice.currency_id.rate, decimales))
-			ResumenFactura.append(TipoCambio)
-
-		if totalServiciosGravados:
-			TotalServGravados = etree.Element('TotalServGravados')
-			TotalServGravados.text = str(round(totalServiciosGravados + totalDescuentosServiciosGravados, decimales))
-			ResumenFactura.append(TotalServGravados)
-
-		if totalServiciosExentos:
-			TotalServExentos = etree.Element('TotalServExentos')
-			TotalServExentos.text = str(round(totalServiciosExentos + totalDescuentosServiciosExentos, decimales))
-			ResumenFactura.append(TotalServExentos)
-
-		if totalMercanciasGravadas:
-			TotalMercanciasGravadas = etree.Element('TotalMercanciasGravadas')
-			TotalMercanciasGravadas.text = str(round(totalMercanciasGravadas + totalDescuentosMercanciasGravadas, decimales))
-			ResumenFactura.append(TotalMercanciasGravadas)
-
-		if totalMercanciasExentas:
-			TotalMercanciasExentas = etree.Element('TotalMercanciasExentas')
-			TotalMercanciasExentas.text = str(round(totalMercanciasExentas + totalDescuentosMercanciasExentas, decimales))
-			ResumenFactura.append(TotalMercanciasExentas)
-
-		if totalServiciosGravados + totalMercanciasGravadas:
-			TotalGravado = etree.Element('TotalGravado')
-			TotalGravado.text = str(round(totalServiciosGravados + totalDescuentosServiciosGravados + totalMercanciasGravadas + totalDescuentosMercanciasGravadas, decimales))
-			ResumenFactura.append(TotalGravado)
-
-		if totalServiciosExentos + totalMercanciasExentas:
-			TotalExento = etree.Element('TotalExento')
-			TotalExento.text = str(round(totalServiciosExentos + totalDescuentosServiciosExentos + totalMercanciasExentas + totalDescuentosMercanciasExentas, decimales))
-			ResumenFactura.append(TotalExento)
-
-		TotalVenta = etree.Element('TotalVenta')
-		TotalVenta.text = str(round(invoice.amount_untaxed + totalDescuentosServiciosGravados + totalDescuentosMercanciasGravadas + totalDescuentosServiciosExentos + totalDescuentosMercanciasExentas, decimales))
-		ResumenFactura.append(TotalVenta)
-
-		if totalDescuentosServiciosGravados + totalDescuentosMercanciasGravadas + totalDescuentosServiciosExentos + totalDescuentosMercanciasExentas:
-			TotalDescuentos = etree.Element('TotalDescuentos')
-			TotalDescuentos.text = str(round(totalDescuentosServiciosGravados + totalDescuentosMercanciasGravadas + totalDescuentosServiciosExentos + totalDescuentosMercanciasExentas, decimales))
-			ResumenFactura.append(TotalDescuentos)
-
-		TotalVentaNeta = etree.Element('TotalVentaNeta')
-		TotalVentaNeta.text = str(round(invoice.amount_untaxed, decimales))
-		ResumenFactura.append(TotalVentaNeta)
-
-		if invoice.amount_tax:
-			TotalImpuesto = etree.Element('TotalImpuesto')
-			# TotalImpuesto.text = str(round(invoice.amount_tax, decimales))
-			TotalImpuesto.text = str(round(totalImpuesto, decimales))
-			ResumenFactura.append(TotalImpuesto)
-
-		TotalComprobante = etree.Element('TotalComprobante')
-		TotalComprobante.text = str(round(invoice.amount_total, decimales))
-		ResumenFactura.append(TotalComprobante)
-
-		Documento.append(ResumenFactura)
-
-		if invoice.type == 'out_refund':
-
-			if invoice.refund_invoice_id.type == 'out_invoice':
-				tipo = '01'
-			elif invoice.refund_invoice_id.type == 'out_refund':
-				tipo = '03'
-
-			InformacionReferencia = etree.Element('InformacionReferencia')
-
-			TipoDoc = etree.Element('TipoDoc')
-			TipoDoc.text = tipo
-			InformacionReferencia.append(TipoDoc)
-
-			Numero = etree.Element('Numero')
-			Numero.text = invoice.refund_invoice_id.number_electronic or invoice.refund_invoice_id.number
-			InformacionReferencia.append(Numero)
-
-			FechaEmision = etree.Element('FechaEmision')
-			if not invoice.refund_invoice_id.date_issuance:
-				now_utc = datetime.now(pytz.timezone('UTC'))
-				now_cr = now_utc.astimezone(pytz.timezone('America/Costa_Rica'))
-				invoice.refund_invoice_id.fecha = now_cr.strftime('%Y-%m-%d %H:%M:%S')
-				invoice.refund_invoice_id.date_issuance = now_cr.strftime("%Y-%m-%dT%H:%M:%S-06:00")
-
-			FechaEmision.text = invoice.refund_invoice_id.date_issuance
-			InformacionReferencia.append(FechaEmision)
-
-			Codigo = etree.Element('Codigo')
-			Codigo.text = invoice.reference_code_id.code
-			InformacionReferencia.append(Codigo)
-
-			Razon = etree.Element('Razon')
-			Razon.text = invoice.name or 'Error en Factura'
-			InformacionReferencia.append(Razon)
-
-			Documento.append(InformacionReferencia)
-
-		# Normativa
-		Normativa = etree.Element('Normativa')
-
-		NumeroResolucion = etree.Element('NumeroResolucion')
-		NumeroResolucion.text = 'DGT-R-48-2016'
-		Normativa.append(NumeroResolucion)
-
-		FechaResolucion = etree.Element('FechaResolucion')
-		FechaResolucion.text = '07-10-2016 08:00:00'
-		Normativa.append(FechaResolucion)
-
-		Documento.append(Normativa)
-
-		return Documento
-
 	def _get_xml_MR_hr_expense(self, expense):
 		expense.number = self._get_consecutivo(expense)
 		return  self._get_xml_MR(expense, expense.number)
@@ -2006,7 +1512,7 @@ class ElectronicInvoiceCostaRicaTools(models.AbstractModel):
 
 		# MedioPago
 		MedioPago = etree.Element('MedioPago')
-		MedioPago.text = invoice.payment_methods_id.sequence if invoice.payment_methods_id else '01'
+		MedioPago.text = invoice.payment_methods_id.code if invoice.payment_methods_id else '01'
 		Documento.append(MedioPago)
 
 		# DetalleServicio
@@ -2025,7 +1531,7 @@ class ElectronicInvoiceCostaRicaTools(models.AbstractModel):
 		totalImpuesto = round(0.00, decimales)
 		totalIVADevuelto = round(0.00, decimales)
 
-		for indice, linea in enumerate(invoice.invoice_line_ids.sorted(lambda l: l.sequence)):
+		for indice, linea in enumerate(invoice.invoice_line_ids.sorted(lambda l: l.code)):
 			LineaDetalle = etree.Element('LineaDetalle')
 
 			NumeroLinea = etree.Element('NumeroLinea')
@@ -2105,7 +1611,7 @@ class ElectronicInvoiceCostaRicaTools(models.AbstractModel):
 					monto = round(linea.price_subtotal * impuesto.amount / 100.00, decimales)
 
 					if (impuesto.tax_code == '01' and impuesto.iva_tax_code == '04D'):
-						if invoice.payment_methods_id.sequence == '02':
+						if invoice.payment_methods_id.code == '02':
 							ivaDevuelto += abs(monto)
 					else:
 						Impuesto = etree.Element('Impuesto')
@@ -2247,13 +1753,10 @@ class ElectronicInvoiceCostaRicaTools(models.AbstractModel):
 			InformacionReferencia.append(Numero)
 
 			FechaEmision = etree.Element('FechaEmision')
-			if not invoice.refund_invoice_id.date_issuance:
-				now_utc = datetime.now(pytz.timezone('UTC'))
-				now_cr = now_utc.astimezone(pytz.timezone('America/Costa_Rica'))
-				invoice.refund_invoice_id.fecha = now_cr.strftime('%Y-%m-%d %H:%M:%S')
-				invoice.refund_invoice_id.date_issuance = now_cr.strftime("%Y-%m-%dT%H:%M:%S-06:00")
+			if not invoice.refund_invoice_id.eicr_date:
+				invoice.refund_invoice_id.eicr_date = self.date_time()
 
-			FechaEmision.text = invoice.refund_invoice_id.date_issuance
+			FechaEmision.text = self.date_string(invoice.refund_invoice_id.eicr_date)
 			InformacionReferencia.append(FechaEmision)
 
 			Codigo = etree.Element('Codigo')
@@ -2291,12 +1794,12 @@ class ElectronicInvoiceCostaRicaTools(models.AbstractModel):
 		return  self._get_xml_MR(invoice, invoice.number)
 
 	def _get_xml_MR(self, object, consecutivo):
-		xml = base64.b64decode(object.xml_supplier_approval)
+		xml = base64.b64decode(object.eicr_documento2_file)
 		_logger.info('xml %s' % xml)
 
 		factura = etree.tostring(etree.fromstring(xml)).decode()
 
-		if not self.validar_xml_proveedor(object.xml_supplier_approval):
+		if not self.validar_xml_proveedor(object):
 			return False
 
 
@@ -2335,11 +1838,7 @@ class ElectronicInvoiceCostaRicaTools(models.AbstractModel):
 		NumeroCedulaEmisor.text = factura.find('Emisor').find('Identificacion').find('Numero').text
 		Documento.append(NumeroCedulaEmisor)
 
-		now_utc = datetime.now(pytz.timezone('UTC'))
-		now_cr = now_utc.astimezone(pytz.timezone('America/Costa_Rica'))
-		date_cr = now_cr.strftime("%Y-%m-%dT%H:%M:%S-06:00")
-
-		object.date_issuance = date_cr
+		object.eicr_date = self.date_time()
 
 		# FechaEmisionDoc
 		FechaEmisionDoc = etree.Element('FechaEmisionDoc')
@@ -2348,7 +1847,7 @@ class ElectronicInvoiceCostaRicaTools(models.AbstractModel):
 
 		# Mensaje
 		Mensaje = etree.Element('Mensaje')
-		Mensaje.text = object.state_invoice_partner or '01'  # state_invoice_partner
+		Mensaje.text = object.eicr_aceptacion or '01'  # eicr_aceptacion
 		Documento.append(Mensaje)
 
 		# DetalleMensaje
@@ -2369,16 +1868,16 @@ class ElectronicInvoiceCostaRicaTools(models.AbstractModel):
 				Documento.append(CodigoActividad)
 
 				# CondicionImpuesto
-				if not object.credito_iva_condicion: object.credito_iva_condicion = self.env.ref('cr_electronic_invoice.CreditConditions_1')
+				if not object.eicr_credito_iva_condicion: object.eicr_credito_iva_condicion = self.env.ref('cr_electronic_invoice.CreditConditions_1')
 				CondicionImpuesto = etree.Element('CondicionImpuesto')
-				CondicionImpuesto.text = object.credito_iva_condicion.sequence
+				CondicionImpuesto.text = object.eicr_credito_iva_condicion.code
 				Documento.append(CondicionImpuesto)
 
 				# MontoTotalImpuestoAcreditar
-				if not object.credito_iva:
-					object.credito_iva = 100.0
+				if not object.eicr_credito_iva:
+					object.eicr_credito_iva = 100.0
 				MontoTotalImpuestoAcreditar = etree.Element('MontoTotalImpuestoAcreditar')
-				montoTotalImpuestoAcreditar = float(TotalImpuesto.text) * object.credito_iva / 100.0
+				montoTotalImpuestoAcreditar = float(TotalImpuesto.text) * object.eicr_credito_iva / 100.0
 				MontoTotalImpuestoAcreditar.text = str(round(montoTotalImpuestoAcreditar, 2))
 				Documento.append(MontoTotalImpuestoAcreditar)
 
@@ -2415,7 +1914,7 @@ class ElectronicInvoiceCostaRicaTools(models.AbstractModel):
 
 	def _process_supplier_invoice(self, invoice):
 
-		xml = etree.fromstring(base64.b64decode(invoice.xml_supplier_approval))
+		xml = etree.fromstring(base64.b64decode(invoice.eicr_documento2_file))
 		namespace = xml.nsmap[None]
 		xml = etree.tostring(xml).decode()
 		xml = re.sub(' xmlns="[^"]+"', '', xml)
@@ -2426,11 +1925,11 @@ class ElectronicInvoiceCostaRicaTools(models.AbstractModel):
 		v43 = 'https://cdn.comprobanteselectronicos.go.cr/xml-schemas/v4.3/facturaElectronica'
 
 		if document != 'FacturaElectronica':
-			return {'value': {'xml_supplier_approval': False},
+			return {'value': {'eicr_documento2_file': False},
 					'warning': {'title': 'Atención', 'message': 'El archivo xml no es una Factura Electrónica.'}}
 
 		if not (namespace == v42 or namespace == v43):
-			return {'value': {'xml_supplier_approval': False},
+			return {'value': {'eicr_documento2_file': False},
 					'warning': {'title': 'Atención',
 								'message': 'Versión de Factura Electrónica no soportada.\n%s' % namespace}}
 
@@ -2446,7 +1945,7 @@ class ElectronicInvoiceCostaRicaTools(models.AbstractModel):
 			xml.find('Receptor').find('Identificacion').find('Numero') is None or
 			xml.find('ResumenFactura') is None or
 			xml.find('ResumenFactura').find('TotalComprobante') is None ):
-			return {'value': {'xml_supplier_approval': False},
+			return {'value': {'eicr_documento2_file': False},
 					'warning': {'title': 'Atención', 'message': 'El xml parece estar incompleto.'}}
 
 		if namespace == v42:
@@ -2454,7 +1953,7 @@ class ElectronicInvoiceCostaRicaTools(models.AbstractModel):
 		elif namespace == v43:
 			return self._proccess_supplier_invoicev43(invoice, xml)
 		else:
-			return {'value': {'xml_supplier_approval': False},
+			return {'value': {'eicr_documento2_file': False},
 					'warning': {'title': 'Atención',
 								'message': 'Versión de Factura Electrónica no soportada.\n%s' % namespace}}
 

@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <odoo>
-    <data noupdate="1">
+    <data noupdate="0">
 
         <!-- Account Tax Tags -->
         <record id="l10n_cr.tag_iva_00" model="account.account.tag">

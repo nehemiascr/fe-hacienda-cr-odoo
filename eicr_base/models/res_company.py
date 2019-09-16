@@ -2,6 +2,8 @@
 
 import logging, re
 from odoo import models, fields, api, _
+from odoo.exceptions import ValidationError
+
 
 _logger = logging.getLogger(__name__)
 
@@ -32,6 +34,13 @@ class ElectronicInvoiceCostaRicaResCompany(models.Model):
 
 	eicr_token = fields.Text('Token de sesión para el sistema de recepción de comprobantes')
 
+	eicr_factor_iva = fields.Float(string="Factor IVA", help="Debe ser un valor porcentual mayor que cero y hasta cien", default=100)
+
+	@api.constrains('eicr_factor_iva')
+	def _check_eicr_factor_iva(self):
+		if self.filtered(lambda company: company.eicr_factor_iva <= 0 or company.eicr_factor_iva > 100):
+			raise ValidationError(_('Debe estar un valor porcentual mayor que cero y hasta cien'))
+
 	@api.multi
 	def action_get_token(self, var=None):
 		_logger.info('checking token [%s]' % self.eicr_token)
@@ -53,9 +62,8 @@ class ElectronicInvoiceCostaRicaResCompany(models.Model):
 				self.identification_id = self.env['eicr.identification_type'].search([('code', '=', info['tipoIdentificacion'])])
 				actividades = [a['codigo'] for a in info['actividades'] if a['estado'] == 'A']
 				self.eicr_activity_ids = self.env['eicr.economic_activity'].search([('code', 'in', actividades)])
-				if not self.name: self.name = info['nombre']
+				if not self.name or self.name == 'My Company' : self.name = info['nombre']
 				if info['tipoIdentificacion'] in ('01', '03', '04'):
 					self.partner_id.is_company = False
 				elif info['tipoIdentificacion'] in ('02'):
 					self.partner_id.is_company = True
-

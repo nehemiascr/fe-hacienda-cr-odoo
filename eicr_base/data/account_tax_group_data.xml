@@ -3,22 +3,22 @@
     <data noupdate="1">
 
         <!-- Account Tax Group -->
-        <record id="l10n_cr.tax_group_iva_00" model="account.tax.group"><field name="name">IVA 0%</field></record>
-        <record id="l10n_cr.tax_group_iva_01" model="account.tax.group"><field name="name">IVA 1%</field></record>
-        <record id="l10n_cr.tax_group_iva_02" model="account.tax.group"><field name="name">IVA 2%</field></record>
-        <record id="l10n_cr.tax_group_iva_04" model="account.tax.group"><field name="name">IVA 4%</field></record>
-        <record id="l10n_cr.tax_group_iva_04D" model="account.tax.group"><field name="name">Devolución 4%</field></record>
-        <record id="l10n_cr.tax_group_iva_08" model="account.tax.group"><field name="name">IVA 8%</field></record>
-        <record id="l10n_cr.tax_group_iva_13" model="account.tax.group"><field name="name">IVA 13%</field></record>
-        <record id="l10n_cr.tax_group_isc" model="account.tax.group"><field name="name">ISC 5%</field></record>
-        <record id="l10n_cr.tax_group_is" model="account.tax.group"><field name="name">Servicio 10%</field></record>
+        <record id="eicr_base.tax_group_iva_00" model="account.tax.group"><field name="name">IVA 0%</field></record>
+        <record id="eicr_base.tax_group_iva_01" model="account.tax.group"><field name="name">IVA 1%</field></record>
+        <record id="eicr_base.tax_group_iva_02" model="account.tax.group"><field name="name">IVA 2%</field></record>
+        <record id="eicr_base.tax_group_iva_04" model="account.tax.group"><field name="name">IVA 4%</field></record>
+        <record id="eicr_base.tax_group_iva_04D" model="account.tax.group"><field name="name">Devolución 4%</field></record>
+        <record id="eicr_base.tax_group_iva_08" model="account.tax.group"><field name="name">IVA 8%</field></record>
+        <record id="eicr_base.tax_group_iva_13" model="account.tax.group"><field name="name">IVA 13%</field></record>
+        <record id="eicr_base.tax_group_isc" model="account.tax.group"><field name="name">ISC 5%</field></record>
+        <record id="eicr_base.tax_group_is" model="account.tax.group"><field name="name">Servicio 10%</field></record>
 
-        <record id="l10n_cr.tax_group_iuc" model="account.tax.group"><field name="name">IUC</field></record>
-        <record id="l10n_cr.tax_group_iba" model="account.tax.group"><field name="name">IBA</field></record>
-        <record id="l10n_cr.tax_group_ibe" model="account.tax.group"><field name="name">IBE</field></record>
-        <record id="l10n_cr.tax_group_ipt" model="account.tax.group"><field name="name">IPT</field></record>
-        <record id="l10n_cr.tax_group_iuc" model="account.tax.group"><field name="name">IUC</field></record>
-        <record id="l10n_cr.tax_group_ic" model="account.tax.group"><field name="name">IC</field></record>
+        <record id="eicr_base.tax_group_iuc" model="account.tax.group"><field name="name">IUC</field></record>
+        <record id="eicr_base.tax_group_iba" model="account.tax.group"><field name="name">IBA</field></record>
+        <record id="eicr_base.tax_group_ibe" model="account.tax.group"><field name="name">IBE</field></record>
+        <record id="eicr_base.tax_group_ipt" model="account.tax.group"><field name="name">IPT</field></record>
+        <record id="eicr_base.tax_group_iuc" model="account.tax.group"><field name="name">IUC</field></record>
+        <record id="eicr_base.tax_group_ic" model="account.tax.group"><field name="name">IC</field></record>
 
     </data>
 </odoo>
