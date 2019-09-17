@@ -11,6 +11,7 @@ _logger = logging.getLogger(__name__)
 
 class ElectronicInvoiceCostaRicaDocument(models.Model):
 	_name = 'eicr.document'
+	_description = 'Electronic Document Types'
 
 	name = fields.Char('Esquema', required=True)
 	tag = fields.Char('Etiqueta del Documento Electronico', compute='_compute_tag', store=True, readonly=True)

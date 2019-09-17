@@ -6,6 +6,7 @@ from odoo import api, fields, models
 
 class ElectronicInvoiceCostaRicaMixin(models.AbstractModel):
     _name = "eicr.mixin"
+    _description = 'Mixin class for attaching eicr electronic documents to odoo objects'
 
     eicr_clave = fields.Char("Clave", copy=False, index=True)
     eicr_date = fields.Datetime('Fecha de Emisión', readonly=True, default=fields.Datetime.now(), copy=False)

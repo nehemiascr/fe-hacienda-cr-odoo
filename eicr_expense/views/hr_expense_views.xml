@@ -24,7 +24,7 @@
 							<field name="eicr_documento2_file" filename="eicr_documento2_fname" />
 							<field name="eicr_aceptacion" />
 							<field name="eicr_credito_iva_condicion" />
-							<field name="eicr_credito_iva" attrs="{'invisible': [('eicr_credito_iva', '=', 0)], 'readonly':}" />
+							<field name="eicr_credito_iva" attrs="{'invisible': [('eicr_credito_iva', '=', 0)]}" />
 						</group>
 						<group>
 							<field name="eicr_date" readonly="1"/>

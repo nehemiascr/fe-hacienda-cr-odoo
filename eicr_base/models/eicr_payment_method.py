@@ -7,6 +7,7 @@ _logger = logging.getLogger(__name__)
 
 class ElectronicInvoiceCostaRicaPaymentMethods(models.Model):
     _name = "eicr.payment_method"
+    _description = 'Payment Methods for Invoices'
 
     active = fields.Boolean("Activo", default=True)
     code = fields.Char("Secuencia")

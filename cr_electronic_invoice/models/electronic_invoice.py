@@ -2385,7 +2385,7 @@ class ElectronicInvoice(models.TransientModel):
 				Documento.append(CodigoActividad)
 
 				# CondicionImpuesto
-				if not object.credito_iva_condicion: object.credito_iva_condicion = self.env.ref('cr_electronic_invoice.CreditConditions_1')
+				if not object.credito_iva_condicion: object.credito_iva_condicion = self.env.ref('eicr_base.CreditConditions_1')
 				CondicionImpuesto = etree.Element('CondicionImpuesto')
 				CondicionImpuesto.text = object.credito_iva_condicion.sequence
 				Documento.append(CondicionImpuesto)

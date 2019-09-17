@@ -7,6 +7,7 @@ _logger = logging.getLogger(__name__)
 
 class ElectronicInvoiceCostaRicaIdentificationType(models.Model):
 	_name = 'eicr.identification_type'
+	_description = 'Types of IDs in Costa Rica'
 
 	code = fields.Char('Código')
 	name = fields.Char('Nombre')

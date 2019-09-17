@@ -18,8 +18,8 @@ class HrExpense(models.Model):
     _name = 'hr.expense'
     _inherit = ['hr.expense', 'eicr.mixin']
 
-    partner_id = fields.Many2one('res.partner', 'Proveedor', readonly=True)
-    number = fields.Char(string='Consecutivo', store=True, readonly=True, copy=False)
+    partner_id = fields.Many2one('res.partner', 'Proveedor')
+    number = fields.Char(string='Consecutivo', store=True, copy=False)
 
 
     def action_cargar_xml(self, vals):

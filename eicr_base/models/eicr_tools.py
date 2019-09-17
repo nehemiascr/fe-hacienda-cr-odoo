@@ -29,17 +29,17 @@ class ElectronicInvoiceCostaRicaTools(models.AbstractModel):
 		return True if module and module.state == 'installed' else False
 
 	@api.model
-	def date_string(self, datetime=None):
-		if datetime is None:
+	def datetime_str(self, datetime_obj=None):
+		if datetime_obj is None:
 			now_utc = datetime.now(pytz.timezone('UTC'))
-			datetime = now_utc.astimezone(pytz.timezone('America/Costa_Rica'))
-		return datetime.strftime(EICR_DATE_FORMAT)
+			datetime_obj = now_utc.astimezone(pytz.timezone('America/Costa_Rica'))
+		return datetime_obj.strftime(EICR_DATE_FORMAT)
 
 	@api.model
-	def date_time(self, date_string=None):
-		if date_string is None:
-			date_string = self.date_string()
-		return datetime.strptime(date_string,EICR_DATE_FORMAT)
+	def datetime_obj(self, datetime_str=None):
+		if datetime_str is None:
+			datetime_str = self.datetime_str()
+		return datetime.strptime(datetime_str,EICR_DATE_FORMAT)
 
 
 	@api.model
@@ -228,9 +228,13 @@ class ElectronicInvoiceCostaRicaTools(models.AbstractModel):
 			diario = self.env['account.journal'].search([('company_id', '=', object.company_id.id), ('type', '=', 'purchase')])
 			if len(diario) > 1:
 				diario = diario.sorted(key=lambda i: i.id)[0]
+			else:
+				print('no diario')
 			numeracion = object.number or diario.sequence_id.next_by_id()
 			_logger.info('%s %s' % (diario, numeracion))
-			if object.eicr_aceptacion == '1' or object.eicr_aceptacion is None :
+			# Si no se selecciono el tipo de aceptación, se considera aceptada '1'
+			if object.eicr_aceptacion in (None, False): object.eicr_aceptacion = '1'
+			if object.eicr_aceptacion == '1':
 				tipo = '05'  # Aceptado
 			elif object.eicr_aceptacion == '2':
 				tipo = '06'  # Aceptado Parcialmente
@@ -428,7 +432,7 @@ class ElectronicInvoiceCostaRicaTools(models.AbstractModel):
 			Documento = etree.fromstring(re.sub(' xmlns="[^"]+"', '', xml, count=1))
 			clave = Documento.find('Clave').text
 			if not object.eicr_date:
-				object.eicr_date = self.date_time(Documento.find('FechaEmision').text)
+				object.eicr_date = self.datetime_obj(Documento.find('FechaEmision').text)
 		elif object.number_electronic:
 			clave = object.number_electronic
 		else:
@@ -486,9 +490,9 @@ class ElectronicInvoiceCostaRicaTools(models.AbstractModel):
 
 		if 'respuesta-xml' in respuesta:
 			object.eicr_mensaje_hacienda_fname = 'MensajeHacienda_' + respuesta['clave'] + '.xml'
-			object.xml_eicr_mensaje_hacienda = respuesta['respuesta-xml']
+			object.eicr_mensaje_hacienda_file = respuesta['respuesta-xml']
 
-			respuesta = etree.tostring(etree.fromstring(base64.b64decode(object.xml_eicr_mensaje_hacienda))).decode()
+			respuesta = etree.tostring(etree.fromstring(base64.b64decode(object.eicr_mensaje_hacienda_file))).decode()
 			respuesta = etree.fromstring(re.sub(' xmlns="[^"]+"', '', respuesta, count=1))
 			object.eicr_mensaje_hacienda = respuesta.find('DetalleMensaje').text
 
@@ -1754,9 +1758,9 @@ class ElectronicInvoiceCostaRicaTools(models.AbstractModel):
 
 			FechaEmision = etree.Element('FechaEmision')
 			if not invoice.refund_invoice_id.eicr_date:
-				invoice.refund_invoice_id.eicr_date = self.date_time()
+				invoice.refund_invoice_id.eicr_date = self.datetime_obj()
 
-			FechaEmision.text = self.date_string(invoice.refund_invoice_id.eicr_date)
+			FechaEmision.text = self.datetime_str(invoice.refund_invoice_id.eicr_date)
 			InformacionReferencia.append(FechaEmision)
 
 			Codigo = etree.Element('Codigo')
@@ -1838,11 +1842,11 @@ class ElectronicInvoiceCostaRicaTools(models.AbstractModel):
 		NumeroCedulaEmisor.text = factura.find('Emisor').find('Identificacion').find('Numero').text
 		Documento.append(NumeroCedulaEmisor)
 
-		object.eicr_date = self.date_time()
+		object.eicr_date = self.datetime_obj()
 
 		# FechaEmisionDoc
 		FechaEmisionDoc = etree.Element('FechaEmisionDoc')
-		FechaEmisionDoc.text = date_cr  # date_cr
+		FechaEmisionDoc.text = self.datetime_str(object.eicr_date)  # date_cr
 		Documento.append(FechaEmisionDoc)
 
 		# Mensaje
@@ -1868,7 +1872,7 @@ class ElectronicInvoiceCostaRicaTools(models.AbstractModel):
 				Documento.append(CodigoActividad)
 
 				# CondicionImpuesto
-				if not object.eicr_credito_iva_condicion: object.eicr_credito_iva_condicion = self.env.ref('cr_electronic_invoice.CreditConditions_1')
+				if not object.eicr_credito_iva_condicion: object.eicr_credito_iva_condicion = self.env.ref('eicr_base.IVACreditCondition_01')
 				CondicionImpuesto = etree.Element('CondicionImpuesto')
 				CondicionImpuesto.text = object.eicr_credito_iva_condicion.code
 				Documento.append(CondicionImpuesto)
