@@ -45,7 +45,7 @@ class HrExpense(models.Model):
         _logger.info('action_consultar_hacienda self %s' % self)
         _logger.info('action_consultar_hacienda vals %s' % vals)
         if self.eicr_state in ('aceptado', 'rechazado', 'recibido', 'error', 'procesando'):
-            self.env['eicr.tools']._consultar_documento(self)
+            self.env['eicr.hacienda']._consultar_documento(self)
 
 
     @api.onchange('eicr_documento2_file')

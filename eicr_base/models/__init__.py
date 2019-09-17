@@ -6,6 +6,7 @@ from . import account_tax
 from . import account_tax_template
 from . import eicr_document
 from . import eicr_economic_activity
+from . import eicr_hacienda
 from . import eicr_identificacion_type
 from . import eicr_iva_credit_condition
 from . import eicr_mixin

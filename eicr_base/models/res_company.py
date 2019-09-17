@@ -44,10 +44,10 @@ class ElectronicInvoiceCostaRicaResCompany(models.Model):
 	@api.multi
 	def action_get_token(self, var=None):
 		_logger.info('checking token [%s]' % self.eicr_token)
-		self.env['eicr.tools'].get_token(self)
+		self.env['eicr.hacienda'].get_token(self)
 
 	def action_update_info(self):
-		info = self.env['eicr.tools'].get_info_contribuyente(self.vat)
+		info = self.env['eicr.hacienda'].get_info_contribuyente(self.vat)
 		if info:
 			self.identification_id = self.env['eicr.identification_type'].search([('code', '=', info['tipoIdentificacion'])])
 			actividades = [a['codigo'] for a in info['actividades'] if a['estado'] == 'A']
@@ -57,7 +57,7 @@ class ElectronicInvoiceCostaRicaResCompany(models.Model):
 	def _onchange_state(self):
 		identificacion = re.sub('[^0-9]', '', self.vat or '')
 		if len(identificacion) >= 9:
-			info = self.env['eicr.tools'].get_info_contribuyente(self.vat)
+			info = self.env['eicr.hacienda'].get_info_contribuyente(self.vat)
 			if info:
 				self.identification_id = self.env['eicr.identification_type'].search([('code', '=', info['tipoIdentificacion'])])
 				actividades = [a['codigo'] for a in info['actividades'] if a['estado'] == 'A']
