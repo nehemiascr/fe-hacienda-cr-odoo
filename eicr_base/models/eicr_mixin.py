@@ -9,6 +9,7 @@ class ElectronicInvoiceCostaRicaMixin(models.AbstractModel):
     _description = 'Mixin class for attaching eicr electronic documents to odoo objects'
 
     eicr_clave = fields.Char("Clave", copy=False, index=True)
+    eicr_consecutivo = fields.Char("Consecutivo", copy=False, index=True)
     eicr_date = fields.Datetime('Fecha de Emisión', readonly=True, default=fields.Datetime.now(), copy=False)
     eicr_state = fields.Selection([
         ('pendiente', 'Pendiente'), ('recibido', 'Recibido'),

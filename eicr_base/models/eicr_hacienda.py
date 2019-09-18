@@ -22,8 +22,7 @@ _logger = logging.getLogger(__name__)
 
 class ElectronicInvoiceCostaRicaTools(models.AbstractModel):
 	_name = 'eicr.hacienda'
-	_description = 'Herramientas de comunicación con Hacienda'
-
+	_description = 'Herramienta de comunicación con Hacienda'
 
 
 	def get_token(self, company_id):
@@ -302,7 +301,7 @@ class ElectronicInvoiceCostaRicaTools(models.AbstractModel):
 					gasto.eicr_state = 'na'
 					pass
 				elif not gasto.eicr_documento_file:
-					xml = self.get_xml(gasto)
+					xml = self.env['eicr.tools'].get_xml(gasto)
 					if xml:
 						gasto.eicr_documento_file = xml
 						gasto.eicr_documento_fname = 'MensajeReceptor_' + gasto.eicr_clave + '.xml'
@@ -383,6 +382,3 @@ class ElectronicInvoiceCostaRicaTools(models.AbstractModel):
 			return [x for x in info['actividades'] if x['estado'] == 'A']
 		else:
 			return False
-
-
-

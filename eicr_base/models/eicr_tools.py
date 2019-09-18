@@ -111,7 +111,7 @@ class ElectronicInvoiceCostaRicaTools(models.AbstractModel):
 		if not object.eicr_documento_file:
 			object.eicr_documento_file = self.get_xml(object)
 			if object.eicr_documento_file:
-				object.eicr_documento_fname = 'MensajeReceptor_' + object.number_electronic + '.xml'
+				object.eicr_documento_fname = 'MensajeReceptor_' + object.eicr_clave + '.xml'
 				object.eicr_state = 'pendiente'
 			else:
 				object.eicr_state = 'na'
@@ -132,7 +132,7 @@ class ElectronicInvoiceCostaRicaTools(models.AbstractModel):
 		# tipo de documento
 		if object._name == 'account.invoice':
 			receptor_valido = self._validar_receptor(object.partner_id)
-			numeracion = object.number
+			numeracion = object.eicr_consecutivo
 			diario = object.journal_id
 			tipo = '05'
 			if object.type == 'out_invoice':
@@ -160,7 +160,7 @@ class ElectronicInvoiceCostaRicaTools(models.AbstractModel):
 				diario = diario.sorted(key=lambda i: i.id)[0]
 			else:
 				print('no diario')
-			numeracion = object.number or diario.sequence_id.next_by_id()
+			numeracion = object.eicr_consecutivo or diario.sequence_id.next_by_id()
 			_logger.info('%s %s' % (diario, numeracion))
 			# Si no se selecciono el tipo de aceptación, se considera aceptada '1'
 			if object.eicr_aceptacion in (None, False): object.eicr_aceptacion = '1'
@@ -206,7 +206,7 @@ class ElectronicInvoiceCostaRicaTools(models.AbstractModel):
 			return self._get_clave_de_xml(object.eicr_documento2_file)
 
 		if object._name == 'account.invoice' and object.type in ('out_invoice', 'out_refund'):
-			consecutivo = object.number
+			consecutivo = object.eicr_consecutivo
 
 		if object._name == 'pos.order':
 			consecutivo = object.name
@@ -397,16 +397,16 @@ class ElectronicInvoiceCostaRicaTools(models.AbstractModel):
 
 			order.name = consecutivo
 
-		if not order.number_electronic:
+		if not order.eicr_clave:
 			clave = self._get_clave(order)
 			if not clave:
 				_logger.error('Error de clave %s' % order)
 				return False
 
-			order.number_electronic = clave
+			order.eicr_clave = clave
 
-		if len(order.number_electronic) != 50:
-			_logger.error('Error de clave %s' % order.number_electronic)
+		if len(order.eicr_clave) != 50:
+			_logger.error('Error de clave %s' % order.eicr_clave)
 			return False
 
 		emisor = order.company_id
@@ -437,7 +437,7 @@ class ElectronicInvoiceCostaRicaTools(models.AbstractModel):
 
 		# Clave
 		Clave = etree.Element('Clave')
-		Clave.text = order.number_electronic
+		Clave.text = order.eicr_clave
 		Documento.append(Clave)
 
 		# CodigoActividad
@@ -872,26 +872,26 @@ class ElectronicInvoiceCostaRicaTools(models.AbstractModel):
 		return Documento
 
 	def _get_xml_MR_hr_expense(self, expense):
-		expense.number = self._get_consecutivo(expense)
-		return  self._get_xml_MR(expense, expense.number)
+		expense.eicr_consecutivo = self._get_consecutivo(expense)
+		return  self._get_xml_MR(expense, expense.eicr_consecutivo)
 
 	def _get_xml_MR_account_invoice(self, invoice):
-		if not invoice.number:
+		if not invoice.eicr_consecutivo:
 			_logger.error('Factura sin consecutivo %s', invoice)
 			return False
 
-		if not invoice.number.isdigit():
-			_logger.error('Error de numeración %s', invoice.number)
+		if not invoice.eicr_consecutivo.isdigit():
+			_logger.error('Error de numeración %s', invoice.eicr_consecutivo)
 			return False
 
-		if len(invoice.number) != 20:
+		if len(invoice.eicr_consecutivo) != 20:
 			consecutivo = self._get_consecutivo(invoice)
 			if not consecutivo:
-				_logger.error('Error de consecutivo %s' % invoice.number)
+				_logger.error('Error de consecutivo %s' % invoice.eicr_consecutivo)
 				return False
 
-			invoice.number = consecutivo
-		return  self._get_xml_MR(invoice, invoice.number)
+			invoice.eicr_consecutivo = consecutivo
+		return  self._get_xml_MR(invoice, invoice.eicr_consecutivo)
 
 
 	def _validar_receptor(self, partner_id):
@@ -920,32 +920,32 @@ class ElectronicInvoiceCostaRicaTools(models.AbstractModel):
 			_logger.error('No es factura de cliente %s', invoice)
 			return False
 
-		if not invoice.number:
+		if not invoice.eicr_consecutivo:
 			_logger.error('Factura sin consecutivo %s', invoice)
 			return False
 
-		if not invoice.number.isdigit():
-			_logger.error('Error de numeración %s', invoice.number)
+		if not invoice.eicr_consecutivo.isdigit():
+			_logger.error('Error de numeración %s', invoice.eicr_consecutivo)
 			return False
 
-		if len(invoice.number) != 20:
+		if len(invoice.eicr_consecutivo) != 20:
 			consecutivo = self._get_consecutivo(invoice)
 			if not consecutivo:
-				_logger.error('Error de consecutivo %s' % invoice.number)
+				_logger.error('Error de consecutivo %s' % invoice.eicr_consecutivo)
 				return False
 
-			invoice.number = consecutivo
+			invoice.eicr_consecutivo = consecutivo
 
-		if not invoice.number_electronic:
+		if not invoice.eicr_clave:
 			clave = self._get_clave(invoice)
 			if not clave:
 				_logger.error('Error de clave %s' % invoice)
 				return False
 
-			invoice.number_electronic = clave
+			invoice.eicr_clave = clave
 
-		if len(invoice.number_electronic) != 50:
-			_logger.error('Error de clave %s' % invoice.number_electronic)
+		if len(invoice.eicr_clave) != 50:
+			_logger.error('Error de clave %s' % invoice.eicr_clave)
 			return False
 
 		emisor = invoice.company_id
@@ -985,7 +985,7 @@ class ElectronicInvoiceCostaRicaTools(models.AbstractModel):
 
 		# Clave
 		Clave = etree.Element('Clave')
-		Clave.text = invoice.number_electronic
+		Clave.text = invoice.eicr_clave
 		Documento.append(Clave)
 
 		# CodigoActividad
@@ -995,7 +995,7 @@ class ElectronicInvoiceCostaRicaTools(models.AbstractModel):
 
 		# NumeroConsecutivo
 		NumeroConsecutivo = etree.Element('NumeroConsecutivo')
-		NumeroConsecutivo.text = invoice.number
+		NumeroConsecutivo.text = invoice.eicr_consecutivo
 		Documento.append(NumeroConsecutivo)
 
 		# FechaEmision
@@ -1427,7 +1427,7 @@ class ElectronicInvoiceCostaRicaTools(models.AbstractModel):
 			InformacionReferencia.append(TipoDoc)
 
 			Numero = etree.Element('Numero')
-			Numero.text = invoice.refund_invoice_id.number_electronic or invoice.refund_invoice_id.number
+			Numero.text = invoice.refund_invoice_id.eicr_clave or invoice.refund_invoice_id.eicr_consecutivo
 			InformacionReferencia.append(Numero)
 
 			FechaEmision = etree.Element('FechaEmision')
@@ -1450,26 +1450,26 @@ class ElectronicInvoiceCostaRicaTools(models.AbstractModel):
 		return Documento
 
 	def _get_xml_MR_hr_expense(self, expense):
-		expense.number = self._get_consecutivo(expense)
-		return  self._get_xml_MR(expense, expense.number)
+		expense.eicr_consecutivo = self._get_consecutivo(expense)
+		return  self._get_xml_MR(expense, expense.eicr_consecutivo)
 
 	def _get_xml_MR_account_invoice(self, invoice):
-		if not invoice.number:
+		if not invoice.eicr_consecutivo:
 			_logger.error('Factura sin consecutivo %s', invoice)
 			return False
 
-		if not invoice.number.isdigit():
-			_logger.error('Error de numeración %s', invoice.number)
+		if not invoice.eicr_consecutivo.isdigit():
+			_logger.error('Error de numeración %s', invoice.eicr_consecutivo)
 			return False
 
-		if len(invoice.number) != 20:
+		if len(invoice.eicr_consecutivo) != 20:
 			consecutivo = self._get_consecutivo(invoice)
 			if not consecutivo:
-				_logger.error('Error de consecutivo %s' % invoice.number)
+				_logger.error('Error de consecutivo %s' % invoice.eicr_consecutivo)
 				return False
 
-			invoice.number = consecutivo
-		return  self._get_xml_MR(invoice, invoice.number)
+			invoice.eicr_consecutivo = consecutivo
+		return  self._get_xml_MR(invoice, invoice.eicr_consecutivo)
 
 	def _get_xml_MR(self, object, consecutivo):
 		xml = base64.b64decode(object.eicr_documento2_file)
@@ -1508,7 +1508,7 @@ class ElectronicInvoiceCostaRicaTools(models.AbstractModel):
 		# Clave
 		Clave = etree.Element('Clave')
 		Clave.text = factura.find('Clave').text
-		object.number_electronic = Clave.text
+		object.eicr_clave = Clave.text
 		Documento.append(Clave)
 
 		# NumeroCedulaEmisor
@@ -1853,3 +1853,11 @@ class ElectronicInvoiceCostaRicaTools(models.AbstractModel):
 				'invoice_line_tax_ids': taxes,
 				'discount': porcentajeDescuento
 			})
+
+	def get_partner_emisor(self, base64_decoded_xml):
+		xml = base64.b64decode(base64_decoded_xml)
+		factura = etree.tostring(etree.fromstring(xml)).decode()
+		factura = etree.fromstring(re.sub(' xmlns="[^"]+"', '', factura, count=1))
+		Emisor = factura.find('Emisor')
+		vat = Emisor.find('Identificacion').find('Numero').text
+		return self.env['res.partner'].search([('vat', '=', vat)])

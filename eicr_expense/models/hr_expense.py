@@ -19,7 +19,20 @@ class HrExpense(models.Model):
     _inherit = ['hr.expense', 'eicr.mixin']
 
     partner_id = fields.Many2one('res.partner', 'Proveedor')
-    number = fields.Char(string='Consecutivo', store=True, copy=False)
+
+    @api.model
+    def create(self, vals):
+        _logger.info('create %s' % vals)
+        if 'eicr_documento2_file' in vals:
+            if 'partner_id' not in vals:
+                partner_id = self.env['eicr.tools'].get_partner_emisor(vals['eicr_documento2_file'])
+                if partner_id:
+                    vals['partner_id'] = partner_id.id
+            if 'eicr_state' not in vals:
+                vals['eicr_state'] = 'pendiente'
+        expense = super(HrExpense, self).create(vals)
+        print('expense %s' % expense)
+        return expense
 
 
     def action_cargar_xml(self, vals):
