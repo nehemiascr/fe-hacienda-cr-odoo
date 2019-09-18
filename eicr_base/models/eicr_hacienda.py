@@ -265,7 +265,7 @@ class ElectronicInvoiceCostaRicaTools(models.AbstractModel):
 	@api.model
 	def _validahacienda(self, max_documentos=4):  # cron
 
-		Invoice = self.env['account.invoice'] if self.env['eicr.tools'].module_installed('eicr_invoicing') else None
+		Invoice = self.env['account.invoice'] if self.env['eicr.tools'].module_installed('eicr_base') else None
 		Order = self.env['pos.order'] if self.env['eicr.tools'].module_installed('eicr_pos') else None
 		Expense = self.env['hr.expense'] if self.env['eicr.tools'].module_installed('eicr_expense') else None
 
@@ -315,7 +315,7 @@ class ElectronicInvoiceCostaRicaTools(models.AbstractModel):
 	@api.model
 	def _consultahacienda(self, max_documentos=4):  # cron
 
-		Invoice = self.env['account.invoice'] if self.env['eicr.tools'].module_installed('eicr_invoicing') else None
+		Invoice = self.env['account.invoice'] if self.env['eicr.tools'].module_installed('eicr_base') else None
 		Order = self.env['pos.order'] if self.env['eicr.tools'].module_installed('eicr_pos') else None
 		Expense = self.env['hr.expense'] if self.env['eicr.tools'].module_installed('eicr_expense') else None
 
@@ -327,7 +327,7 @@ class ElectronicInvoiceCostaRicaTools(models.AbstractModel):
 			for indice, factura in enumerate(facturas):
 				_logger.info('Consultando documento %s / %s ' % (indice+1, len(facturas)))
 				if not factura.eicr_documento_file: pass
-				if self._consultar_documento(factura): self._enviar_email(factura)
+				if self._consultar_documento(factura): self.env['eicr.tools']._enviar_email(factura)
 				max_documentos -= 1
 
 		if Order is not None:
@@ -338,7 +338,7 @@ class ElectronicInvoiceCostaRicaTools(models.AbstractModel):
 				if not tiquete.eicr_documento_file:
 					pass
 				if self._consultar_documento(tiquete):
-					self._enviar_email(tiquete)
+					self.env['eicr.tools']._enviar_email(tiquete)
 				max_documentos -= 1
 
 		if Expense is not None:

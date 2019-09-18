@@ -56,7 +56,7 @@ class ElectronicInvoiceCostaRicaTools(models.AbstractModel):
 			actividades = [a['codigo'] for a in info['actividades'] if a['estado'] == 'A']
 			partner_id.eicr_activity_ids = self.env['eicr.economic_activity'].search([('code', 'in', actividades)])
 			# nombre
-			if not partner_id.name or partner_id.name == 'My Company': partner_id.name = info['nombre']
+			if partner_id.name == '' or partner_id.name == 'My Company': partner_id.name = info['nombre']
 			# régimen tributario
 			partner_id.eicr_regimen = str(info['regimen']['codigo'])
 
@@ -219,7 +219,7 @@ class ElectronicInvoiceCostaRicaTools(models.AbstractModel):
 		codigo_de_pais = '506'
 
 		# fecha
-		fecha = datetime.strptime(object.fecha, '%Y-%m-%d %H:%M:%S')
+		fecha = object.eicr_date
 
 		# b) día
 		dia = fecha.strftime('%d')
@@ -487,10 +487,10 @@ class ElectronicInvoiceCostaRicaTools(models.AbstractModel):
 
 		Emisor.append(Identificacion)
 
-		if emisor.commercial_name:
-			NombreComercial = etree.Element('NombreComercial')
-			NombreComercial.text = emisor.commercial_name
-			Emisor.append(NombreComercial)
+		# if emisor.commercial_name:
+		# 	NombreComercial = etree.Element('NombreComercial')
+		# 	NombreComercial.text = emisor.commercial_name
+		# 	Emisor.append(NombreComercial)
 
 		if not emisor.state_id:
 			raise UserError('La dirección del emisor está incompleta, no se ha seleccionado la Provincia')
@@ -1000,7 +1000,7 @@ class ElectronicInvoiceCostaRicaTools(models.AbstractModel):
 
 		# FechaEmision
 		FechaEmision = etree.Element('FechaEmision')
-		FechaEmision.text = datetime.strptime(invoice.fecha, '%Y-%m-%d %H:%M:%S').strftime("%Y-%m-%dT%H:%M:%S")
+		FechaEmision.text = invoice.eicr_date.strftime("%Y-%m-%dT%H:%M:%S")
 		Documento.append(FechaEmision)
 
 		# Emisor
@@ -1035,19 +1035,19 @@ class ElectronicInvoiceCostaRicaTools(models.AbstractModel):
 
 		Emisor.append(Identificacion)
 
-		if emisor.commercial_name:
-			NombreComercial = etree.Element('NombreComercial')
-			NombreComercial.text = emisor.commercial_name
-			Emisor.append(NombreComercial)
+		# if emisor.commercial_name:
+		# 	NombreComercial = etree.Element('NombreComercial')
+		# 	NombreComercial.text = emisor.commercial_name
+		# 	Emisor.append(NombreComercial)
 
 		if not emisor.state_id:
-			raise UserError('La dirección del emisor está incompleta, no se ha seleccionado la Provincia')
+			emisor.state_id = self.env.ref('l10n_cr.state_SJ')
 		if not emisor.county_id:
-			raise UserError('La dirección del emisor está incompleta, no se ha seleccionado el Cantón')
+			emisor.county_id = self.env.ref('l10n_cr_country_codes.county_San José_SJ')
 		if not emisor.district_id:
-			raise UserError('La dirección del emisor está incompleta, no se ha seleccionado el Distrito')
+			emisor.district_id = self.env.ref('l10n_cr_country_codes.district_Carmen_San José_SJ')
 		if not emisor.street:
-			raise UserError('La dirección del emisor está incompleta, no se han digitado las señas de la dirección')
+			emisor.street = 'Sin Otras Señas'
 
 		Ubicacion = etree.Element('Ubicacion')
 
@@ -1180,8 +1180,8 @@ class ElectronicInvoiceCostaRicaTools(models.AbstractModel):
 
 			PlazoCredito = etree.Element('PlazoCredito')
 			timedelta(7)
-			fecha_de_factura = datetime.strptime(invoice.date_invoice, '%Y-%m-%d')
-			fecha_de_vencimiento = datetime.strptime(invoice.date_due, '%Y-%m-%d')
+			fecha_de_factura = invoice.date_invoice
+			fecha_de_vencimiento = invoice.date_due
 			PlazoCredito.text = str((fecha_de_factura - fecha_de_vencimiento).days)
 			Documento.append(PlazoCredito)
 		else:
@@ -1190,7 +1190,7 @@ class ElectronicInvoiceCostaRicaTools(models.AbstractModel):
 
 		# MedioPago
 		MedioPago = etree.Element('MedioPago')
-		MedioPago.text = invoice.payment_methods_id.code if invoice.payment_methods_id else '01'
+		MedioPago.text = invoice.eicr_payment_method_id.code if invoice.eicr_payment_method_id else '01'
 		Documento.append(MedioPago)
 
 		# DetalleServicio
@@ -1209,7 +1209,7 @@ class ElectronicInvoiceCostaRicaTools(models.AbstractModel):
 		totalImpuesto = round(0.00, decimales)
 		totalIVADevuelto = round(0.00, decimales)
 
-		for indice, linea in enumerate(invoice.invoice_line_ids.sorted(lambda l: l.code)):
+		for indice, linea in enumerate(invoice.invoice_line_ids.sorted(lambda l: l.sequence)):
 			LineaDetalle = etree.Element('LineaDetalle')
 
 			NumeroLinea = etree.Element('NumeroLinea')
@@ -1289,7 +1289,7 @@ class ElectronicInvoiceCostaRicaTools(models.AbstractModel):
 					monto = round(linea.price_subtotal * impuesto.amount / 100.00, decimales)
 
 					if (impuesto.tax_code == '01' and impuesto.iva_tax_code == '04D'):
-						if invoice.payment_methods_id.code == '02':
+						if invoice.eicr_payment_method_id.code == '02':
 							ivaDevuelto += abs(monto)
 					else:
 						Impuesto = etree.Element('Impuesto')

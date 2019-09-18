@@ -21,7 +21,7 @@ class AccountInvoiceRefund(models.TransientModel):
 		return ''
 
 	reference_code_id = fields.Many2one(comodel_name="reference.code", string="Código de referencia", required=True,
-										default=lambda r:r.env.ref('cr_electronic_invoice.ReferenceCode_2'))
+										default=lambda r:r.env.ref('eicr_base.ReferenceCode_2'))
 	invoice_id = fields.Many2one(comodel_name="account.invoice", string="Documento de referencia",
 								 default=_get_invoice_id, required=False, )
 
@@ -38,6 +38,8 @@ class AccountInvoiceRefund(models.TransientModel):
 
 		for form in self:
 			created_inv = []
+			date = False
+			description = False
 			for inv in inv_obj.browse(context.get('active_ids')):
 				if inv.state in ['draft', 'cancel']:
 					raise UserError(_('Cannot create credit note for the draft/cancelled invoice.'))

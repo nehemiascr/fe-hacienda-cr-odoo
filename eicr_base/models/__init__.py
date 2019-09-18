@@ -1,6 +1,5 @@
 # -*- coding: utf-8 -*-
 
-from . import account_invoice
 from . import account_journal
 from . import account_tax
 from . import account_tax_template
@@ -19,3 +18,6 @@ from . import eicr_tools
 from . import eicr_version
 from . import res_company
 from . import res_partner
+
+from . import account_invoice
+

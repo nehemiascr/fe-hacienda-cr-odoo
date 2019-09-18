@@ -34,6 +34,7 @@
 		# 'data/ir_sequence_data.xml',
 		'data/mail_template_data.xml',
 
+		'views/account_invoice_views.xml',
 		'views/account_journal.xml',
 		'views/account_tax_views.xml',
 		'views/eicr_views.xml',
