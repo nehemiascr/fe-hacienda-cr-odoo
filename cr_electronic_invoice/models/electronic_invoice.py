@@ -205,6 +205,7 @@ class ElectronicInvoice(models.TransientModel):
 
 		# terminal
 		terminal = re.sub('[^0-9]', '', str(diario.terminal)).zfill(5)
+		if object._name == 'pos.order': terminal = '0000%s' % object.config_id.sequence_id.code
 
 		# consecutivo
 		consecutivo = sucursal + terminal + tipo + numeracion

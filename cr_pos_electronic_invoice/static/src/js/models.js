@@ -63,6 +63,7 @@ odoo.define('cr_pos_electronic_invoice.models', function (require) {
     var PosModelParent = models.PosModel.prototype;
     models.PosModel = models.PosModel.extend({
         load_server_data: function(){
+            console.log('loading server data');
             var self = this;
             // Load POS sequence object
             self.models.push({
@@ -93,7 +94,7 @@ odoo.define('cr_pos_electronic_invoice.models', function (require) {
             var numeracion = order.get('sequence_ref');
             numeracion = Array(Math.max(10 - String(numeracion).length + 1, 0)).join(0) + numeracion;
             var sucursal = '001';
-            var terminal = '00001';
+            var terminal = '0000' + order.get('terminal');
             var consecutivo = sucursal + terminal + tipoDeDocumento + numeracion;
             return consecutivo;
 
@@ -116,6 +117,7 @@ odoo.define('cr_pos_electronic_invoice.models', function (require) {
                 // revisar si es normal o devolucion . Pendiente !!!
                 order.set({'sequence_ref_number': this.pos_order_sequence.number_next_actual});
                 order.set({'sequence_ref': _sequence_next(this.pos_order_sequence)});
+                order.set({'terminal':this.pos_order_sequence.code});
                 order.set({'number_electronic': this.get_clave(order)});
 
             };
