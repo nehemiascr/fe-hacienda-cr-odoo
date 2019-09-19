@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <data>
+
+        <template id="report_invoice_document" inherit_id="account.report_invoice_document">
+            <xpath expr="//div[@id='informations']" position="inside">
+                <div class="col-auto mw-100 mb-2" t-if="o.eicr_clave" name="clave">
+                    <strong>Clave:</strong>
+                    <p class="m-0" t-field="o.eicr_clave"/>
+                </div>
+                <div class="col-auto mw-100 mb-2" t-if="o.eicr_payment_method_id" name="metodo_de_pago">
+                    <strong>Método de Pago:</strong>
+                    <p class="m-0" t-field="o.eicr_payment_method_id"/>
+                </div>
+            </xpath>
+            <xpath expr="//div[@class='clearfix']" position="after">
+                <p>Autorizada mediante resolución No DGT-R-033-2019 del 27 de junio de 2019</p>
+                <p>v4.3</p>
+            </xpath>
+        </template>
+
+    </data>
+</odoo>

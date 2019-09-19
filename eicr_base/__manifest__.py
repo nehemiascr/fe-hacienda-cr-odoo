@@ -51,6 +51,8 @@
 		'views/res_company_views.xml',
 		'views/res_partner_views.xml',
 
+		'reports/report_invoice.xml',
+
 		'security/ir.model.access.csv',
 
 	         ],
