@@ -75,14 +75,19 @@
 				<field name="date_invoice" position="attributes">
 					<attribute name="readonly">1</attribute>
 				</field>
-				<field name="fiscal_position_id" position="after">
-					<field name="eicr_state" readonly="1"/>
-					<field name="eicr_mensaje_hacienda_fname" invisible="1" readonly="1"/>
-					<field name="eicr_mensaje_hacienda_file" filename="eicr_mensaje_hacienda_fname" readonly="1"/>
-					<field name="eicr_mensaje_hacienda" widget="html"/>
-					<field name="eicr_documento_fname" invisible="1" readonly="1"/>
-					<field name="eicr_documento_file" filename="eicr_documento_fname" readonly="1"/>
-				</field>
+				<xpath expr="//page[@name='other_info']" position="inside">
+					<group string="Facturación Electrónica" col="2">
+						<group>
+							<field name="eicr_state" readonly="1"/>
+							<field name="eicr_date" readonly="1"/>
+							<field name="eicr_mensaje_hacienda_fname" invisible="1" readonly="1"/>
+							<field name="eicr_mensaje_hacienda_file" filename="eicr_mensaje_hacienda_fname" readonly="1"/>
+							<field name="eicr_mensaje_hacienda" widget="html"/>
+							<field name="eicr_documento_fname" invisible="1" readonly="1"/>
+							<field name="eicr_documento_file" filename="eicr_documento_fname" readonly="1"/>
+						</group>
+					</group>
+				</xpath>
 			</field>
 		</record>
 
@@ -96,7 +101,7 @@
 					<button name="action_consultar_hacienda" type="object" string="Consultar Hacienda" colspan="2" attrs="{'invisible':[('eicr_state','not in', ['aceptado', 'rechazado', 'recibido', 'error', 'procesando'])]}"/>
 				</xpath>
 
-				<xpath expr="//group[1]" position="after">
+				<xpath expr="//page[@name='other_info']" position="inside">
 					<group string="Facturación Electrónica" col="2">
 						<group>
 							<field name="eicr_documento2_fname" invisible="1" />

@@ -85,7 +85,7 @@ class AccountInvoice(models.Model):
         # sin xml limpiamos los campos de la facturacion electronica
         if not self.eicr_documento2_file:
             _logger.info('no xml')
-            self.state_tributacion = 'na'
+            self.eicr_state = 'na'
             self.eicr_documento2_file = None
             self.eicr_documento2_fname = None
             self.eicr_mensaje_hacienda_file = None
@@ -200,11 +200,11 @@ class AccountInvoice(models.Model):
             if comprobante:
                 invoice.eicr_documento_file = comprobante
                 invoice.eicr_documento_fname = 'MensajeReceptor_' + invoice.eicr_clave + '.xml'
-                invoice.state_tributacion = 'pendiente'
+                invoice.eicr_state = 'pendiente'
             else:
-                invoice.state_tributacion = 'error'
+                invoice.eicr_state = 'error'
         else:
-            invoice.state_tributacion = 'na'
+            invoice.eicr_state = 'na'
 
         return invoice
 

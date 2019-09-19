@@ -1654,7 +1654,7 @@ class ElectronicInvoiceCostaRicaTools(models.AbstractModel):
 		if not supplier:
 			ctx = self.env.context.copy()
 			ctx.pop('default_type', False)
-			tipo = self.env['identification.type'].search([('code', '=', emisor_tipo)])
+			tipo = self.env['eicr.identification_type'].search([('code', '=', emisor_tipo)])
 
 			is_company = True if tipo.code == '02' else False
 
