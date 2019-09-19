@@ -20,8 +20,8 @@ class AccountInvoiceRefund(models.TransientModel):
 			return active_id
 		return ''
 
-	reference_code_id = fields.Many2one(comodel_name="reference.code", string="Código de referencia", required=True,
-										default=lambda r:r.env.ref('eicr_base.ReferenceCode_2'))
+	eicr_reference_code_id = fields.Many2one(comodel_name="eicr.reference_code", string="Código de referencia", required=True,
+										default=lambda r:r.env.ref('eicr_base.ReferenceCode_02'))
 	invoice_id = fields.Many2one(comodel_name="account.invoice", string="Documento de referencia",
 								 default=_get_invoice_id, required=False, )
 
@@ -49,7 +49,7 @@ class AccountInvoiceRefund(models.TransientModel):
 				date = form.date or False
 				description = form.description or inv.name
 				refund = inv.refund(form.date_invoice, date, description, inv.journal_id.id, form.invoice_id.id,
-									form.reference_code_id.id)
+									form.eicr_reference_code_id.id)
 
 				created_inv.append(refund.id)
 				if mode in ('cancel', 'modify'):
@@ -86,7 +86,7 @@ class AccountInvoiceRefund(models.TransientModel):
 							'origin': inv.origin,
 							'fiscal_position_id': inv.fiscal_position_id.id,
 							'invoice_id': inv.id,  # agregado
-							'reference_code_id': form.reference_code_id.id,  # agregado
+							'eicr_reference_code_id': form.eicr_reference_code_id.id,  # agregado
 						})
 						for field in inv_obj._get_refund_common_fields():
 							if inv_obj._fields[field].type == 'many2one':
@@ -124,6 +124,6 @@ class AccountInvoiceRefund(models.TransientModel):
 	@api.onchange('filter_refund')  # if these fields are changed, call method
 	def check_change(self):
 		if self.filter_refund in ('cancel','modify'):
-			self.reference_code_id = self.env.ref('eicr_base.ReferenceCode_1')
+			self.eicr_reference_code_id = self.env.ref('eicr_base.ReferenceCode_01')
 		else:
-			self.reference_code_id = self.env.ref('eicr_base.ReferenceCode_2')
+			self.eicr_reference_code_id = self.env.ref('eicr_base.ReferenceCode_02')

@@ -110,7 +110,7 @@ class AccountInvoice(models.Model):
 
     @api.multi
     @api.returns('self')
-    def refund(self, date_invoice=None, date=None, description=None, journal_id=None, invoice_id=None, reference_code_id=None):
+    def refund(self, date_invoice=None, date=None, description=None, journal_id=None, invoice_id=None, eicr_reference_code_id=None):
         if self.company_id.eicr_environment == 'disabled':
             new_invoices = super(AccountInvoice, self).refund()
             return new_invoices
@@ -119,7 +119,7 @@ class AccountInvoice(models.Model):
             for invoice in self:
                 # create the new invoice
                 values = self._prepare_refund(invoice, date_invoice=date_invoice, date=date, description=description, journal_id=journal_id)
-                values.update({'invoice_id': invoice_id, 'reference_code_id': reference_code_id})
+                values.update({'invoice_id': invoice_id, 'eicr_reference_code_id': eicr_reference_code_id})
                 refund_invoice = self.create(values)
                 if invoice.type == 'out_invoice':
                     message = _(
@@ -166,10 +166,10 @@ class AccountInvoice(models.Model):
             invoice.eicr_documento_file = comprobante
 
             documento = 'TiqueteElectronico'
-            if self.env['eicr.tools']._validar_receptor(invoice.partner_id):
-                documento = 'FacturaElectronica'
-            elif invoice.type == 'out_refund':
+            if invoice.type == 'out_refund':
                 documento = 'NotaCreditoElectronica'
+            elif self.env['eicr.tools']._validar_receptor(invoice.partner_id):
+                documento = 'FacturaElectronica'
 
             invoice.eicr_documento_fname = documento + '_' + invoice.eicr_clave + '.xml'
 
@@ -226,7 +226,7 @@ class AccountInvoice(models.Model):
         if self.company_id.eicr_environment != 'disabled':
 
             for invoice in self:
-                invoice.eicr_date = datetime.datetime.now()
+                invoice.eicr_date = self.env['eicr.tools'].datetime_obj()
                 if invoice.type in ('out_invoice', 'out_refund'):
                     self._action_out_invoice_open(invoice)
                 elif invoice.type in ('in_invoice', 'in_refund'):

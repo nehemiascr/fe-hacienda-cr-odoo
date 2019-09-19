@@ -1,6 +1,63 @@
 <?xml version="1.0" encoding="utf-8"?>
 <odoo>
 	<data>
+
+		<record id="invoice_tree" model="ir.ui.view">
+            <field name="name">account.invoice.tree</field>
+            <field name="model">account.invoice</field>
+			<field name="inherit_id" ref="account.invoice_tree"/>
+			<field name="arch" type="xml">
+				<tree position="attributes">
+					<attribute name="decoration-danger">
+					 	eicr_state == 'rechazado'
+					</attribute>
+				</tree>
+				<field name="state" position="before">
+					<field name="eicr_state"/>
+				</field>
+			</field>
+		</record>
+
+		<record id="invoice_supplier_tree" model="ir.ui.view">
+			<field name="name">account.invoice.supplier.tree</field>
+			<field name="model">account.invoice</field>
+			<field name="inherit_id" ref="account.invoice_supplier_tree"/>
+			<field name="arch" type="xml">
+				<tree position="attributes">
+					<attribute name="decoration-danger">
+					 	eicr_state == 'rechazado'
+					</attribute>
+				</tree>
+				<field name="state" position="before">
+					<field name="eicr_state"/>
+				</field>
+			</field>
+		</record>
+
+		<record id="invoice_tree_respuesta" model="ir.ui.view">
+			<field name="name">account.invoice.tree</field>
+			<field name="model">account.invoice</field>
+			<field name="inherit_id" ref="eicr_base.invoice_tree" />
+			<field name="groups_id" eval="[(6, 0, [ref('base.group_system')])]"/>
+			<field name="arch" type="xml">
+				<field name="eicr_state" position="after">
+					<field name="eicr_mensaje_hacienda"/>
+				</field>
+			</field>
+		</record>
+
+		<record id="invoice_supplier_tree_respuesta" model="ir.ui.view">
+			<field name="name">account.invoice.supplier.tree</field>
+			<field name="model">account.invoice</field>
+			<field name="inherit_id" ref="eicr_base.invoice_supplier_tree" />
+			<field name="groups_id" eval="[(6, 0, [ref('base.group_system')])]"/>
+			<field name="arch" type="xml">
+				<field name="eicr_state" position="after">
+					<field name="eicr_mensaje_hacienda"/>
+				</field>
+			</field>
+		</record>
+
 		<record id="invoice_form" model="ir.ui.view">
             <field name="name">account.invoice.form</field>
             <field name="model">account.invoice</field>
@@ -25,9 +82,41 @@
 					<field name="eicr_mensaje_hacienda" widget="html"/>
 					<field name="eicr_documento_fname" invisible="1" readonly="1"/>
 					<field name="eicr_documento_file" filename="eicr_documento_fname" readonly="1"/>
-
 				</field>
+			</field>
+		</record>
 
+		<record id="invoice_supplier_form" model="ir.ui.view">
+            <field name="name">account.invoice.supplier.form</field>
+            <field name="model">account.invoice</field>
+			<field name="inherit_id" ref="account.invoice_supplier_form"/>
+			<field name="arch" type="xml">
+				<xpath expr="//header" position="inside">
+					<field name="eicr_state" invisible="1"/>
+					<button name="action_consultar_hacienda" type="object" string="Consultar Hacienda" colspan="2" attrs="{'invisible':[('eicr_state','not in', ['aceptado', 'rechazado', 'recibido', 'error', 'procesando'])]}"/>
+				</xpath>
+
+				<xpath expr="//group[1]" position="after">
+					<group string="Facturación Electrónica" col="2">
+						<group>
+							<field name="eicr_documento2_fname" invisible="1" />
+							<field name="eicr_documento2_file" filename="eicr_documento2_fname" />
+							<field name="eicr_aceptacion" />
+							<field name="eicr_credito_iva" />
+							<field name="eicr_credito_iva_condicion" />
+						</group>
+						<group>
+							<field name="eicr_date" readonly="1"/>
+							<field name="eicr_clave" readonly="1"/>
+							<field name="eicr_state" readonly="1"/>
+							<field name="eicr_mensaje_hacienda_fname" invisible="1" readonly="1"/>
+							<field name="eicr_mensaje_hacienda_file" filename="eicr_mensaje_hacienda_fname"/>
+							<field name="eicr_mensaje_hacienda" default="Nada aún"/>
+							<field name="eicr_documento_fname" invisible="1" readonly="1"/>
+							<field name="eicr_documento_file" filename="eicr_documento_fname" readonly="1"/>
+						</group>
+					</group>
+				</xpath>
 			</field>
 		</record>
 
@@ -46,6 +135,36 @@
 				<xpath expr="//field[@name='eicr_mensaje_hacienda_file']" position="attributes">
 					<attribute name="readonly">False</attribute>
 				</xpath>
+			</field>
+		</record>
+
+		<record id="invoice_supplier_form_group_system" model="ir.ui.view">
+            <field name="name">account.invoice.supplier.form</field>
+            <field name="model">account.invoice</field>
+			<field name="inherit_id" ref="eicr_base.invoice_supplier_form"/>
+			<field name="groups_id" eval="[(6, 0, [ref('base.group_system')])]"/>
+			<field name="arch" type="xml">
+				<xpath expr="//field[@name='eicr_state']" position="attributes">
+					<attribute name="readonly">False</attribute>
+				</xpath>
+				<xpath expr="//field[@name='eicr_documento_file']" position="attributes">
+					<attribute name="readonly">False</attribute>
+				</xpath>
+				<xpath expr="//field[@name='eicr_mensaje_hacienda_file']" position="attributes">
+					<attribute name="readonly">False</attribute>
+				</xpath>
+			</field>
+		</record>
+
+		 <record id="view_account_invoice_refund" model="ir.ui.view">
+            <field name="name">account.invoice.refund.form</field>
+            <field name="model">account.invoice.refund</field>
+			<field name="inherit_id" ref="account.view_account_invoice_refund"/>
+			<field name="arch" type="xml">
+				<field name="description" position="after">
+					<field name="eicr_reference_code_id"/>
+					<field name="invoice_id" readonly="1"/>
+				</field>
 			</field>
 		</record>
 
