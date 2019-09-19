@@ -5,8 +5,8 @@ from . import res_company
 from . import economic_activity
 from . import product
 from . import product_uom
-from . import product_template
-from . import product_category
+
+
 from . import electronic_invoice
 from . import electronic_invoice_schema
 from . import electronic_invoice_version
@@ -27,3 +27,6 @@ from . import reference_code
 from . import reference_document
 from . import resolution
 from . import sale_conditions
+
+from . import product_category
+from . import product_template
