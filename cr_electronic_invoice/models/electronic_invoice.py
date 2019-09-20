@@ -1005,6 +1005,8 @@ class ElectronicInvoice(models.TransientModel):
 			LineaDetalle.append(MontoTotal)
 
 			if linea.discount:
+				Descuento = etree.Element('Descuento')
+
 				MontoDescuento = etree.Element('MontoDescuento')
 				montoDescuento = montoTotal - linea.price_subtotal
 				if linea.tax_ids_after_fiscal_position:
@@ -1019,11 +1021,13 @@ class ElectronicInvoice(models.TransientModel):
 						totalDescuentosMercanciasExentas += montoDescuento
 
 				MontoDescuento.text = str(round(montoDescuento, decimales))
-				LineaDetalle.append(MontoDescuento)
+				Descuento.append(MontoDescuento)
 
 				NaturalezaDescuento = etree.Element('NaturalezaDescuento')
-				NaturalezaDescuento.text =  'Descuento Comercial'
-				LineaDetalle.append(NaturalezaDescuento)
+				NaturalezaDescuento.text = 'Descuento Comercial'
+				Descuento.append(NaturalezaDescuento)
+
+				LineaDetalle.append(Descuento)
 
 			SubTotal = etree.Element('SubTotal')
 			SubTotal.text = str(round(linea.price_subtotal, decimales))
