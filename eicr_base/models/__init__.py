@@ -3,6 +3,7 @@
 from . import account_journal
 from . import account_tax
 from . import account_tax_template
+from . import ir_requence
 from . import eicr_document
 from . import eicr_economic_activity
 from . import eicr_hacienda

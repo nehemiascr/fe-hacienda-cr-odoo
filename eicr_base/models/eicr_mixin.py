@@ -1,8 +1,12 @@
 # -*- coding: utf-8 -*-
 # Part of Fakturacion. See LICENSE file for full copyright and licensing details.
-
+import logging
 from odoo import api, fields, models
+from lxml import etree
+import base64
+import re
 
+_logger = logging.getLogger(__name__)
 
 class ElectronicInvoiceCostaRicaMixin(models.AbstractModel):
     _name = 'eicr.mixin'
@@ -52,3 +56,25 @@ class ElectronicInvoiceCostaRicaMixin(models.AbstractModel):
             self.eicr_credito_iva = self.company_id.eicr_factor_iva or 100.0
         else:
             self.eicr_credito_iva = 0
+
+    @api.model
+    def set_document(self):
+        if self.env['eicr.tools'].validar_receptor(self.partner_id):
+            self.eicr_documento_tipo = self.env.ref('eicr_base.FacturaElectronica_V_4_3')
+        else:
+            self.eicr_documento_tipo = self.env.ref('eicr_base.TiqueteElectronico_V_4_3')
+
+
+    @api.model
+    def do(self):
+        self.set_document()
+
+        Documento = self.eicr_documento_tipo.get_raiz()
+
+        xml = etree.tostring(Documento, encoding='UTF-8', xml_declaration=True, pretty_print=True)
+        xml_base64_encoded = base64.b64encode(xml).decode('utf-8')
+        xml_base64_encoded_firmado = self.env['eicr.tools']._firmar_xml(xml_base64_encoded, self.company_id)
+
+        self.eicr_documento_file = xml_base64_encoded_firmado
+        self.eicr_documento_fname = self.eicr_documento_tipo.tag + self.eicr_clave + '.xml'
+        self.state_tributacion = 'pendiente'

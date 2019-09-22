@@ -115,7 +115,7 @@ class HrExpense(models.Model):
                                                                                  'phone_code': phone_code,
                                                                                  'phone': phone,
                                                                                  'vat': vat_proveedor,
-                                                                                 'identification_id': tipo.id,
+                                                                                 'eicr_id_type': tipo.id,
                                                                                  'is_company': is_company,
                                                                                  'customer': False,
                                                                                  'supplier': True})

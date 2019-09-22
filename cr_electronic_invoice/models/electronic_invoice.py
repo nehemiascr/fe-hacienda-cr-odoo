@@ -1783,7 +1783,7 @@ class ElectronicInvoice(models.TransientModel):
 		emisor = invoice.company_id
 		receptor = invoice.partner_id
 
-		receptor_valido = self._validar_receptor(receptor)
+		receptor_valido = self.validar_receptor(receptor)
 
 		# FacturaElectronica 4.3 y Nota de Crédito 4.3
 		decimales = 2

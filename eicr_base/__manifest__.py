@@ -1,11 +1,11 @@
 # -*- coding: utf-8 -*-
 
 {
-	'name': 'Base - Facturación Electrónica de Costa Rica',
+	'name': 'eicr',
 	'version': '11.0.0',
-	'author': 'Automatuanis.com',
+	'author': 'Automatizacoón',
 	'license': 'OPL-1',
-	'website': 'https://www.automatuanis.com/',
+	'website': 'fakturacion.com',
 	'category': 'Invoicing Management',
 	'description':
 		'''
@@ -46,10 +46,11 @@
 		'views/eicr_reference_code_views.xml',
 		'views/eicr_reference_document_views.xml',
 		'views/eicr_sale_condition_views.xml',
-		'views/eicr_schema_views.xml',
+		'views/eicr_document_views.xml',
 		'views/eicr_version_views.xml',
 		'views/res_company_views.xml',
 		'views/res_partner_views.xml',
+		'views/ir_sequence_views.xml',
 
 		'reports/report_invoice.xml',
 

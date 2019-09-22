@@ -19,7 +19,7 @@ class PartnerElectronic(models.Model):
 	district_id = fields.Many2one("res.country.district", "Distrito")
 	county_id = fields.Many2one("res.country.county", "Cantón")
 	neighborhood_id = fields.Many2one("res.country.neighborhood", "Barrios")
-	identification_id = fields.Many2one("eicr.identification_type", "Tipo de identificacion")
+	eicr_id_type = fields.Many2one("eicr.identification_type", "Tipo de identificacion")
 
 	email_facturas = fields.Char('Email donde enviar las facturas')
 

@@ -14,7 +14,7 @@ class ElectronicInvoiceCostaRicaResCompany(models.Model):
 
 	phone_code = fields.Char(string="Código de teléfono",  size=3, default="506")
 
-	identification_id = fields.Many2one("eicr.identification_type", "Tipo de identificacion")
+	eicr_id_type = fields.Many2one("eicr.identification_type", "Tipo de identificacion")
 	district_id = fields.Many2one("res.country.district", "Distrito")
 	county_id = fields.Many2one("res.country.county", "Cantón")
 	neighborhood_id = fields.Many2one("res.country.neighborhood", "Barrios")

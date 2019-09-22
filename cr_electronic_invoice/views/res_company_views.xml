@@ -35,7 +35,7 @@
 				</field>
 
 				<field name="email" position="after">
-					<field name="identification_id"/>
+					<field name="eicr_id_type"/>
 					<field name="vat"/>
 				</field>
 

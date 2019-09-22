@@ -29,7 +29,7 @@
 				</field>
 				<!--field name="vat" position="replace"/-->
 				<field name="website" position="before">
-					<field name="identification_id" widget="selection"/>
+					<field name="eicr_id_type" widget="selection"/>
 					<field name="vat" string="Cédula"/>
 					<field name="county_id" domain="[('state_id', '=', state_id)]" options="{'no_open': 1,'no_create': 1, 'no_create_edit': 1}"/>
 					<field name="district_id" domain="[('county_id', '=', county_id)]" options="{'no_open': 1,'no_create': 1, 'no_create_edit': 1}"/>

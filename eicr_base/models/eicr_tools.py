@@ -41,6 +41,21 @@ class ElectronicInvoiceCostaRicaTools(models.AbstractModel):
 			datetime_str = self.datetime_str()
 		return datetime.strptime(datetime_str,EICR_DATE_FORMAT)
 
+	def update_company_info(self, company_id):
+		info = self.env['eicr.hacienda'].get_info_contribuyente(company_id.vat)
+		if info:
+			company_id.eicr_id_type = self.env['eicr.identification_type'].search([('code', '=', info['tipoIdentificacion'])])
+			actividades = [a['codigo'] for a in info['actividades'] if a['estado'] == 'A']
+			company_id.eicr_activity_ids = self.env['eicr.economic_activity'].search([('code', 'in', actividades)])
+
+			if not company_id.state_id:
+				company_id.state_id = self.env.ref('l10n_cr.state_SJ')
+			if not company_id.county_id:
+				company_id.county_id = self.env.ref('l10n_cr_country_codes.county_San José_SJ')
+			if not company_id.district_id:
+				company_id.district_id = self.env.ref('l10n_cr_country_codes.district_Carmen_San José_SJ')
+			if not company_id.street:
+				company_id.street = 'Sin Otras Señas'
 
 	@api.model
 	def actualizar_info(self, partner_id):
@@ -131,7 +146,7 @@ class ElectronicInvoiceCostaRicaTools(models.AbstractModel):
 	def _get_consecutivo(self, object):
 		# tipo de documento
 		if object._name == 'account.invoice':
-			receptor_valido = self._validar_receptor(object.partner_id)
+			receptor_valido = self.validar_receptor(object.partner_id)
 			numeracion = object.eicr_consecutivo
 			diario = object.journal_id
 			tipo = '05'
@@ -199,11 +214,9 @@ class ElectronicInvoiceCostaRicaTools(models.AbstractModel):
 
 		return consecutivo
 
-	def _get_clave(self, object):
-
-		if (object._name == 'account.invoice' and object.type in ('in_invoice', 'in_refund')) \
-			or object._name == 'hr.expense':
-			return self._get_clave_de_xml(object.eicr_documento2_file)
+	def get_clave(self, object):
+		if (object._name == 'account.invoice' and object.type in ('in_invoice', 'in_refund')) or object._name == 'hr.expense':
+			return self.get_clave_from_xml(object.eicr_documento2_file)
 
 		if object._name == 'account.invoice' and object.type in ('out_invoice', 'out_refund'):
 			consecutivo = object.eicr_consecutivo
@@ -241,6 +254,70 @@ class ElectronicInvoiceCostaRicaTools(models.AbstractModel):
 				len(identificacion) == 11 or len(identificacion) == 12):
 			raise UserError('La identificación DIMEX del emisor debe de tener 11 o 12 dígitos')
 		elif object.company_id.identification_id.code == '04' and len(identificacion) != 10:
+			raise UserError('La identificación NITE del emisor debe de tener 10 dígitos')
+
+		identificacion = identificacion.zfill(12)
+
+		# g) situación
+		situacion = '1'
+
+		# h) código de seguridad
+		codigo_de_seguridad = str(random.randint(1, 99999999)).zfill(8)
+
+		# clave
+		clave = codigo_de_pais + dia + mes + anio + identificacion + consecutivo + situacion + codigo_de_seguridad
+
+		if len(clave) != 50:
+			_logger.info('Algo anda mal con la clave :( %s' % clave)
+			return False
+
+		_logger.info('se genera la clave %s para %s' % (clave, object))
+		return clave
+
+
+
+	def _get_clave(self, object):
+
+		if (object._name == 'account.invoice' and object.type in ('in_invoice', 'in_refund')) \
+			or object._name == 'hr.expense':
+			return self._get_clave_de_xml(object.eicr_documento2_file)
+
+		if object._name == 'account.invoice' and object.type in ('out_invoice', 'out_refund'):
+			consecutivo = object.eicr_consecutivo
+
+		if object._name == 'pos.order':
+			consecutivo = object.name
+
+		# f) consecutivo
+		if len(consecutivo) != 20 or not consecutivo.isdigit():
+			consecutivo = self._get_consecutivo(object)
+
+		# a) código de pais
+		codigo_de_pais = '506'
+
+		# fecha
+		fecha = object.eicr_date
+
+		# b) día
+		dia = fecha.strftime('%d')
+		# c) mes
+		mes = fecha.strftime('%m')
+		# d) año
+		anio = fecha.strftime('%y')
+
+		# identificación
+		identificacion = re.sub('[^0-9]', '', object.company_id.vat or '')
+
+		if not object.company_id.eicr_id_type:
+			raise UserError('Seleccione el tipo de identificación del emisor en el perfil de la compañía')
+		if object.company_id.eicr_id_type.code == '01' and len(identificacion) != 9:
+			raise UserError('La Cédula Física del emisor debe de tener 9 dígitos')
+		elif object.company_id.eicr_id_type.code == '02' and len(identificacion) != 10:
+			raise UserError('La Cédula Jurídica del emisor debe de tener 10 dígitos')
+		elif object.company_id.eicr_id_type.code == '03' and not (
+				len(identificacion) == 11 or len(identificacion) == 12):
+			raise UserError('La identificación DIMEX del emisor debe de tener 11 o 12 dígitos')
+		elif object.company_id.eicr_id_type.code == '04' and len(identificacion) != 10:
 			raise UserError('La identificación NITE del emisor debe de tener 10 dígitos')
 
 		identificacion = identificacion.zfill(12)
@@ -312,7 +389,7 @@ class ElectronicInvoiceCostaRicaTools(models.AbstractModel):
 
 		if object._name == 'account.invoice': object.sent = True
 
-	def _firmar_xml(self, xml, company_id):
+	def firmar_xml(self, xml, company_id):
 
 		xml = base64.b64decode(xml).decode('utf-8')
 		_logger.info('xml decoded %s' % xml)
@@ -343,6 +420,19 @@ class ElectronicInvoiceCostaRicaTools(models.AbstractModel):
 
 		xml_encoded = base64.b64encode(xml).decode('utf-8')
 		return xml_encoded
+
+	@api.model
+	def get_clave_from_xml(self, xml):
+		try:
+			xml = base64.b64decode(xml)
+			Documento = etree.tostring(etree.fromstring(xml)).decode()
+			Documento = etree.fromstring(re.sub(' xmlns="[^"]+"', '', Documento, count=1))
+			Clave = Documento.find('Clave')
+			return Clave.text
+		except Exception as e:
+			print('Error con % %' % (xml, e))
+			return False
+
 
 	@api.model
 	def _get_clave_de_xml(self, xml):
@@ -412,7 +502,7 @@ class ElectronicInvoiceCostaRicaTools(models.AbstractModel):
 		emisor = order.company_id
 		receptor = order.partner_id
 
-		receptor_valido = self._validar_receptor(receptor)
+		receptor_valido = self.validar_receptor(receptor)
 
 		# TiqueteElectronico 4.3
 		decimales = 2
@@ -464,21 +554,21 @@ class ElectronicInvoiceCostaRicaTools(models.AbstractModel):
 
 		identificacion = re.sub('[^0-9]', '', emisor.vat or '')
 
-		if not emisor.identification_id:
+		if not emisor.eicr_id_type:
 			raise UserError('Seleccione el tipo de identificación del emisor en el perfil de la compañía')
-		elif emisor.identification_id.code == '01' and len(identificacion) != 9:
+		elif emisor.eicr_id_type.code == '01' and len(identificacion) != 9:
 			raise UserError('La Cédula Física del emisor debe de tener 9 dígitos')
-		elif emisor.identification_id.code == '02' and len(identificacion) != 10:
+		elif emisor.eicr_id_type.code == '02' and len(identificacion) != 10:
 			raise UserError('La Cédula Jurídica del emisor debe de tener 10 dígitos')
-		elif emisor.identification_id.code == '03' and not (len(identificacion) == 11 or len(identificacion) == 12):
+		elif emisor.eicr_id_type.code == '03' and not (len(identificacion) == 11 or len(identificacion) == 12):
 			raise UserError('La identificación DIMEX del emisor debe de tener 11 o 12 dígitos')
-		elif emisor.identification_id.code == '04' and len(identificacion) != 10:
+		elif emisor.eicr_id_type.code == '04' and len(identificacion) != 10:
 			raise UserError('La identificación NITE del emisor debe de tener 10 dígitos')
 
 		Identificacion = etree.Element('Identificacion')
 
 		Tipo = etree.Element('Tipo')
-		Tipo.text = emisor.identification_id.code
+		Tipo.text = emisor.eicr_id_type.code
 		Identificacion.append(Tipo)
 
 		Numero = etree.Element('Numero')
@@ -566,7 +656,7 @@ class ElectronicInvoiceCostaRicaTools(models.AbstractModel):
 			Identificacion = etree.Element('Identificacion')
 
 			Tipo = etree.Element('Tipo')
-			Tipo.text = receptor.identification_id.code
+			Tipo.text = receptor.eicr_id_type.code
 			Identificacion.append(Tipo)
 
 			Numero = etree.Element('Numero')
@@ -635,238 +725,6 @@ class ElectronicInvoiceCostaRicaTools(models.AbstractModel):
 		MedioPago.text = '01'
 		Documento.append(MedioPago)
 
-		# DetalleServicio
-		DetalleServicio = etree.Element('DetalleServicio')
-
-		totalServiciosGravados = 0.0
-		totalServiciosExentos = 0.0
-		totalMercanciasGravadas = 0.0
-		totalMercanciasExentas = 0.0
-
-		totalDescuentosMercanciasExentas = 0.0
-		totalDescuentosMercanciasGravadas = 0.0
-		totalDescuentosServiciosExentos = 0.0
-		totalDescuentosServiciosGravados = 0.0
-
-		totalImpuesto = 0.0
-
-		impuestoServicio = self.env['account.tax'].search([('tax_code', '=', 'service')])
-		servicio = True if impuestoServicio in order.lines.mapped('tax_ids_after_fiscal_position') else False
-
-		indice = 1
-		for linea in order.lines:
-
-			LineaDetalle = etree.Element('LineaDetalle')
-
-			NumeroLinea = etree.Element('NumeroLinea')
-			NumeroLinea.text = '%s' % indice # indice + 1
-			LineaDetalle.append(NumeroLinea)
-
-			if linea.product_id.default_code:
-				CodigoComercial = etree.Element('CodigoComercial')
-
-				Tipo = etree.Element('Tipo')
-				Tipo.text = '04' # Código de uso interno
-				CodigoComercial.append(Tipo)
-
-				Codigo = etree.Element('Codigo')
-				Codigo.text = linea.product_id.default_code
-				CodigoComercial.append(Codigo)
-
-				LineaDetalle.append(CodigoComercial)
-
-			Cantidad = etree.Element('Cantidad')
-			Cantidad.text = str(linea.qty) # linea.qty
-			LineaDetalle.append(Cantidad)
-
-			UnidadMedida = etree.Element('UnidadMedida')
-			UnidadMedida.text = 'Sp' if (linea.product_id and linea.product_id.type == 'service') else 'Unid'
-
-			LineaDetalle.append(UnidadMedida)
-
-			Detalle = etree.Element('Detalle')
-			Detalle.text = linea.product_id.product_tmpl_id.name # product_tmpl_id.name
-			LineaDetalle.append(Detalle)
-
-			precioUnitario = linea.price_unit
-
-			PrecioUnitario = etree.Element('PrecioUnitario')
-			PrecioUnitario.text = str(round(precioUnitario, decimales))
-			LineaDetalle.append(PrecioUnitario)
-
-			MontoTotal = etree.Element('MontoTotal')
-			montoTotal = precioUnitario * linea.qty
-			MontoTotal.text = str(round(montoTotal, decimales))
-
-			LineaDetalle.append(MontoTotal)
-
-			if linea.discount:
-				MontoDescuento = etree.Element('MontoDescuento')
-				montoDescuento = montoTotal - linea.price_subtotal
-				if linea.tax_ids_after_fiscal_position:
-					if linea.product_id and linea.product_id.type == 'service':
-						totalDescuentosServiciosGravados += montoDescuento
-					else:
-						totalDescuentosMercanciasGravadas += montoDescuento
-				else:
-					if linea.product_id and linea.product_id.type == 'service':
-						totalDescuentosServiciosExentos += montoDescuento
-					else:
-						totalDescuentosMercanciasExentas += montoDescuento
-
-				MontoDescuento.text = str(round(montoDescuento, decimales))
-				LineaDetalle.append(MontoDescuento)
-
-				NaturalezaDescuento = etree.Element('NaturalezaDescuento')
-				NaturalezaDescuento.text =  'Descuento Comercial'
-				LineaDetalle.append(NaturalezaDescuento)
-
-			SubTotal = etree.Element('SubTotal')
-			SubTotal.text = str(round(linea.price_subtotal, decimales))
-			LineaDetalle.append(SubTotal)
-
-			if linea.tax_ids_after_fiscal_position:
-				for impuesto in linea.tax_ids_after_fiscal_position:
-
-					if impuesto.tax_code != 'service':
-						Impuesto = etree.Element('Impuesto')
-
-						Codigo = etree.Element('Codigo')
-						Codigo.text = impuesto.tax_code
-						Impuesto.append(Codigo)
-
-						if impuesto.tax_code == '01':
-							CodigoTarifa = etree.Element('CodigoTarifa')
-							CodigoTarifa.text = impuesto.iva_tax_code
-							Impuesto.append(CodigoTarifa)
-
-							Tarifa = etree.Element('Tarifa')
-							Tarifa.text = str(round(impuesto.amount, decimales))
-							Impuesto.append(Tarifa)
-
-						Monto = etree.Element('Monto')
-						monto = linea.price_subtotal * impuesto.amount / 100.0
-						totalImpuesto += monto
-						Monto.text = str(round(monto, decimales))
-						Impuesto.append(Monto)
-
-						LineaDetalle.append(Impuesto)
-
-						if linea.product_id and linea.product_id.type == 'service':
-							totalServiciosGravados += linea.price_subtotal
-						else:
-							totalMercanciasGravadas += linea.price_subtotal
-
-			else:
-				if linea.product_id and linea.product_id.type == 'service':
-					totalServiciosExentos += linea.price_subtotal
-				else:
-					totalMercanciasExentas += linea.price_subtotal
-
-			MontoTotalLinea = etree.Element('MontoTotalLinea')
-			montoTotalLinea = linea.price_subtotal_incl
-			if servicio:
-				_logger.info('mndl %s' % montoTotalLinea)
-				deduccion = montoTotalLinea * 10.0 / (100.0 + sum(linea.tax_ids_after_fiscal_position.mapped('amount')))
-				_logger.info('mndl %s' % deduccion)
-				montoTotalLinea -= deduccion
-				_logger.info('mndl %s' % montoTotalLinea)
-			MontoTotalLinea.text = str(round(montoTotalLinea, decimales))
-			LineaDetalle.append(MontoTotalLinea)
-
-			DetalleServicio.append(LineaDetalle)
-			indice += 1
-
-		Documento.append(DetalleServicio)
-
-		if servicio:
-			# Otros Cargos
-			OtrosCargos = etree.Element('OtrosCargos')
-
-			TipoDocumento = etree.Element('TipoDocumento')
-			TipoDocumento.text = '06'
-			OtrosCargos.append(TipoDocumento)
-
-			Detalle = etree.Element('Detalle')
-			Detalle.text = 'Cargo de Servicio (10%)'
-			OtrosCargos.append(Detalle)
-
-			Porcentaje = etree.Element('Porcentaje')
-			Porcentaje.text = '10.0'
-			OtrosCargos.append(Porcentaje)
-
-			MontoCargo = etree.Element('MontoCargo')
-			MontoCargo.text = str(round((order.amount_total - order.amount_tax) * 10.0 / 100.0, decimales))
-			OtrosCargos.append(MontoCargo)
-
-			Documento.append(OtrosCargos)
-
-		# ResumenFactura
-		ResumenFactura = etree.Element('ResumenFactura')
-
-		if totalServiciosGravados:
-			TotalServGravados = etree.Element('TotalServGravados')
-			TotalServGravados.text = str(round(totalServiciosGravados + totalDescuentosServiciosGravados, decimales))
-			ResumenFactura.append(TotalServGravados)
-
-		if totalServiciosExentos:
-			TotalServExentos = etree.Element('TotalServExentos')
-			TotalServExentos.text = str(round(totalServiciosExentos + totalDescuentosServiciosExentos, decimales))
-			ResumenFactura.append(TotalServExentos)
-
-		if totalMercanciasGravadas:
-			TotalMercanciasGravadas = etree.Element('TotalMercanciasGravadas')
-			TotalMercanciasGravadas.text = str(round(totalMercanciasGravadas + totalDescuentosMercanciasGravadas, decimales))
-			ResumenFactura.append(TotalMercanciasGravadas)
-
-		if totalMercanciasExentas:
-			TotalMercanciasExentas = etree.Element('TotalMercanciasExentas')
-			TotalMercanciasExentas.text = str(round(totalMercanciasExentas + totalDescuentosMercanciasExentas, decimales))
-			ResumenFactura.append(TotalMercanciasExentas)
-
-		if totalServiciosGravados + totalMercanciasGravadas:
-			TotalGravado = etree.Element('TotalGravado')
-			TotalGravado.text = str(round(totalServiciosGravados + totalDescuentosServiciosGravados + totalMercanciasGravadas + totalDescuentosMercanciasGravadas, decimales))
-			ResumenFactura.append(TotalGravado)
-
-		if totalServiciosExentos + totalMercanciasExentas:
-			TotalExento = etree.Element('TotalExento')
-			TotalExento.text = str(round(totalServiciosExentos + totalDescuentosServiciosExentos + totalMercanciasExentas + totalDescuentosMercanciasExentas, decimales))
-			ResumenFactura.append(TotalExento)
-
-		TotalVenta = etree.Element('TotalVenta')
-		_logger.info('total %s tax %s' % (order.amount_total, order.amount_tax))
-		totalVenta = order.amount_total - order.amount_tax
-		totalVenta += totalDescuentosServiciosGravados + totalDescuentosMercanciasGravadas + totalDescuentosServiciosExentos + totalDescuentosMercanciasExentas
-
-		TotalVenta.text = str(round(totalVenta, decimales))
-		ResumenFactura.append(TotalVenta)
-
-		if totalDescuentosServiciosGravados + totalDescuentosMercanciasGravadas + totalDescuentosServiciosExentos + totalDescuentosMercanciasExentas:
-			TotalDescuentos = etree.Element('TotalDescuentos')
-			TotalDescuentos.text = str(round(totalDescuentosServiciosGravados + totalDescuentosMercanciasGravadas + totalDescuentosServiciosExentos + totalDescuentosMercanciasExentas, decimales))
-			ResumenFactura.append(TotalDescuentos)
-
-		TotalVentaNeta = etree.Element('TotalVentaNeta')
-		totalVentaNeta = order.amount_total - order.amount_tax
-
-		TotalVentaNeta.text = str(round(totalVentaNeta, decimales))
-		ResumenFactura.append(TotalVentaNeta)
-
-		if order.amount_tax:
-			TotalImpuesto = etree.Element('TotalImpuesto')
-			TotalImpuesto.text = str(round(totalImpuesto, decimales))
-			ResumenFactura.append(TotalImpuesto)
-
-		if servicio:
-			TotalOtrosCargos = etree.Element('TotalOtrosCargos')
-			TotalOtrosCargos.text = str(round((order.amount_total - order.amount_tax) * 10.0 / 100.0, decimales))
-			ResumenFactura.append(TotalOtrosCargos)
-
-		TotalComprobante = etree.Element('TotalComprobante')
-		TotalComprobante.text = str(round(order.amount_total, decimales))
-		ResumenFactura.append(TotalComprobante)
-
 		Documento.append(ResumenFactura)
 
 		return Documento
@@ -894,24 +752,184 @@ class ElectronicInvoiceCostaRicaTools(models.AbstractModel):
 		return  self._get_xml_MR(invoice, invoice.eicr_consecutivo)
 
 
-	def _validar_receptor(self, partner_id):
-		if not partner_id: return False
-		if not partner_id.identification_id or not partner_id.vat: return False
-
+	def validar_receptor(self, partner_id):
+		if partner_id in (None, False): return False
+		if not partner_id.vat: return False
 		identificacion = re.sub('[^0-9]', '', partner_id.vat)
+		if not partner_id.eicr_id_type: partner_id.action_update_info()
+		if not partner_id.eicr_id_type: return False
 
-		if partner_id.identification_id.code == '01' and len(identificacion) != 9:
+		if partner_id.eicr_id_type.code == '01' and len(identificacion) != 9:
 			return False
-		elif partner_id.identification_id.code == '02' and len(identificacion) != 10:
+		elif partner_id.eicr_id_type.code == '02' and len(identificacion) != 10:
 			return False
-		elif partner_id.identification_id.code == '03' and not (len(identificacion) == 11 or len(identificacion) == 12):
+		elif partner_id.eicr_id_type.code == '03' and not (len(identificacion) == 11 or len(identificacion) == 12):
 			return False
-		elif partner_id.identification_id.code == '04' and len(identificacion) != 10:
+		elif partner_id.eicr_id_type.code == '04' and len(identificacion) != 10:
 			return False
-		elif partner_id.identification_id.code == '05':
+		elif partner_id.eicr_id_type.code == '05':
 			return False
 
 		return True
+
+	def validar_emisor(self, company_id):
+		if not company_id.vat:
+			raise UserError('Debe de digitar el número de identificación de %s en el perfil de la compañía para poder facturar.' % company_id.name)
+		if not company_id.eicr_id_type: self.env['eicr.tools'].update_company_info(company_id)
+		identificacion = re.sub('[^0-9]', '', company_id.vat)
+		if company_id.eicr_id_type.code == '01' and len(identificacion) != 9:
+			raise UserError('La Cédula Física del emisor debe de tener 9 dígitos')
+		elif company_id.eicr_id_type.code == '02' and len(identificacion) != 10:
+			raise UserError('La Cédula Jurídica del emisor debe de tener 10 dígitos')
+		elif company_id.eicr_id_type.code == '03' and not (
+				len(identificacion) == 11 or len(identificacion) == 12):
+			raise UserError('La identificación DIMEX del emisor debe de tener 11 o 12 dígitos')
+		elif company_id.eicr_id_type.code == '04' and len(identificacion) != 10:
+			raise UserError('La identificación NITE del emisor debe de tener 10 dígitos')
+		return True
+
+	def get_nodo_emisor(self, company_id):
+		self.validar_emisor(company_id)
+		# Emisor
+		Emisor = etree.Element('Emisor')
+
+		Nombre = etree.Element('Nombre')
+		Nombre.text = company_id.name
+		Emisor.append(Nombre)
+
+		Identificacion = etree.Element('Identificacion')
+
+		Tipo = etree.Element('Tipo')
+		Tipo.text = company_id.eicr_id_type.code
+		Identificacion.append(Tipo)
+
+		Numero = etree.Element('Numero')
+		Numero.text = re.sub('[^0-9]', '', company_id.vat)
+		Identificacion.append(Numero)
+
+		Emisor.append(Identificacion)
+
+		Ubicacion = etree.Element('Ubicacion')
+
+		Provincia = etree.Element('Provincia')
+		Provincia.text = company_id.state_id.code
+		Ubicacion.append(Provincia)
+
+		Canton = etree.Element('Canton')
+		Canton.text = company_id.county_id.code
+		Ubicacion.append(Canton)
+
+		Distrito = etree.Element('Distrito')
+		Distrito.text = company_id.district_id.code
+		Ubicacion.append(Distrito)
+
+		if company_id.partner_id.neighborhood_id:
+			Barrio = etree.Element('Barrio')
+			Barrio.text = company_id.neighborhood_id.code
+			Ubicacion.append(Barrio)
+
+		OtrasSenas = etree.Element('OtrasSenas')
+		OtrasSenas.text = company_id.street or 'Sin otras señas'
+		Ubicacion.append(OtrasSenas)
+
+		Emisor.append(Ubicacion)
+
+		telefono = re.sub('[^0-9]', '', company_id.phone)
+		if telefono and len(telefono) >= 8 and len(telefono) <= 20:
+			Telefono = etree.Element('Telefono')
+
+			CodigoPais = etree.Element('CodigoPais')
+			CodigoPais.text = '506'
+			Telefono.append(CodigoPais)
+
+			NumTelefono = etree.Element('NumTelefono')
+			NumTelefono.text = telefono[:8]
+
+			Telefono.append(NumTelefono)
+
+			Emisor.append(Telefono)
+
+		if not company_id.email or not re.match('^[(a-z0-9\_\-\.)]+@[(a-z0-9\_\-\.)]+\.[(a-z)]{2,15}$', company_id.email.lower()):
+			raise UserError('El correo electrónico del emisor es inválido.')
+
+		CorreoElectronico = etree.Element('CorreoElectronico')
+		CorreoElectronico.text = company_id.email.lower()
+		Emisor.append(CorreoElectronico)
+
+		return Emisor
+
+	def get_nodo_receptor(self, partner_id):
+		if not self.validar_receptor(partner_id): return False
+		# Receptor
+		Receptor = etree.Element('Receptor')
+
+		Nombre = etree.Element('Nombre')
+		Nombre.text = partner_id.name
+		Receptor.append(Nombre)
+
+		Identificacion = etree.Element('Identificacion')
+
+		Tipo = etree.Element('Tipo')
+		Tipo.text = partner_id.eicr_id_type.code
+		Identificacion.append(Tipo)
+
+		Numero = etree.Element('Numero')
+		Numero.text = re.sub('[^0-9]', '', partner_id.vat)
+		Identificacion.append(Numero)
+
+		Receptor.append(Identificacion)
+
+		if partner_id.state_id and partner_id.county_id and partner_id.district_id and partner_id.street:
+			Ubicacion = etree.Element('Ubicacion')
+
+			Provincia = etree.Element('Provincia')
+			Provincia.text = partner_id.state_id.code
+			Ubicacion.append(Provincia)
+
+			Canton = etree.Element('Canton')
+			Canton.text = partner_id.county_id.code
+			Ubicacion.append(Canton)
+
+			Distrito = etree.Element('Distrito')
+			Distrito.text = partner_id.district_id.code
+			Ubicacion.append(Distrito)
+
+			if partner_id.neighborhood_id:
+				Barrio = etree.Element('Barrio')
+				Barrio.text = partner_id.neighborhood_id.code
+				Ubicacion.append(Barrio)
+
+			OtrasSenas = etree.Element('OtrasSenas')
+			OtrasSenas.text = partner_id.street
+			Ubicacion.append(OtrasSenas)
+
+			Receptor.append(Ubicacion)
+
+		telefono = partner_id.phone or partner_id.mobile
+		if telefono:
+			telefono = re.sub('[^0-9]', '', telefono)
+			if telefono and len(telefono) >= 8 and len(telefono) <= 20:
+				Telefono = etree.Element('Telefono')
+
+				CodigoPais = etree.Element('CodigoPais')
+				CodigoPais.text = '506'
+				Telefono.append(CodigoPais)
+
+				NumTelefono = etree.Element('NumTelefono')
+				NumTelefono.text = telefono[:8]
+				Telefono.append(NumTelefono)
+
+				Receptor.append(Telefono)
+
+		email = partner_id.email_facturas or partner_id.email
+		if email and re.match('^[(a-z0-9\_\-\.)]+@[(a-z0-9\_\-\.)]+\.[(a-z)]{2,15}$', email.lower()):
+			CorreoElectronico = etree.Element('CorreoElectronico')
+			CorreoElectronico.text = email
+			Receptor.append(CorreoElectronico)
+
+		return Receptor
+
+
 
 
 	def _get_xml_FE_NC_ND_43(self, invoice):
@@ -951,7 +969,7 @@ class ElectronicInvoiceCostaRicaTools(models.AbstractModel):
 		emisor = invoice.company_id
 		receptor = invoice.partner_id
 
-		receptor_valido = self._validar_receptor(receptor)
+		receptor_valido = self.validar_receptor(receptor)
 
 		# FacturaElectronica 4.3 y Nota de Crédito 4.3
 		decimales = 2
@@ -1003,174 +1021,8 @@ class ElectronicInvoiceCostaRicaTools(models.AbstractModel):
 		FechaEmision.text = invoice.eicr_date.strftime("%Y-%m-%dT%H:%M:%S")
 		Documento.append(FechaEmision)
 
-		# Emisor
-		Emisor = etree.Element('Emisor')
 
-		Nombre = etree.Element('Nombre')
-		Nombre.text = emisor.name
-		Emisor.append(Nombre)
 
-		identificacion = re.sub('[^0-9]', '', emisor.vat or '')
-
-		if not emisor.identification_id:
-			raise UserError('Seleccione el tipo de identificación del emisor en el perfil de la compañía')
-		elif emisor.identification_id.code == '01' and len(identificacion) != 9:
-			raise UserError('La Cédula Física del emisor debe de tener 9 dígitos')
-		elif emisor.identification_id.code == '02' and len(identificacion) != 10:
-			raise UserError('La Cédula Jurídica del emisor debe de tener 10 dígitos')
-		elif emisor.identification_id.code == '03' and not (len(identificacion) == 11 or len(identificacion) == 12):
-			raise UserError('La identificación DIMEX del emisor debe de tener 11 o 12 dígitos')
-		elif emisor.identification_id.code == '04' and len(identificacion) != 10:
-			raise UserError('La identificación NITE del emisor debe de tener 10 dígitos')
-
-		Identificacion = etree.Element('Identificacion')
-
-		Tipo = etree.Element('Tipo')
-		Tipo.text = emisor.identification_id.code
-		Identificacion.append(Tipo)
-
-		Numero = etree.Element('Numero')
-		Numero.text = identificacion
-		Identificacion.append(Numero)
-
-		Emisor.append(Identificacion)
-
-		# if emisor.commercial_name:
-		# 	NombreComercial = etree.Element('NombreComercial')
-		# 	NombreComercial.text = emisor.commercial_name
-		# 	Emisor.append(NombreComercial)
-
-		if not emisor.state_id:
-			emisor.state_id = self.env.ref('l10n_cr.state_SJ')
-		if not emisor.county_id:
-			emisor.county_id = self.env.ref('l10n_cr_country_codes.county_San José_SJ')
-		if not emisor.district_id:
-			emisor.district_id = self.env.ref('l10n_cr_country_codes.district_Carmen_San José_SJ')
-		if not emisor.street:
-			emisor.street = 'Sin Otras Señas'
-
-		Ubicacion = etree.Element('Ubicacion')
-
-		Provincia = etree.Element('Provincia')
-		Provincia.text = emisor.partner_id.state_id.code
-		Ubicacion.append(Provincia)
-
-		Canton = etree.Element('Canton')
-		Canton.text = emisor.county_id.code
-		Ubicacion.append(Canton)
-
-		Distrito = etree.Element('Distrito')
-		Distrito.text = emisor.district_id.code
-		Ubicacion.append(Distrito)
-
-		if emisor.partner_id.neighborhood_id:
-			Barrio = etree.Element('Barrio')
-			Barrio.text = emisor.neighborhood_id.code
-			Ubicacion.append(Barrio)
-
-		OtrasSenas = etree.Element('OtrasSenas')
-		OtrasSenas.text = emisor.street or 'Sin otras señas'
-		Ubicacion.append(OtrasSenas)
-
-		Emisor.append(Ubicacion)
-
-		telefono = emisor.partner_id.phone or emisor.partner_id.mobile
-		if telefono:
-			telefono = re.sub('[^0-9]', '', telefono)
-			if telefono and len(telefono) >= 8 and len(telefono) <= 20:
-				Telefono = etree.Element('Telefono')
-
-				CodigoPais = etree.Element('CodigoPais')
-				CodigoPais.text = '506'
-				Telefono.append(CodigoPais)
-
-				NumTelefono = etree.Element('NumTelefono')
-				NumTelefono.text = telefono[:8]
-
-				Telefono.append(NumTelefono)
-
-				Emisor.append(Telefono)
-
-		if not emisor.email or not re.match('^[(a-z0-9\_\-\.)]+@[(a-z0-9\_\-\.)]+\.[(a-z)]{2,15}$', emisor.email.lower()):
-			raise UserError('El correo electrónico del emisor es inválido.')
-
-		CorreoElectronico = etree.Element('CorreoElectronico')
-		CorreoElectronico.text = emisor.email.lower()
-		Emisor.append(CorreoElectronico)
-
-		Documento.append(Emisor)
-
-		# Receptor
-		if receptor_valido:
-
-			Receptor = etree.Element('Receptor')
-
-			Nombre = etree.Element('Nombre')
-			Nombre.text = receptor.name
-			Receptor.append(Nombre)
-
-			identificacion = re.sub('[^0-9]', '', receptor.vat)
-
-			Identificacion = etree.Element('Identificacion')
-
-			Tipo = etree.Element('Tipo')
-			Tipo.text = receptor.identification_id.code
-			Identificacion.append(Tipo)
-
-			Numero = etree.Element('Numero')
-			Numero.text = identificacion
-			Identificacion.append(Numero)
-
-			Receptor.append(Identificacion)
-
-			if receptor.state_id and receptor.county_id and receptor.district_id and receptor.street:
-				Ubicacion = etree.Element('Ubicacion')
-
-				Provincia = etree.Element('Provincia')
-				Provincia.text = receptor.state_id.code
-				Ubicacion.append(Provincia)
-
-				Canton = etree.Element('Canton')
-				Canton.text = receptor.county_id.code
-				Ubicacion.append(Canton)
-
-				Distrito = etree.Element('Distrito')
-				Distrito.text = receptor.district_id.code
-				Ubicacion.append(Distrito)
-
-				if receptor.neighborhood_id:
-					Barrio = etree.Element('Barrio')
-					Barrio.text = receptor.neighborhood_id.code
-					Ubicacion.append(Barrio)
-
-				OtrasSenas = etree.Element('OtrasSenas')
-				OtrasSenas.text = receptor.street
-				Ubicacion.append(OtrasSenas)
-
-				Receptor.append(Ubicacion)
-
-			telefono = receptor.phone or receptor.mobile
-			if telefono:
-				telefono = re.sub('[^0-9]', '', telefono)
-				if telefono and len(telefono) >= 8 and len(telefono) <= 20:
-					Telefono = etree.Element('Telefono')
-
-					CodigoPais = etree.Element('CodigoPais')
-					CodigoPais.text = '506'
-					Telefono.append(CodigoPais)
-
-					NumTelefono = etree.Element('NumTelefono')
-					NumTelefono.text = telefono[:8]
-					Telefono.append(NumTelefono)
-
-					Receptor.append(Telefono)
-
-			if receptor.email and re.match('^[(a-z0-9\_\-\.)]+@[(a-z0-9\_\-\.)]+\.[(a-z)]{2,15}$', receptor.email.lower()):
-				CorreoElectronico = etree.Element('CorreoElectronico')
-				CorreoElectronico.text = receptor.email
-				Receptor.append(CorreoElectronico)
-
-			Documento.append(Receptor)
 
 		# Condicion Venta
 		CondicionVenta = etree.Element('CondicionVenta')
@@ -1571,15 +1423,15 @@ class ElectronicInvoiceCostaRicaTools(models.AbstractModel):
 
 		identificacion = re.sub('[^0-9]', '', emisor.vat or '')
 
-		if not emisor.identification_id:
+		if not emisor.eicr_id_type:
 			raise UserError('Seleccione el tipo de identificación del emisor en el perfil de la compañía')
-		elif emisor.identification_id.code == '01' and len(identificacion) != 9:
+		elif emisor.eicr_id_type.code == '01' and len(identificacion) != 9:
 			raise UserError('La Cédula Física del emisor debe de tener 9 dígitos')
-		elif emisor.identification_id.code == '02' and len(identificacion) != 10:
+		elif emisor.eicr_id_type.code == '02' and len(identificacion) != 10:
 			raise UserError('La Cédula Jurídica del emisor debe de tener 10 dígitos')
-		elif emisor.identification_id.code == '03' and (len(identificacion) != 11 or len(identificacion) != 12):
+		elif emisor.eicr_id_type.code == '03' and (len(identificacion) != 11 or len(identificacion) != 12):
 			raise UserError('La identificación DIMEX del emisor debe de tener 11 o 12 dígitos')
-		elif emisor.identification_id.code == '04' and len(identificacion) != 10:
+		elif emisor.eicr_id_type.code == '04' and len(identificacion) != 10:
 			raise UserError('La identificación NITE del emisor debe de tener 10 dígitos')
 
 		# NumeroCedulaReceptor

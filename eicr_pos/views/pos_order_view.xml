@@ -1,0 +1,83 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+
+
+    <record id="view_pos_order_tree" model="ir.ui.view">
+        <field name="name">pos.order.tree</field>
+        <field name="model">pos.order</field>
+        <field name="inherit_id" ref="point_of_sale.view_pos_order_tree"/>
+        <field name="arch" type="xml">
+            <tree position="attributes">
+                <attribute name="decoration-danger">
+                    eicr_state == 'rechazado'
+                </attribute>
+            </tree>
+            <field name="state" position="before">
+                <field name="eicr_state"/>
+            </field>
+        </field>
+    </record>
+
+    <record id="view_pos_order_respuesta_tree" model="ir.ui.view">
+        <field name="name">pos.order.tree</field>
+        <field name="model">pos.order</field>
+			<field name="inherit_id" ref="eicr_pos.view_pos_order_tree" />
+			<field name="groups_id" eval="[(6, 0, [ref('base.group_system')])]"/>
+			<field name="arch" type="xml">
+				<field name="eicr_state" position="after">
+					<field name="eicr_mensaje_hacienda"/>
+				</field>
+			</field>
+		</record>
+
+
+
+    <record id="view_pos_pos_form" model="ir.ui.view">
+        <field name="name">pos.order.form</field>
+        <field name="model">pos.order</field>
+        <field name="inherit_id" ref="point_of_sale.view_pos_pos_form"/>
+		<field name="arch" type="xml">
+            <xpath expr="//header" position="inside">
+                <button name="action_consultar_hacienda" type="object" string="Consultar Hacienda" colspan="2" attrs="{'invisible':[('eicr_state','not in', ['aceptado', 'rechazado', 'recibido', 'error', 'procesando'])]}"/>
+            </xpath>
+            <xpath expr="//page[last()]" position="after">
+                <page string="Facturación Electrónica" name="facturacion_electronica">
+                    <group>
+                        <field name="eicr_date" readonly="1"/>
+                        <field name="eicr_clave" readonly="1"/>
+                        <field name="eicr_state" readonly="1"/>
+                        <field name="eicr_mensaje_hacienda_fname" invisible="1" readonly="1"/>
+                        <field name="eicr_mensaje_hacienda_file" filename="eicr_mensaje_hacienda_fname"/>
+                        <field name="eicr_mensaje_hacienda" widget="html"/>
+                        <field name="eicr_documento_fname" invisible="1" readonly="1"/>
+                        <field name="eicr_documento_file" filename="eicr_documento_fname"/>
+                    </group>
+                </page>
+            </xpath>
+        </field>
+    </record>
+
+    <record id="view_pos_pos_form_group_system" model="ir.ui.view">
+        <field name="name">pos.order.form</field>
+        <field name="model">pos.order</field>
+			<field name="inherit_id" ref="eicr_pos.view_pos_pos_form"/>
+			<field name="groups_id" eval="[(6, 0, [ref('base.group_system')])]"/>
+			<field name="arch" type="xml">
+                <xpath expr="//field[@name='eicr_clave']" position="after">
+					<field name="eicr_documento_tipo" readonly="1"/>
+				</xpath>
+				<xpath expr="//field[@name='eicr_state']" position="attributes">
+					<attribute name="readonly">False</attribute>
+				</xpath>
+				<xpath expr="//field[@name='eicr_documento_file']" position="attributes">
+					<attribute name="readonly">False</attribute>
+				</xpath>
+				<xpath expr="//field[@name='eicr_mensaje_hacienda_file']" position="attributes">
+					<attribute name="readonly">False</attribute>
+				</xpath>
+			</field>
+		</record>
+
+
+
+</odoo>

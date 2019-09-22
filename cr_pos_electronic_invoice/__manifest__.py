@@ -9,7 +9,7 @@
     "license": "AGPL-3",
     "version": "1.0",
     "depends": [
-        "point_of_sale", "cr_electronic_invoice"
+        "point_of_sale", "eicr_base"
     ],
     "data": [
         "data/data.xml",

@@ -168,7 +168,7 @@ class AccountInvoice(models.Model):
             documento = 'TiqueteElectronico'
             if invoice.type == 'out_refund':
                 documento = 'NotaCreditoElectronica'
-            elif self.env['eicr.tools']._validar_receptor(invoice.partner_id):
+            elif self.env['eicr.tools'].validar_receptor(invoice.partner_id):
                 documento = 'FacturaElectronica'
 
             invoice.eicr_documento_fname = documento + '_' + invoice.eicr_clave + '.xml'

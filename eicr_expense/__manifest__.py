@@ -1,5 +1,5 @@
 {
-    'name': 'Gastos - Facturación Electrónica de Costa Rica',
+    'name': 'eicr - gasto',
     'version': '11.0.0',
     'author': 'Automatuanis.com',
     'license': 'OPL-1',
