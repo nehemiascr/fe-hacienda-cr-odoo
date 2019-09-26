@@ -49,17 +49,18 @@ class ElectronicInvoiceCostaRicaResCompany(models.Model):
 	def action_update_info(self):
 		info = self.env['eicr.hacienda'].get_info_contribuyente(self.vat)
 		if info:
-			self.identification_id = self.env['eicr.identification_type'].search([('code', '=', info['tipoIdentificacion'])])
+			self.eicr_id_type = self.env['eicr.identification_type'].search([('code', '=', info['tipoIdentificacion'])])
 			actividades = [a['codigo'] for a in info['actividades'] if a['estado'] == 'A']
 			self.eicr_activity_ids = self.env['economic_activity'].search([('code', 'in', actividades)])
 
 	@api.onchange('vat')
-	def _onchange_state(self):
+	def _onchange_vat(self):
 		identificacion = re.sub('[^0-9]', '', self.vat or '')
 		if len(identificacion) >= 9:
 			info = self.env['eicr.hacienda'].get_info_contribuyente(self.vat)
 			if info:
-				self.identification_id = self.env['eicr.identification_type'].search([('code', '=', info['tipoIdentificacion'])])
+				self.eicr_id_type = self.env['eicr.identification_type'].search([('code', '=', info['tipoIdentificacion'])])
+				_logger.info(self.eicr_id_type)
 				actividades = [a['codigo'] for a in info['actividades'] if a['estado'] == 'A']
 				self.eicr_activity_ids = self.env['eicr.economic_activity'].search([('code', 'in', actividades)])
 				if not self.name or self.name == 'My Company' : self.name = info['nombre']

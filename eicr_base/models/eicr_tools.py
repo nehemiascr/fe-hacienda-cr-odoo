@@ -36,6 +36,7 @@ class ElectronicInvoiceCostaRicaTools(models.AbstractModel):
 		return datetime_obj.strftime(EICR_DATE_FORMAT)
 
 	@api.model
+	@api.model
 	def datetime_obj(self, datetime_str=None):
 		if datetime_str is None:
 			datetime_str = self.datetime_str()
@@ -62,7 +63,7 @@ class ElectronicInvoiceCostaRicaTools(models.AbstractModel):
 		info = self.env['eicr.hacienda'].get_info_contribuyente(partner_id.vat)
 		if info:
 			# tipo de identificación
-			partner_id.identification_id = self.env['eicr.identification_type'].search([('code', '=', info['tipoIdentificacion'])])
+			partner_id.eicr_id_type = self.env['eicr.identification_type'].search([('code', '=', info['tipoIdentificacion'])])
 			if info['tipoIdentificacion'] in ('01', '03', '04'):
 				partner_id.is_company = False
 			elif info['tipoIdentificacion'] in ('02'):
@@ -244,16 +245,16 @@ class ElectronicInvoiceCostaRicaTools(models.AbstractModel):
 		# identificación
 		identificacion = re.sub('[^0-9]', '', object.company_id.vat or '')
 
-		if not object.company_id.identification_id:
+		if not object.company_id.eicr_id_type:
 			raise UserError('Seleccione el tipo de identificación del emisor en el perfil de la compañía')
-		if object.company_id.identification_id.code == '01' and len(identificacion) != 9:
+		if object.company_id.eicr_id_type.code == '01' and len(identificacion) != 9:
 			raise UserError('La Cédula Física del emisor debe de tener 9 dígitos')
-		elif object.company_id.identification_id.code == '02' and len(identificacion) != 10:
+		elif object.company_id.eicr_id_type.code == '02' and len(identificacion) != 10:
 			raise UserError('La Cédula Jurídica del emisor debe de tener 10 dígitos')
-		elif object.company_id.identification_id.code == '03' and not (
+		elif object.company_id.eicr_id_type.code == '03' and not (
 				len(identificacion) == 11 or len(identificacion) == 12):
 			raise UserError('La identificación DIMEX del emisor debe de tener 11 o 12 dígitos')
-		elif object.company_id.identification_id.code == '04' and len(identificacion) != 10:
+		elif object.company_id.eicr_id_type.code == '04' and len(identificacion) != 10:
 			raise UserError('La identificación NITE del emisor debe de tener 10 dígitos')
 
 		identificacion = identificacion.zfill(12)
@@ -1526,7 +1527,7 @@ class ElectronicInvoiceCostaRicaTools(models.AbstractModel):
 																		  'phone_code': phone_code,
 																		  'phone': phone,
 																		  'vat': emisor_vat,
-																		  'identification_id': tipo.id,
+																		  'eicr_id_type': tipo.id,
 																		  'is_company': is_company,
 																		  'customer': False,
 																		  'supplier': True})
@@ -1631,7 +1632,7 @@ class ElectronicInvoiceCostaRicaTools(models.AbstractModel):
 																		  'phone_code': phone_code,
 																		  'phone': phone,
 																		  'vat': emisor_vat,
-																		  'identification_id': tipo.id,
+																		  'eicr_id_type': tipo.id,
 																		  'is_company': is_company,
 																		  'customer': False,
 																		  'supplier': True})

@@ -25,16 +25,14 @@ class PosOrder(models.Model):
 
     @api.model
     def _process_order(self, order):
-
         _logger.info('order %s' % order)
         pos_order = super(PosOrder, self)._process_order(order)
         _logger.info('pos_order %s' % pos_order.__dict__)
-
         pos_order.make_xml()
-
         return pos_order
 
     def get_consecutivo(self):
+        _logger.info('consecutivando')
         # el consecutivo tiene 20 digitos
         if self.eicr_consecutivo and len(self.eicr_consecutivo) == 20 and self.eicr_consecutivo.isdigit(): return self.eicr_consecutivo
         # la secuencia tiene 10 digitos
@@ -49,7 +47,7 @@ class PosOrder(models.Model):
         numeracion = self.name
         # consecutivo
         self.eicr_consecutivo  = sucursal + terminal + tipo + numeracion
-
+        _logger.info('consecutivo %s' % self.eicr_consecutivo)
         return self.eicr_consecutivo
 
 
@@ -97,6 +95,9 @@ class PosOrder(models.Model):
 
     @api.model
     def make_xml(self):
+        # si ya existe, no rehace
+        if self.eicr_documento_file: return
+        if not self.eicr_date: self.eicr_date = self.env['eicr.tools'].datetime_obj()
         consecutivo = self.get_consecutivo()
         clave = self.get_clave()
         self.set_document()
@@ -118,9 +119,8 @@ class PosOrder(models.Model):
         Documento.append(NumeroConsecutivo)
 
         # FechaEmision
-        if not self.eicr_date: self.eicr_date = self.env['eicr.tools'].datetime_obj()
         FechaEmision = etree.Element('FechaEmision')
-        FechaEmision.text = self.eicr_date.strftime("%Y-%m-%dT%H:%M:%S")
+        FechaEmision.text = self.env['eicr.tools'].datetime_str(self.eicr_date)
         Documento.append(FechaEmision)
 
         # Emisor

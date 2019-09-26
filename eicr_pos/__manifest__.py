@@ -10,7 +10,10 @@
     ],
     'data': [
         'views/pos_order_view.xml',
+        'views/point_of_sale_template.xml',
+
     ],
+    'qweb': ['static/src/xml/pos.xml'],
     'installable': True,
     'application': True,
 
