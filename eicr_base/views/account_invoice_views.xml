@@ -69,7 +69,7 @@
 				</xpath>
 
 				<field name="partner_id" position="before">
-					<field name="eicr_clave" readonly="1"/>
+					<field name="eicr_clave" readonly="1" attrs="{'invisible':[('eicr_state','not in',  ['aceptado', 'rechazado', 'recibido', 'error', 'procesando'])]}"/>
 				</field>
 
 				<field name="date_invoice" position="attributes">
@@ -79,12 +79,12 @@
 					<group string="Facturación Electrónica" col="2">
 						<group>
 							<field name="eicr_state" readonly="1"/>
-							<field name="eicr_date" readonly="1"/>
+							<field name="eicr_date" readonly="1" attrs="{'invisible':[('eicr_state','not in',  ['aceptado', 'rechazado', 'recibido', 'error', 'procesando'])]}"/>
 							<field name="eicr_mensaje_hacienda_fname" invisible="1" readonly="1"/>
-							<field name="eicr_mensaje_hacienda_file" filename="eicr_mensaje_hacienda_fname" readonly="1"/>
-							<field name="eicr_mensaje_hacienda" widget="html"/>
+							<field name="eicr_mensaje_hacienda_file" filename="eicr_mensaje_hacienda_fname" readonly="1" attrs="{'invisible':[('eicr_state','not in',  ['aceptado', 'rechazado', 'recibido', 'error', 'procesando'])]}"/>
+							<field name="eicr_mensaje_hacienda" widget="html" attrs="{'invisible':[('eicr_state','not in',  ['aceptado', 'rechazado', 'recibido', 'error', 'procesando'])]}"/>
 							<field name="eicr_documento_fname" invisible="1" readonly="1"/>
-							<field name="eicr_documento_file" filename="eicr_documento_fname" readonly="1"/>
+							<field name="eicr_documento_file" filename="eicr_documento_fname" readonly="1" attrs="{'invisible':[('eicr_state','not in',  ['aceptado', 'rechazado', 'recibido', 'error', 'procesando'])]}"/>
 						</group>
 					</group>
 				</xpath>
@@ -105,20 +105,20 @@
 					<group string="Facturación Electrónica" col="2">
 						<group>
 							<field name="eicr_documento2_fname" invisible="1" />
-							<field name="eicr_documento2_file" filename="eicr_documento2_fname" />
-							<field name="eicr_aceptacion" />
-							<field name="eicr_credito_iva" />
-							<field name="eicr_credito_iva_condicion" />
+							<field name="eicr_documento2_file" filename="eicr_documento2_fname" attrs="{'invisible':[('eicr_state','not in',  ['aceptado', 'rechazado', 'recibido', 'error', 'procesando'])]}"/>
+							<field name="eicr_aceptacion" attrs="{'invisible':[('eicr_state','not in',  ['aceptado', 'rechazado', 'recibido', 'error', 'procesando'])]}"/>
+							<field name="eicr_credito_iva" attrs="{'invisible':[('eicr_state','not in',  ['aceptado', 'rechazado', 'recibido', 'error', 'procesando'])]}"/>
+							<field name="eicr_credito_iva_condicion" attrs="{'invisible':[('eicr_state','not in',  ['aceptado', 'rechazado', 'recibido', 'error', 'procesando'])]}"/>
 						</group>
 						<group>
-							<field name="eicr_date" readonly="1"/>
-							<field name="eicr_clave" readonly="1"/>
+							<field name="eicr_date" readonly="1" attrs="{'invisible':[('eicr_state','not in',  ['aceptado', 'rechazado', 'recibido', 'error', 'procesando'])]}"/>
+							<field name="eicr_clave" readonly="1" attrs="{'invisible':[('eicr_state','not in',  ['aceptado', 'rechazado', 'recibido', 'error', 'procesando'])]}"/>
 							<field name="eicr_state" readonly="1"/>
 							<field name="eicr_mensaje_hacienda_fname" invisible="1" readonly="1"/>
-							<field name="eicr_mensaje_hacienda_file" filename="eicr_mensaje_hacienda_fname"/>
-							<field name="eicr_mensaje_hacienda" default="Nada aún"/>
+							<field name="eicr_mensaje_hacienda_file" filename="eicr_mensaje_hacienda_fname" attrs="{'invisible':[('eicr_state','not in',  ['aceptado', 'rechazado', 'recibido', 'error', 'procesando'])]}"/>
+							<field name="eicr_mensaje_hacienda" default="Nada aún" attrs="{'invisible':[('eicr_state','not in',  ['aceptado', 'rechazado', 'recibido', 'error', 'procesando'])]}"/>
 							<field name="eicr_documento_fname" invisible="1" readonly="1"/>
-							<field name="eicr_documento_file" filename="eicr_documento_fname" readonly="1"/>
+							<field name="eicr_documento_file" filename="eicr_documento_fname" readonly="1" attrs="{'invisible':[('eicr_state','not in',  ['aceptado', 'rechazado', 'recibido', 'error', 'procesando'])]}"/>
 						</group>
 					</group>
 				</xpath>
