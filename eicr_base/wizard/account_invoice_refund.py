@@ -27,7 +27,7 @@ class AccountInvoiceRefund(models.TransientModel):
 
 	@api.multi
 	def compute_refund(self, mode='refund'):
-		if self.invoice_id.company_id.eicr_environment == 'disabled':
+		if self.env['eicr.tools'].eicr_habilitado(self.company_id):
 			return super(AccountInvoiceRefund, self).compute_refund()
 
 		inv_obj = self.env['account.invoice']

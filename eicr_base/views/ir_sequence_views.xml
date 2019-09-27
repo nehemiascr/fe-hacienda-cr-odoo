@@ -6,10 +6,16 @@
 			<field name="model">ir.sequence</field>
 			<field name="inherit_id" ref="base.sequence_view"/>
 			<field name="arch" type="xml">
-				<xpath expr="//field[@name='code']" position="after">
-					<field name="terminal" />
-					<field name="sucursal" />
-				</xpath>
+				<xpath expr="//page[last()]" position="after">
+                <page string="Facturación Electrónica" name="facturacion_electronica">
+                    <group>
+					<field name="terminal" attrs="{'invisible':[('eicr_no','=', True)]}"/>
+					<field name="sucursal" attrs="{'invisible':[('eicr_no','=', True)]}"/>
+					<field name="eicr_no" />
+					<field name="eicr_documento_tipo" attrs="{'invisible':[('eicr_no','=', True)]}"/>
+                    </group>
+                </page>
+            </xpath>
 			</field>
 		</record>
 

@@ -12,3 +12,5 @@ class IrSequence(models.Model):
 
     sucursal = fields.Integer('Sucursal', default='1')
     terminal = fields.Integer('Terminal', default='1')
+    eicr_documento_tipo = fields.Many2one('eicr.document', 'Tipo de Comprobante', copy=False)
+    eicr_no = fields.Boolean("Disable for this sequence", default=False)

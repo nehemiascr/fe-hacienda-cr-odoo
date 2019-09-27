@@ -66,15 +66,14 @@ class ElectronicInvoiceCostaRicaMixin(models.AbstractModel):
 
 
     @api.model
-    def do(self):
-        self.set_document()
-
-        Documento = self.eicr_documento_tipo.get_raiz()
-
-        xml = etree.tostring(Documento, encoding='UTF-8', xml_declaration=True, pretty_print=True)
-        xml_base64_encoded = base64.b64encode(xml).decode('utf-8')
-        xml_base64_encoded_firmado = self.env['eicr.tools']._firmar_xml(xml_base64_encoded, self.company_id)
-
-        self.eicr_documento_file = xml_base64_encoded_firmado
-        self.eicr_documento_fname = self.eicr_documento_tipo.tag + self.eicr_clave + '.xml'
-        self.state_tributacion = 'pendiente'
+    def _get_clave_mr(self):
+        if not self.eicr_documento2_file: return False
+        try:
+            xml = base64.b64decode(self.eicr_documento2_file)
+            Documento = etree.tostring(etree.fromstring(xml)).decode()
+            Documento = etree.fromstring(re.sub(' xmlns="[^"]+"', '', Documento, count=1))
+            Clave = Documento.find('Clave')
+            return Clave.text
+        except Exception as e:
+            print('Error con % %' % (xml, e))
+            return False
