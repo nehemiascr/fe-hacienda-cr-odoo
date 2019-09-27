@@ -20,7 +20,7 @@ EICR_DATE_FORMAT = "%Y-%m-%dT%H:%M:%S-06:00"
 _logger = logging.getLogger(__name__)
 
 
-class ElectronicInvoiceCostaRicaTools(models.AbstractModel):
+class ElectronicInvoiceCostaRicaHacienda(models.AbstractModel):
 	_name = 'eicr.hacienda'
 	_description = 'Herramienta de comunicación con Hacienda'
 
@@ -47,7 +47,7 @@ class ElectronicInvoiceCostaRicaTools(models.AbstractModel):
 	def _refresh_token(self, company_id):
 		_logger.info('refreshing token')
 
-		if company_id.eicr_environment == 'disabled': return False
+		if not self.env['eicr.tools'].eicr_habilitado(company_id): return False
 
 		data = {
 			'client_id': company_id.eicr_environment,
@@ -97,18 +97,6 @@ class ElectronicInvoiceCostaRicaTools(models.AbstractModel):
 
 	def _enviar_documento(self, object):
 
-		if not self.env['eicr.tools']._fe_habilitado(object.company_id):
-			return False
-
-		_logger.info('validando %s' % object)
-
-		if object.eicr_state != 'pendiente':
-			_logger.info('Solo enviamos pendientes, no se va a enviar %s' % object)
-			return False
-		if not object.eicr_documento_file:
-			_logger.info('%s sin xml' % object)
-			return False
-
 		xml = base64.b64decode(object.eicr_documento_file)
 
 		Documento = etree.tostring(etree.fromstring(xml)).decode()
@@ -118,7 +106,7 @@ class ElectronicInvoiceCostaRicaTools(models.AbstractModel):
 
 		_logger.info('Documento %s' % Documento)
 
-		if self.env['eicr.tools']._es_mensaje_aceptacion(object):
+		if object.eicr_documento_tipo == self.env.ref('eicr_base.MensajeReceptor_V_4_3'):
 			xml_factura_proveedor = object.eicr_documento2_file
 			xml_factura_proveedor = base64.b64decode(xml_factura_proveedor)
 			FacturaElectronica = etree.tostring(etree.fromstring(xml_factura_proveedor)).decode()
@@ -173,7 +161,8 @@ class ElectronicInvoiceCostaRicaTools(models.AbstractModel):
 			object.eicr_mensaje_hacienda = response.content
 			return False
 		else:
-			error_cause = response.headers['X-Error-Cause'] if 'X-Error-Cause' in response.headers else 'Error desconocido'
+			error_cause = response.headers[
+				'X-Error-Cause'] if 'X-Error-Cause' in response.headers else 'Error desconocido'
 			_logger.info('Error %s %s %s' % (response.status_code, error_cause, response.headers))
 			object.eicr_state = 'error'
 			object.eicr_mensaje_hacienda = error_cause
@@ -189,7 +178,7 @@ class ElectronicInvoiceCostaRicaTools(models.AbstractModel):
 	def _consultar_documento(self, object):
 		_logger.info('preguntando por %s' % object)
 
-		if not self.env['eicr.tools']._fe_habilitado(object.company_id): return False
+		if not self.env['eicr.tools'].eicr_habilitado(object.company_id): return False
 
 		if object.eicr_documento_file:
 			xml = etree.tostring(etree.fromstring(base64.b64decode(object.eicr_documento_file))).decode()
@@ -265,92 +254,25 @@ class ElectronicInvoiceCostaRicaTools(models.AbstractModel):
 	@api.model
 	def _validahacienda(self, max_documentos=4):  # cron
 
-		Invoice = self.env['account.invoice'] if self.env['eicr.tools'].module_installed('eicr_base') else None
-		Order = self.env['pos.order'] if self.env['eicr.tools'].module_installed('eicr_pos') else None
-		Expense = self.env['hr.expense'] if self.env['eicr.tools'].module_installed('eicr_expense') else None
-
-		if Invoice is not None:
-			facturas = Invoice.search([('state', 'in', ('open', 'paid')),
-									   ('eicr_state', 'in', ('pendiente',))],
-									  limit=max_documentos).sorted(key=lambda i: i.number)
-			_logger.info('Validating %s Invoices' % len(facturas))
-			for indice, factura in enumerate(facturas):
-				_logger.info('Validating Invoice %s / %s ' % (indice+1, len(facturas)))
-				if not factura.eicr_documento_file:
-					pass
-				self._enviar_documento(factura)
-
-		if Order is not None:
-			tiquetes = Order.search([('eicr_state', 'in', ('pendiente',))],
-									limit=max_documentos).sorted(key=lambda o: o.name)
-			_logger.info('Validating %s Orders' % len(tiquetes))
-			for indice, tiquete in enumerate(tiquetes):
-				_logger.info('Validating Order %s / %s ' % (indice+1, len(tiquetes)))
-				if not tiquete.eicr_documento_file:
-					tiquete.eicr_state = 'na'
-					pass
-				self._enviar_documento(tiquete)
-
-		if Expense is not None:
-			gastos = Expense.search([('eicr_state', 'in', ('pendiente',))],
-									limit=max_documentos).sorted(key=lambda e: e.reference)
-			_logger.info('Validating %s Expenses' % len(gastos))
-			for indice, gasto in enumerate(gastos):
-				_logger.info('Validating Expense %s/%s %s' % (indice+1, len(gastos), gasto))
-				if not gasto.eicr_documento2_file:
-					gasto.eicr_state = 'na'
-					pass
-				elif not gasto.eicr_documento_file:
-					xml = self.env['eicr.tools'].get_xml(gasto)
-					if xml:
-						gasto.eicr_documento_file = xml
-						gasto.eicr_documento_fname = 'MensajeReceptor_' + gasto.eicr_clave + '.xml'
-					else:
-						gasto.eicr_state = 'na'
-						pass
-				self._enviar_documento(gasto)
-
-		_logger.info('Valida - Finalizado Exitosamente')
+		facturas = self.env['account.invoice'].search([('state', 'in', ('open', 'paid')),
+								   ('eicr_state', 'in', ('pendiente',))],
+								  limit=max_documentos).sorted(key=lambda i: i.number)
+		_logger.info('Validando %s Facturas' % len(facturas))
+		for indice, factura in enumerate(facturas):
+			_logger.info('Validando Factura %s/%s %s' % (indice+1, len(facturas), factura))
+			if factura.eicr_documento_file: self._enviar_documento(factura)
 
 	@api.model
 	def _consultahacienda(self, max_documentos=4):  # cron
 
-		Invoice = self.env['account.invoice'] if self.env['eicr.tools'].module_installed('eicr_base') else None
-		Order = self.env['pos.order'] if self.env['eicr.tools'].module_installed('eicr_pos') else None
-		Expense = self.env['hr.expense'] if self.env['eicr.tools'].module_installed('eicr_expense') else None
+		facturas = self.env['account.invoice'].search([('type', 'in', ('out_invoice', 'out_refund','in_invoice')),
+								   ('state', 'in', ('open', 'paid')),
+								   ('eicr_state', 'in', ('recibido', 'procesando', 'error'))], limit=max_documentos)
 
-		if Invoice is not None:
-			facturas = Invoice.search([('type', 'in', ('out_invoice', 'out_refund','in_invoice')),
-									   ('state', 'in', ('open', 'paid')),
-									   ('eicr_state', 'in', ('recibido', 'procesando', 'error'))], limit=max_documentos)
-
-			for indice, factura in enumerate(facturas):
-				_logger.info('Consultando documento %s / %s ' % (indice+1, len(facturas)))
-				if not factura.eicr_documento_file: pass
-				if self._consultar_documento(factura): self.env['eicr.tools']._enviar_email(factura)
-				max_documentos -= 1
-
-		if Order is not None:
-			tiquetes = Order.search([('eicr_state', 'in', ('recibido', 'procesando', 'error'))], limit=max_documentos)
-
-			for indice, tiquete in enumerate(tiquetes):
-				_logger.info('Consultando documento %s / %s ' % (indice+1, len(tiquetes)))
-				if not tiquete.eicr_documento_file:
-					pass
-				if self._consultar_documento(tiquete):
-					self.env['eicr.tools']._enviar_email(tiquete)
-				max_documentos -= 1
-
-		if Expense is not None:
-			gastos = Expense.search([('eicr_state', 'in', ('recibido', 'procesando', 'error'))], limit=max_documentos)
-			for indice, gasto in enumerate(gastos):
-				_logger.info('Consultando documento %s / %s ' % (indice + 1, len(gastos)))
-				if not gasto.eicr_documento_file:
-					pass
-				self._consultar_documento(gasto)
-				max_documentos -= 1
-
-		_logger.info('Consulta Hacienda - Finalizado Exitosamente')
+		for indice, factura in enumerate(facturas):
+			_logger.info('Consultando documento %s/%s %s' % (indice+1, len(facturas), factura))
+			if not factura.eicr_documento_file: pass
+			if self._consultar_documento(factura): self.env['eicr.tools']._enviar_email(factura)
 
 	def get_info_contribuyente(self, identificacion=None):
 		'''Obtiene la información del contribuyente'''
