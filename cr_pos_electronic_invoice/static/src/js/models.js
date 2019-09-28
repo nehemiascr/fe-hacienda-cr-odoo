@@ -113,7 +113,7 @@ odoo.define('cr_pos_electronic_invoice.models', function (require) {
         },
         push_order: function(order, opts) {
             // debugger;
-            if (order !== undefined) {
+            if (order) {
                 // revisar si es normal o devolucion . Pendiente !!!
                 order.set({'sequence_ref_number': this.pos_order_sequence.number_next_actual});
                 order.set({'sequence_ref': _sequence_next(this.pos_order_sequence)});
