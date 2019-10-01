@@ -60,6 +60,7 @@ class ElectronicInvoiceCostaRicaTools(models.AbstractModel):
 
 	@api.model
 	def actualizar_info(self, partner_id):
+		_logger.info('selff %s name %s' % (partner_id, partner_id.name))
 		info = self.env['eicr.hacienda'].get_info_contribuyente(partner_id.vat)
 		if info:
 			# tipo de identificación
@@ -72,7 +73,7 @@ class ElectronicInvoiceCostaRicaTools(models.AbstractModel):
 			actividades = [a['codigo'] for a in info['actividades'] if a['estado'] == 'A']
 			partner_id.eicr_activity_ids = self.env['eicr.economic_activity'].search([('code', 'in', actividades)])
 			# nombre
-			if partner_id.name == '' or partner_id.name == 'My Company': partner_id.name = info['nombre']
+			if partner_id.name in ('', 'My Company', None, False): partner_id.name = info['nombre']
 			# régimen tributario
 			partner_id.eicr_regimen = str(info['regimen']['codigo'])
 

@@ -5,6 +5,8 @@ from odoo import api, fields, models
 from lxml import etree
 import base64
 import re
+import qrcode
+from io import BytesIO
 
 _logger = logging.getLogger(__name__)
 
@@ -42,10 +44,18 @@ class ElectronicInvoiceCostaRicaMixin(models.AbstractModel):
 
     eicr_credito_iva = fields.Float('Porcentaje del impuesto a acreditar', digits=(3, 2))
     eicr_credito_iva_condicion = fields.Many2one('eicr.iva.credit_condition', 'Condición del Impuesto')
+    eicr_qr = fields.Binary(string='Código QR', compute='_compute_qr')
 
     _sql_constraints = [
         ('eicr_clave_uniq', 'unique (eicr_clave)', 'Ya existe un documento con esa clave.'),
     ]
+
+    @api.depends('eicr_clave')
+    def _compute_qr(self):
+        qr = qrcode.make(self.eicr_clave)
+        buffered = BytesIO()
+        qr.save(buffered, format="JPEG")
+        self.eicr_qr  = base64.b64encode(buffered.getvalue())
 
     @api.onchange('eicr_credito_iva_condicion')
     def _onchange_eicr_credito_iva_condicion(self):
