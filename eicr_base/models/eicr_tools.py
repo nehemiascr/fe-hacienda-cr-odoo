@@ -303,15 +303,15 @@ class ElectronicInvoiceCostaRicaTools(models.AbstractModel):
 		Ubicacion = etree.Element('Ubicacion')
 
 		Provincia = etree.Element('Provincia')
-		Provincia.text = company_id.state_id.code
+		Provincia.text = company_id.state_id.code if company_id.state_id else self.env.ref('l10n_cr.state_SJ').code
 		Ubicacion.append(Provincia)
 
 		Canton = etree.Element('Canton')
-		Canton.text = company_id.county_id.code
+		Canton.text = company_id.county_id.code if company_id.county_id else self.env.ref('l10n_cr_country_codes.county_San José_SJ').code
 		Ubicacion.append(Canton)
 
 		Distrito = etree.Element('Distrito')
-		Distrito.text = company_id.district_id.code
+		Distrito.text = company_id.district_id.code if company_id.district_id else self.env.ref('l10n_cr_country_codes.district_Carmen_San José_SJ').code
 		Ubicacion.append(Distrito)
 
 		if company_id.partner_id.neighborhood_id:

@@ -278,7 +278,9 @@ class AccountInvoice(models.Model):
 
         # FechaEmision
         FechaEmision = etree.Element('FechaEmision')
-        FechaEmision.text = self.env['eicr.tools'].datetime_str(self.eicr_date)
+        now_utc = datetime.now(pytz.timezone('UTC'))
+        now_cr = now_utc.astimezone(pytz.timezone('America/Costa_Rica'))
+        FechaEmision.text = now_cr.strftime("%Y-%m-%dT%H:%M:%S")
         Documento.append(FechaEmision)
 
         # Emisor
@@ -391,7 +393,7 @@ class AccountInvoice(models.Model):
                 Descuento.append(MontoDescuento)
 
                 NaturalezaDescuento = etree.Element('NaturalezaDescuento')
-                NaturalezaDescuento.text = linea.discount_note or 'Descuento Comercial'
+                NaturalezaDescuento.text = 'Descuento Comercial'
                 Descuento.append(NaturalezaDescuento)
 
                 LineaDetalle.append(Descuento)

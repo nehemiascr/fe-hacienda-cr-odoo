@@ -1,0 +1,30 @@
+version: '2'
+services:
+  odoo:
+    build: .
+    image: fakturacion/odoo:12
+    ports:
+      - "8012:8069"
+    environment:
+      - HOST=postgres
+      - POSTGRES_DB=odoo12
+      - POSTGRES_PASSWORD=odoo12
+      - POSTGRES_USER=odoo12
+    volumes:
+      - odoo12-var-lib-odoo:/var/lib/odoo
+      - ./res_currency_cr_adapter:/mnt/extra-addons/res_currency_cr_adapter
+      - ./l10n_cr_country_codes:/mnt/extra-addons/l10n_cr_country_codes
+      - ./eicr_base:/mnt/extra-addons/eicr_base
+      - ./eicr_expense:/mnt/extra-addons/eicr_expense
+      - ./eicr_pos:/mnt/extra-addons/eicr_pos
+    networks:
+      localhost:
+
+volumes:
+  odoo12-var-lib-odoo:
+    driver: local
+
+networks:
+  localhost:
+    external:
+      name: localhost

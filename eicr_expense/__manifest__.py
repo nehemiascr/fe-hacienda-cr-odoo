@@ -1,9 +1,9 @@
 {
     'name': 'eicr - gasto',
     'version': '11.0.0',
-    'author': 'Automatuanis.com',
+    'author': 'Automatización',
     'license': 'OPL-1',
-    'website': 'https://www.automatuanis.com/',
+    'website': 'https://www.fakturacion.com/',
     'category': 'Human Resources',
     'depends': [
         'hr_expense', 'eicr_base'
