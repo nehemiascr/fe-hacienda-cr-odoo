@@ -33,24 +33,27 @@ class AccountInvoice(models.Model):
         template = self.env.ref('account.email_template_edi_invoice', False)
         compose_form = self.env.ref('account.account_invoice_send_wizard_form', False)
 
-        comprobante = self.env['ir.attachment'].search(
-            [('res_model', '=', 'account.invoice'), ('res_id', '=', self.id),
-             ('res_field', '=', 'eicr_documento_file')], limit=1)
-        comprobante.name = self.eicr_documento_fname
-        comprobante.datas_fname = self.eicr_documento_fname
-
-        attachments = comprobante
-
-        if self.eicr_mensaje_hacienda_file:
-            respuesta = self.env['ir.attachment'].search(
+        # agregamos los adjuntos solo si el comprobante fue aceptado
+        if self.eicr_state in ('aceptado'):
+            comprobante = self.env['ir.attachment'].search(
                 [('res_model', '=', 'account.invoice'), ('res_id', '=', self.id),
-                 ('res_field', '=', 'eicr_mensaje_hacienda_file')], limit=1)
-            respuesta.name = self.eicr_mensaje_hacienda_fname
-            respuesta.datas_fname = self.eicr_mensaje_hacienda_fname
+                 ('res_field', '=', 'eicr_documento_file')], limit=1)
+            comprobante.name = self.eicr_documento_fname
+            comprobante.datas_fname = self.eicr_documento_fname
 
-            attachments = attachments | respuesta
+            attachments = comprobante
 
-        template.attachment_ids = [(6, 0, attachments.mapped('id'))]
+            if self.eicr_mensaje_hacienda_file:
+                respuesta = self.env['ir.attachment'].search(
+                    [('res_model', '=', 'account.invoice'), ('res_id', '=', self.id),
+                     ('res_field', '=', 'eicr_mensaje_hacienda_file')], limit=1)
+                respuesta.name = self.eicr_mensaje_hacienda_fname
+                respuesta.datas_fname = self.eicr_mensaje_hacienda_fname
+
+                attachments = attachments | respuesta
+            template.attachment_ids = [(6, 0, attachments.mapped('id'))]
+        else:
+            template.attachment_ids = [(5)]
 
         email_to = self.partner_id.email_facturas or self.partner_id.email
         _logger.info('emailing to %s' % email_to)

@@ -164,24 +164,27 @@ class ElectronicInvoiceCostaRicaTools(models.AbstractModel):
 		if object._name == 'pos.order':
 			email_template = self.env.ref('cr_pos_electronic_invoice.email_template_pos_invoice', False)
 
-		comprobante = self.env['ir.attachment'].search(
-			[('res_model', '=', object._name), ('res_id', '=', object.id),
-			 ('res_field', '=', 'eicr_documento_file')], limit=1)
-		comprobante.name = object.eicr_documento_fname
-		comprobante.datas_fname = object.eicr_documento_fname
-
-		attachments = comprobante
-
-		if object.eicr_mensaje_hacienda_file:
-			respuesta = self.env['ir.attachment'].search(
+		# agregamos los adjuntos solo si el comprobante fue aceptado
+		if self.eicr_state in ('aceptado'):
+			comprobante = self.env['ir.attachment'].search(
 				[('res_model', '=', object._name), ('res_id', '=', object.id),
-				 ('res_field', '=', 'eicr_mensaje_hacienda_file')], limit=1)
-			respuesta.name = object.eicr_mensaje_hacienda_fname
-			respuesta.datas_fname = object.eicr_mensaje_hacienda_fname
+				 ('res_field', '=', 'eicr_documento_file')], limit=1)
+			comprobante.name = object.eicr_documento_fname
+			comprobante.datas_fname = object.eicr_documento_fname
 
-			attachments = attachments | respuesta
+			attachments = comprobante
 
-		email_template.attachment_ids = [(6, 0, attachments.mapped('id'))]
+			if object.eicr_mensaje_hacienda_file:
+				respuesta = self.env['ir.attachment'].search(
+					[('res_model', '=', object._name), ('res_id', '=', object.id),
+					 ('res_field', '=', 'eicr_mensaje_hacienda_file')], limit=1)
+				respuesta.name = object.eicr_mensaje_hacienda_fname
+				respuesta.datas_fname = object.eicr_mensaje_hacienda_fname
+
+				attachments = attachments | respuesta
+			email_template.attachment_ids = [(6, 0, attachments.mapped('id'))]
+		else:
+			email_template.attachment_ids = [(5)]
 
 
 
