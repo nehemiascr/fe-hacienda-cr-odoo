@@ -165,7 +165,7 @@ class ElectronicInvoiceCostaRicaTools(models.AbstractModel):
 			email_template = self.env.ref('cr_pos_electronic_invoice.email_template_pos_invoice', False)
 
 		# agregamos los adjuntos solo si el comprobante fue aceptado
-		if self.eicr_state in ('aceptado'):
+		if object.eicr_state in ('aceptado'):
 			comprobante = self.env['ir.attachment'].search(
 				[('res_model', '=', object._name), ('res_id', '=', object.id),
 				 ('res_field', '=', 'eicr_documento_file')], limit=1)
