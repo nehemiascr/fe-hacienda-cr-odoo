@@ -104,7 +104,7 @@ class ElectronicInvoice(models.TransientModel):
 
 		try:
 			url = self._get_url_auth(company_id)
-			response = requests.post(url, data=data)
+			response = requests.post(url, data=data, timeout=5)
 			_logger.info('response %s' % response.__dict__)
 			respuesta = response.json()
 			if 'access_token' in respuesta:
@@ -342,7 +342,7 @@ class ElectronicInvoice(models.TransientModel):
 		try:
 			url = self._get_url(object.company_id)
 			_logger.info('validando %s %s' % (object, Clave.text))
-			response = requests.post(url, data=json.dumps(mensaje), headers=headers)
+			response = requests.post(url, data=json.dumps(mensaje), headers=headers, timeout=10)
 			_logger.info('Respuesta de hacienda\n%s' % response)
 
 		except requests.exceptions.RequestException as e:
@@ -401,7 +401,7 @@ class ElectronicInvoice(models.TransientModel):
 		try:
 			url = self._get_url(object.company_id) + '/' + clave
 			_logger.info('preguntando con %s' % url)
-			response = requests.get(url, data=json.dumps({'clave': clave}), headers=headers)
+			response = requests.get(url, data=json.dumps({'clave': clave}), headers=headers, timeout=5)
 
 		except requests.exceptions.RequestException as e:
 			_logger.info('no vamos a continuar, Exception %s' % e)
@@ -2744,7 +2744,7 @@ class ElectronicInvoice(models.TransientModel):
 
 		try:
 			url = 'https://api.hacienda.go.cr/fe/ae'
-			response = requests.get(url, params={'identificacion': identificacion})
+			response = requests.get(url, params={'identificacion': identificacion}, timeout=5)
 
 		except requests.exceptions.RequestException as e:
 			_logger.info('RequestException %s' % e)
