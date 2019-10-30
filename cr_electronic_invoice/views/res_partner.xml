@@ -9,6 +9,18 @@
 			<field name="model">res.partner</field>
 			<field name="inherit_id" ref="base.view_partner_form"/>
 			<field name="arch" type="xml">
+				<xpath expr="//form/sheet" position="before">
+					<header>
+                		<button name="action_update_info" type="object" string="Actualizar datos" colspan="2"/>
+					</header>
+				</xpath>
+
+				<xpath expr="//group[@name='fiscal_information']" position="inside">
+					<field name="eicr_regimen"/>
+					<field name="eicr_activity_ids" widget="many2many_tags"/>
+				</xpath>
+
+
 				<field name="phone" position="before">
 					<field name="phone_code"/>
 				</field>

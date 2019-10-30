@@ -76,12 +76,12 @@ class PosOrder(models.Model):
         pos_order.fecha = now_cr.strftime('%Y-%m-%d %H:%M:%S')
         pos_order.date_issuance = now_cr.strftime("%Y-%m-%dT%H:%M:%S-06:00")
 
-        xml_firmado = self.env['electronic_invoice'].get_xml(pos_order)
+        xml_firmado = self.env['eicr.tools'].get_xml(pos_order)
 
         if xml_firmado:
             pos_order.xml_comprobante = xml_firmado
 
-            documento = 'FacturaElectronica' if self.env['electronic_invoice']._validar_receptor(pos_order.partner_id) else 'TiqueteElectronico'
+            documento = 'FacturaElectronica' if self.env['eicr.tools']._validar_receptor(pos_order.partner_id) else 'TiqueteElectronico'
             pos_order.fname_xml_comprobante = documento + '_' + pos_order.number_electronic + '.xml'
             pos_order.state_tributacion = 'pendiente'
 

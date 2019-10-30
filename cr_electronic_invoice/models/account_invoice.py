@@ -117,8 +117,6 @@ class AccountInvoiceElectronic(models.Model):
             'context': ctx,
         }
 
-
-
     @api.onchange('xml_supplier_approval')
     def _onchange_xml_supplier_approval(self):
         # sin xml limpiamos los campos de la facturacion electronica
@@ -139,13 +137,13 @@ class AccountInvoiceElectronic(models.Model):
         _logger.info('state %s' % self.state)
         if self.type in ('in_invoice', 'in_refund') and self.state in ('draft'):
             _logger.info('processing xml')
-            self.env['electronic_invoice']._process_supplier_invoice(self)
+            self.env['eicr.tools']._process_supplier_invoice(self)
 
     @api.multi
     def action_enviar_aceptacion(self, vals):
         _logger.info('action_enviar_mensaje self %s' % self)
         _logger.info('action_enviar_mensaje vals %s' % vals)
-        self.env['electronic_invoice'].enviar_aceptacion(self)
+        self.env['eicr.tools'].enviar_aceptacion(self)
 
     @api.multi
     @api.returns('self')
@@ -181,32 +179,31 @@ class AccountInvoiceElectronic(models.Model):
 
     @api.multi
     def action_consultar_hacienda(self):
-        if self.company_id.eicr_environment != 'disabled':
-            for invoice in self:
-                self.env['electronic_invoice']._consultar_documento(invoice)
+        for invoice in self:
+            self.env['eicr.hacienda']._consultar_documento(invoice)
 
     def _action_out_invoice_open(self, invoice):
 
         if invoice.type not in ('out_invoice', 'out_refund'):
             return invoice
 
-        consecutivo = self.env['electronic_invoice']._get_consecutivo(invoice)
+        consecutivo = self.env['eicr.tools']._get_consecutivo(invoice)
         if not consecutivo:
             raise UserError('Error con el consecutivo de la factura %s' % consecutivo)
         invoice.number = consecutivo
 
-        clave = self.env['electronic_invoice']._get_clave(invoice)
+        clave = self.env['eicr.tools']._get_clave(invoice)
         if not clave:
             raise UserError('Error con la clave de la factura %s' % clave)
         invoice.number_electronic = clave
 
-        comprobante = self.env['electronic_invoice'].get_xml(invoice)
+        comprobante = self.env['eicr.tools'].get_xml(invoice)
 
         if comprobante:
             invoice.xml_comprobante = comprobante
 
             documento = 'TiqueteElectronico'
-            if self.env['electronic_invoice']._validar_receptor(invoice.partner_id):
+            if self.env['eicr.tools']._validar_receptor(invoice.partner_id):
                 documento = 'FacturaElectronica'
             elif invoice.type == 'out_refund':
                 documento = 'NotaCreditoElectronica'
@@ -223,17 +220,17 @@ class AccountInvoiceElectronic(models.Model):
             return invoice
 
         if invoice.xml_supplier_approval:
-            consecutivo = self.env['electronic_invoice']._get_consecutivo(invoice)
+            consecutivo = self.env['eicr.tools']._get_consecutivo(invoice)
             if not consecutivo:
                 raise UserError('Error con el consecutivo de la factura %s' % consecutivo)
             invoice.number = consecutivo
 
-            clave = self.env['electronic_invoice']._get_clave(invoice)
+            clave = self.env['eicr.tools']._get_clave(invoice)
             if not clave:
                 raise UserError('Error con la clave de la factura %s' % clave)
             invoice.number_electronic = clave
 
-            comprobante = self.env['electronic_invoice'].get_xml(invoice)
+            comprobante = self.env['eicr.tools'].get_xml(invoice)
 
             if comprobante:
                 invoice.xml_comprobante = comprobante

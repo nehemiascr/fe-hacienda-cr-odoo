@@ -3,18 +3,20 @@
 	<data noupdate="0">
 		<record id="ir_cron_consultahacienda" model="ir.cron">
 			<field name="name">Consulta Hacienda</field>
-			<field name="model_id" ref="model_electronic_invoice" />
+			<field name="model_id" ref="model_eicr_hacienda" />
 			<field name="state">code</field>
 			<field name="code">model._consultahacienda()</field>
 			<field name="interval_number">5</field>
 			<field name="interval_type">minutes</field>
 			<field name="numbercall">-1</field>
 			<field name="doall" eval="False" />
+			<field name="active" eval="True" />
+			<field name="args">(10,)</field>
 		</record>
 
 		<record id="ir_cron_valida_hacienda_invoice" model="ir.cron">
 			<field name="name">Valida Facturas Hacienda</field>
-			<field name="model_id" ref="model_electronic_invoice" />
+			<field name="model_id" ref="model_eicr_hacienda" />
 			<field name="state">code</field>
 			<field name="code">model._validahacienda()</field>
 			<field name="interval_number">5</field>

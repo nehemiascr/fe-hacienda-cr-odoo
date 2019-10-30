@@ -1,9 +1,10 @@
 # -*- coding: utf-8 -*-
-# License AGPL-3.0 or later (https://www.gnu.org/licenses/agpl).
+# info@fakturacion.com OPL-1
 
 
 import logging
 from odoo import models, fields, api, _
+from odoo.exceptions import UserError
 from odoo.tools import float_compare
 from odoo.addons import decimal_precision as dp
 import datetime
@@ -52,44 +53,41 @@ class HrExpense(models.Model):
     credito_iva = fields.Float('Porcentaje del Impuesto a acreditar', digits=(3,2), default=100)
     credito_iva_condicion = fields.Many2one("credit.conditions", "Condición del Impuesto")
 
+    partner_id = fields.Many2one('res.partner', 'Proveedor')
 
-
-    def action_cargar_xml(self, vals):
-        _logger.info('action_cargar_xml self %s' % self)
-        _logger.info('action_cargar_xml vals %s' % vals)
-
-        # return {
-        #     'type': 'ir.actions.act_window',
-        #     'res_model': 'facturacion_electronica',
-        #     'view_type': 'form',
-        #     'view_mode': 'form',
-        #     'target': 'new',
-        #     # 'res_id': self.id,
-        #     'context': dict(self._context),
-        # }
+    @api.model
+    def create(self, vals):
+        _logger.info('create %s' % vals)
+        if 'xml_supplier_approval' in vals:
+            if 'partner_id' not in vals:
+                partner_id = self.env['eicr.tools'].get_partner_emisor(vals['xml_supplier_approval'])
+                if partner_id:
+                    vals['partner_id'] = partner_id.id
+            if 'state_tributacion' not in vals:
+                vals['state_tributacion'] = 'pendiente'
+        expense = super(HrExpense, self).create(vals)
+        print('expense %s' % expense)
+        return expense
 
     def action_enviar_aceptacion(self, vals):
-        _logger.info('action_enviar_mensaje self %s' % self)
-        _logger.info('action_enviar_mensaje vals %s' % vals)
-        self.env['electronic_invoice'].enviar_aceptacion(self)
+        _logger.info('action_enviar_mensaje self %s vals %s' % (self, vals))
+        self.env['eicr.tools'].enviar_aceptacion(self)
 
     def action_consultar_hacienda(self, vals):
-        _logger.info('action_consultar_hacienda self %s' % self)
-        _logger.info('action_consultar_hacienda vals %s' % vals)
+        _logger.info('action_consultar_hacienda self %s vals %s' % (self, vals))
         if self.state_tributacion in ('aceptado', 'rechazado', 'recibido', 'error', 'procesando'):
-            self.env['electronic_invoice']._consultar_documento(self)
+            self.env['eicr.hacienda']._consultar_documento(self)
 
 
     @api.onchange('xml_supplier_approval')
     def _onchange_xml_supplier_approval(self):
         _logger.info('cargando xml de proveedor')
 
-        fe = self.env['electronic_invoice']
+        fe = self.env['eicr.tools']
 
         if self.xml_supplier_approval and fe.validar_xml_proveedor(self.xml_supplier_approval):
 
             xml = base64.b64decode(self.xml_supplier_approval)
-            _logger.info('xml %s' % xml)
 
             factura = etree.tostring(etree.fromstring(xml)).decode()
             factura = etree.fromstring(re.sub(' xmlns="[^"]+"', '', factura, count=1))
@@ -100,60 +98,51 @@ class HrExpense(models.Model):
             Emisor = factura.find('Emisor')
             Receptor = factura.find('Receptor')
 
-            CondicionVenta = factura.find('CondicionVenta')
-            PlazoCredito = factura.find('PlazoCredito')
+            vat_receptor = Receptor.find('Identificacion').find('Numero').text
+            vat_company = re.sub('[^0-9]', '', self.company_id.vat or '')
 
-            emisor = Emisor.find('Identificacion').find('Numero').text
+            if vat_company != vat_receptor:
+                nombre_receptor = Receptor.find('Nombre').text
+                raise UserError(_('El xml que esta intentando usar no es para esta compañia, es para\n%s - %s' % ( vat_receptor, nombre_receptor)))
 
-            _logger.info('buscando %s' % emisor)
-            proveedor = self.env['res.partner'].search([('vat', '=', emisor)])
+            vat_proveedor = Emisor.find('Identificacion').find('Numero').text
+            tipo_proveedor = Emisor.find('Identificacion').find('Tipo').text
+            _logger.info('buscando %s' % vat_proveedor)
+            proveedor = self.env['res.partner'].search([('vat', '=', vat_proveedor)])
 
-            _logger.info('resultado %s' % proveedor)
+            if not proveedor:
+                ctx = self.env.context.copy()
+                ctx.pop('default_type', False)
+                tipo = self.env['identification.type'].search([('code', '=', tipo_proveedor)])
 
+                is_company = True if tipo.code == '02' else False
 
+                phone_code = ''
+                if Emisor.find('Telefono') and Emisor.find('Telefono').find('CodigoPais'):
+                    phone_code = Emisor.find('Telefono').find('CodigoPais').text
+
+                phone = ''
+                if Emisor.find('Telefono') and Emisor.find('Telefono').find('NumTelefono'):
+                    phone = Emisor.find('Telefono').find('NumTelefono').text
+
+                email = Emisor.find('CorreoElectronico').text
+                name = Emisor.find('Nombre').text
+
+                proveedor = self.env['res.partner'].with_context(ctx).create({'name': name,
+                                                                              'email': email,
+                                                                              'phone_code': phone_code,
+                                                                              'phone': phone,
+                                                                              'vat': vat_proveedor,
+                                                                              'identification.type': tipo.id,
+                                                                              'is_company': is_company,
+                                                                              'customer': False,
+                                                                              'supplier': True})
+                _logger.info('nuevo proveedor %s' % proveedor)
+
+            self.partner_id = proveedor
             self.date = FechaEmision.text
-
-            _logger.info('NumeroConsecutivo %s' % NumeroConsecutivo)
             self.reference = NumeroConsecutivo.text
-
             self.unit_amount = factura.find('ResumenFactura').find('TotalComprobante').text
             self.quantity = 1.0
             self.state_tributacion = 'pendiente'
-
             self.number_electronic = Clave.text
-
-            # respuesta = fe.
-
-
-
-        # else:
-        #     self.state_tributacion = False
-        #     self.xml_supplier_approval = False
-        #     self.fname_xml_supplier_approval = False
-        #     self.xml_respuesta_tributacion = False
-        #     self.fname_xml_respuesta_tributacion = False
-        #     self.date_issuance = False
-        #     self.number_electronic = False
-        #     self.state_invoice_partner = False
-
-    # @api.model
-    # def _process_order(self, order):
-    #
-    #     _logger.info('order %s' % order)
-    #     pos_order = super(PosOrder, self)._process_order(order)
-    #     _logger.info('pos_order %s' % pos_order.__dict__)
-    #
-    #     now_utc = datetime.datetime.now(pytz.timezone('UTC'))
-    #     now_cr = now_utc.astimezone(pytz.timezone('America/Costa_Rica'))
-    #
-    #     pos_order.fecha = now_cr.strftime('%Y-%m-%d %H:%M:%S')
-    #     pos_order.date_issuance = now_cr.strftime("%Y-%m-%dT%H:%M:%S-06:00")
-    #
-    #     xml_firmado = self.env['facturacion_electronica'].get_xml(pos_order)
-    #
-    #     if xml_firmado:
-    #         pos_order.xml_comprobante = xml_firmado
-    #         pos_order.fname_xml_comprobante = 'TiqueteElectronico_' + pos_order.number_electronic + '.xml'
-    #         pos_order.state_tributacion = 'pendiente'
-    #
-    #     return pos_order
