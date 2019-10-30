@@ -69,8 +69,6 @@ class ElectronicInvoice(models.TransientModel):
 			else:
 				object.state_tributacion = 'na'
 
-
-
 	def get_token(self, company_id):
 		_logger.info('checking token')
 
@@ -110,6 +108,7 @@ class ElectronicInvoice(models.TransientModel):
 			if 'access_token' in respuesta:
 				respuesta['timestamp'] = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
 				company_id.eicr_token = respuesta
+				self.env.cr.commit()
 				_logger.info('token renovado %s' % company_id.eicr_token)
 				return respuesta['access_token']
 			else:
@@ -563,6 +562,7 @@ class ElectronicInvoice(models.TransientModel):
 				if not factura.xml_comprobante:
 					pass
 				self._enviar_documento(factura)
+				self.env.cr.commit()
 
 		if order != None:
 			tiquetes = order.search([('state_tributacion', 'in', ('pendiente',))],
@@ -574,6 +574,7 @@ class ElectronicInvoice(models.TransientModel):
 					tiquete.state_tributacion = 'na'
 					pass
 				self._enviar_documento(tiquete)
+				self.env.cr.commit()
 
 		if expense != None:
 			gastos = expense.search([('state_tributacion', 'in', ('pendiente',))],
@@ -593,6 +594,7 @@ class ElectronicInvoice(models.TransientModel):
 						gasto.state_tributacion = 'na'
 						pass
 				self._enviar_documento(gasto)
+				self.env.cr.commit()
 
 		_logger.info('Valida - Finalizado Exitosamente')
 
@@ -623,6 +625,7 @@ class ElectronicInvoice(models.TransientModel):
 				_logger.info('Consultando documento %s / %s ' % (indice+1, len(facturas)))
 				if not factura.xml_comprobante: pass
 				if self._consultar_documento(factura): self._enviar_email(factura)
+				self.env.cr.commit()
 				max_documentos -= 1
 
 		if order != None:
@@ -634,6 +637,7 @@ class ElectronicInvoice(models.TransientModel):
 					pass
 				if self._consultar_documento(tiquete):
 					self._enviar_email(tiquete)
+				self.env.cr.commit()
 				max_documentos -= 1
 
 		if expense != None:
@@ -643,6 +647,7 @@ class ElectronicInvoice(models.TransientModel):
 				if not gasto.xml_comprobante:
 					pass
 				self._consultar_documento(gasto)
+				self.env.cr.commit()
 				max_documentos -= 1
 
 		_logger.info('Consulta Hacienda - Finalizado Exitosamente')
