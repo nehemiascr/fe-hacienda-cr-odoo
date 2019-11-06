@@ -8,7 +8,7 @@ _logger = logging.getLogger(__name__)
 REGIMENES = [
     ('0', 'No tiene'),
     ('1', 'Régimen Tradicional'),
-    ('2', 'Régimen Tradicional')]
+    ('2', 'Régimen Simplificado')]
 
 
 class PartnerElectronic(models.Model):
