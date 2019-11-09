@@ -13,7 +13,7 @@
 					<button name="action_consultar_hacienda" type="object" string="Consultar Hacienda" colspan="2" attrs="{'invisible':[('state_tributacion','not in', ['aceptado', 'rechazado', 'recibido', 'error', 'procesando'])]}"/>
 				</xpath>
 				<xpath expr="//field[@name='employee_id']" position="after">
-					<field name="partner_id" readonly="1" attrs="{'invisible':[('xml_supplier_approval','in', [False,])]}"/>
+					<field name="partner_id" domain="[('supplier', '=', True)]" attrs="{'readonly':[('xml_supplier_approval','not in', [False, None])]}"/>
 				</xpath>
 				<xpath expr="//sheet[1]" position="after">
 					<sheet>
