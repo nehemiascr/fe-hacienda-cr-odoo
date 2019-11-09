@@ -1,6 +1,21 @@
 <?xml version="1.0" encoding="utf-8"?>
 <odoo>
 	<data>
+
+        <record id="view_expenses_tree" model="ir.ui.view">
+            <field name="name">hr.expense.tree</field>
+            <field name="model">hr.expense</field>
+			<field name="inherit_id" ref="hr_expense.view_expenses_tree" />
+			<field name="arch" type="xml">
+				<xpath expr="//field[@name='name']" position="after">
+					<field name="partner_id"/>
+				</xpath>
+                <xpath expr="//field[@name='employee_id']" position="after">
+					<field name="untaxed_amount"/>
+				</xpath>
+			</field>
+		</record>
+
 		<record id="hr_expense_form_view_inherit" model="ir.ui.view">
 			<field name="name">hr.expense.form.inherit</field>
             <field name="model">hr.expense</field>
