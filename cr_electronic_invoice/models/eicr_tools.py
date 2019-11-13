@@ -2418,13 +2418,63 @@ class ElectronicInvoiceCostaRicaTools(models.AbstractModel):
             })
 
     @api.model
-    def get_partner_emisor(self, base64_decoded_xml):
-        xml = base64.b64decode(base64_decoded_xml)
-        factura = etree.tostring(etree.fromstring(xml)).decode()
-        factura = etree.fromstring(re.sub(' xmlns="[^"]+"', '', factura, count=1))
-        Emisor = factura.find('Emisor')
-        vat = Emisor.find('Identificacion').find('Numero').text
-        return self.env['res.partner'].search([('vat', '=', vat)])
+    def get_partner_emisor(self, base64_encoded_xml):
+        try:
+            xml = base64.b64decode(base64_encoded_xml)
+            factura = etree.tostring(etree.fromstring(xml)).decode()
+            factura = etree.fromstring(re.sub(' xmlns="[^"]+"', '', factura, count=1))
+            Emisor = factura.find('Emisor')
+            vat = Emisor.find('Identificacion').find('Numero').text
+            all_partners = self.env['res.partner'].search([])
+            return all_partners.filtered(lambda p: re.sub('[^0-9]', '', p.vat or '') == vat)
+        except Exception as e:
+            _logger.info('algo salió mal con el xml %s' % self)
+            _logger.info(e)
+            return None
+
+
+    @api.model
+    def new_partner_from_xml(self, base64_encoded_xml, supplier=True, customer=False):
+        try:
+            xml = base64.b64decode(base64_encoded_xml)
+            factura = etree.tostring(etree.fromstring(xml)).decode()
+            factura = etree.fromstring(re.sub(' xmlns="[^"]+"', '', factura, count=1))
+            Emisor = factura.find('Emisor')
+
+            ctx = self.env.context.copy()
+            ctx.pop('default_type', False)
+            tipo = self.env['identification.type'].search([('code', '=', Emisor.find('Identificacion').find('Tipo').text)])
+
+            is_company = True if tipo.code == '02' else False
+
+            phone_code = ''
+            if Emisor.find('Telefono') is not None and Emisor.find('Telefono').find('CodigoPais'):
+                phone_code = Emisor.find('Telefono').find('CodigoPais').text
+
+            phone = ''
+            if Emisor.find('Telefono') is not None and Emisor.find('Telefono').find('NumTelefono'):
+                phone = Emisor.find('Telefono').find('NumTelefono').text
+
+            email = Emisor.find('CorreoElectronico').text
+            name = Emisor.find('Nombre').text
+
+            proveedor = self.env['res.partner'].with_context(ctx).create({'name': name,
+                                                                          'email': email,
+                                                                          'phone_code': phone_code,
+                                                                          'phone': phone,
+                                                                          'vat': Emisor.find('Identificacion').find('Numero').text,
+                                                                          'identification.type': tipo.id,
+                                                                          'is_company': is_company,
+                                                                          'customer': customer,
+                                                                          'supplier': supplier})
+
+            proveedor.action_update_info()
+            _logger.info('nuevo proveedor %s' % proveedor)
+            return proveedor
+        except Exception as e:
+            _logger.info('algo salió mal creando el contacto del xml de %s' % self)
+            _logger.info(e)
+            return None
 
     @api.model
     def actualizar_info(self, partner_id):

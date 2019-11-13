@@ -111,33 +111,7 @@ class HrExpense(models.Model):
             proveedor = self.env['res.partner'].search([('vat', '=', vat_proveedor)])
 
             if not proveedor:
-                ctx = self.env.context.copy()
-                ctx.pop('default_type', False)
-                tipo = self.env['identification.type'].search([('code', '=', tipo_proveedor)])
-
-                is_company = True if tipo.code == '02' else False
-
-                phone_code = ''
-                if Emisor.find('Telefono') and Emisor.find('Telefono').find('CodigoPais'):
-                    phone_code = Emisor.find('Telefono').find('CodigoPais').text
-
-                phone = ''
-                if Emisor.find('Telefono') and Emisor.find('Telefono').find('NumTelefono'):
-                    phone = Emisor.find('Telefono').find('NumTelefono').text
-
-                email = Emisor.find('CorreoElectronico').text
-                name = Emisor.find('Nombre').text
-
-                proveedor = self.env['res.partner'].with_context(ctx).create({'name': name,
-                                                                              'email': email,
-                                                                              'phone_code': phone_code,
-                                                                              'phone': phone,
-                                                                              'vat': vat_proveedor,
-                                                                              'identification.type': tipo.id,
-                                                                              'is_company': is_company,
-                                                                              'customer': False,
-                                                                              'supplier': True})
-                _logger.info('nuevo proveedor %s' % proveedor)
+                proveedor = self.env['eicr.tools'].new_partner_from_xml(self.xml_supplier_approval)
 
             self.partner_id = proveedor
             self.date = FechaEmision.text
@@ -146,3 +120,4 @@ class HrExpense(models.Model):
             self.quantity = 1.0
             self.state_tributacion = 'pendiente'
             self.number_electronic = Clave.text
+
