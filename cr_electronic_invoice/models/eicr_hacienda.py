@@ -95,7 +95,7 @@ class ElectronicInvoiceCostaRicaHacienda(models.AbstractModel):
 
         try:
             url = 'https://api.hacienda.go.cr/fe/ae'
-            response = requests.get(url, params={'identificacion': identificacion}, timeout=5)
+            response = requests.get(url, params={'identificacion': identificacion}, timeout=5, verify=False)
 
         except requests.exceptions.RequestException as e:
             _logger.info('RequestException %s' % e)
