@@ -108,7 +108,7 @@ class HrExpense(models.Model):
             vat_proveedor = Emisor.find('Identificacion').find('Numero').text
             tipo_proveedor = Emisor.find('Identificacion').find('Tipo').text
             _logger.info('buscando %s' % vat_proveedor)
-            proveedor = self.env['res.partner'].search([('vat', '=', vat_proveedor)])
+            proveedor = self.env['res.partner'].search([]).filtered(lambda p: re.sub('[^0-9]', '', p.vat or '') == vat_proveedor)
 
             if not proveedor:
                 proveedor = self.env['eicr.tools'].new_partner_from_xml(self.xml_supplier_approval)
@@ -120,4 +120,25 @@ class HrExpense(models.Model):
             self.quantity = 1.0
             self.state_tributacion = 'pendiente'
             self.number_electronic = Clave.text
+
+    def _check_data_from_xml(self):
+        fe = self.env['eicr.tools']
+        if self.xml_supplier_approval and fe.validar_xml_proveedor(self.xml_supplier_approval):
+            xml = base64.b64decode(self.xml_supplier_approval)
+
+            factura = etree.tostring(etree.fromstring(xml)).decode()
+            factura = etree.fromstring(re.sub(' xmlns="[^"]+"', '', factura, count=1))
+
+            Emisor = factura.find('Emisor')
+
+            vat_proveedor = Emisor.find('Identificacion').find('Numero').text
+            tipo_proveedor = Emisor.find('Identificacion').find('Tipo').text
+            _logger.info('buscando %s' % vat_proveedor)
+            proveedor = self.env['res.partner'].search([]).filtered(lambda p: re.sub('[^0-9]', '', p.vat or '') == vat_proveedor)
+
+            if proveedor and len(proveedor):
+                if self.partner_id != proveedor:
+                    _logger.info('que extraño, %s en lugar de %s' % (self.partner_id, proveedor))
+                    self.partner_id = proveedor
+
 

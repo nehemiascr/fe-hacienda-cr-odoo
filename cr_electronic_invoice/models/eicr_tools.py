@@ -2315,7 +2315,7 @@ class ElectronicInvoiceCostaRicaTools(models.AbstractModel):
         emisor_vat = Emisor.find('Identificacion').find('Numero').text
         emisor_tipo = Emisor.find('Identificacion').find('Tipo').text
 
-        supplier = self.env['res.partner'].search([('vat', '=', emisor_vat)])
+        supplier = self.env['res.partner'].search([]).filtered( lambda p: re.sub('[^0-9]', '', p.vat or '') == emisor_vat)
 
         if not supplier:
             ctx = self.env.context.copy()
