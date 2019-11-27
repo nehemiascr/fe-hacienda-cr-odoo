@@ -140,5 +140,7 @@ class HrExpense(models.Model):
                 if self.partner_id != proveedor:
                     _logger.info('que extraño, %s en lugar de %s' % (self.partner_id, proveedor))
                     self.partner_id = proveedor
+                else:
+                    _logger.info('!!! son el mismo %s %s' % (self.partner_id, proveedor))
 
 
