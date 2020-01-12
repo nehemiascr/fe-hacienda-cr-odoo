@@ -2156,6 +2156,7 @@ class ElectronicInvoiceCostaRicaTools(models.AbstractModel):
         return xml_encoded
 
     def _process_supplier_invoice(self, invoice):
+        _logger.info('_process_supplier_invoice %s' % invoice)
 
         xml = etree.fromstring(base64.b64decode(invoice.xml_supplier_approval))
         namespace = xml.nsmap[None]
@@ -2190,7 +2191,7 @@ class ElectronicInvoiceCostaRicaTools(models.AbstractModel):
                 xml.find('ResumenFactura').find('TotalComprobante') is None):
             return {'value': {'xml_supplier_approval': False},
                     'warning': {'title': 'Atención', 'message': 'El xml parece estar incompleto.'}}
-
+        _logger.info('namespace %s' % namespace)
         if namespace == v42:
             return self._proccess_supplier_invoicev42(invoice, xml)
         elif namespace == v43:
@@ -2316,7 +2317,7 @@ class ElectronicInvoiceCostaRicaTools(models.AbstractModel):
         emisor_tipo = Emisor.find('Identificacion').find('Tipo').text
 
         supplier = self.env['res.partner'].search([]).filtered( lambda p: re.sub('[^0-9]', '', p.vat or '') == emisor_vat)
-
+        _logger.info('supplier %s' % supplier)
         if not supplier:
             ctx = self.env.context.copy()
             ctx.pop('default_type', False)
@@ -2407,7 +2408,7 @@ class ElectronicInvoiceCostaRicaTools(models.AbstractModel):
 
             # default_account = self.env['ir.property'].get('property_account_payable_id', 'res.partner')
 
-            self.env['account.invoice.line'].new({
+            self.env['account.invoice.line'].create({
                 'quantity': cantidad,
                 'price_unit': precio_unitario,
                 'invoice_id': invoice.id,
