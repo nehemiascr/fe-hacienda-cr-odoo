@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+	<data noupdate="0">
+
+		<record id="invoice_supplier_form" model="ir.ui.view">
+			<field name="name">account.invoice.supplier.form.inherit</field>
+			<field name="model">account.invoice</field>
+			<field name="inherit_id" ref="account.invoice_supplier_form"/>
+			<field name="arch" type="xml">
+				<xpath expr="//button[@name='action_invoice_open']" position="after">
+					<button name="action_convertir_en_gasto" type="object" string="Enviar a Gasto" colspan="2" attrs="{'invisible':[('state','!=', 'draft')]}"/>
+				</xpath>
+			</field>
+		</record>
+
+	</data>
+</odoo>

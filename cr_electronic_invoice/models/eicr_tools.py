@@ -2496,4 +2496,70 @@ class ElectronicInvoiceCostaRicaTools(models.AbstractModel):
             # régimen tributario
             partner_id.eicr_regimen = str(info['regimen']['codigo'])
 
+    def _get_partner_from_xml(self, xml_encoded, customer=False, supplier=True):
+        xml = etree.fromstring(base64.b64decode(xml_encoded))
+        xml = etree.tostring(xml).decode()
+        xml = re.sub(' xmlns="[^"]+"', '', xml)
+        xml = etree.fromstring(xml)
+
+        if (xml.find('Emisor') is None or
+            xml.find('Emisor').find('Identificacion') is None or
+            xml.find('Emisor').find('Identificacion').find('Tipo') is None or
+            xml.find('Emisor').find('Identificacion').find('Numero') is None):
+                return None
+
+        Emisor = xml.find('Emisor')
+        emisor_vat = Emisor.find('Identificacion').find('Numero').text
+        emisor_tipo = Emisor.find('Identificacion').find('Tipo').text
+
+        partner = self.env['res.partner'].search([]).filtered( lambda p: re.sub('[^0-9]', '', p.vat or '') == emisor_vat)
+
+        if not partner:
+            ctx = self.env.context.copy()
+            ctx.pop('default_type', False)
+            tipo = self.env['identification.type'].search([('code', '=', emisor_tipo)])
+
+            is_company = True if tipo.code == '02' else False
+
+            phone_code = ''
+            if Emisor.find('Telefono') and Emisor.find('Telefono').find('CodigoPais'):
+                phone_code = Emisor.find('Telefono').find('CodigoPais').text
+
+            phone = ''
+            if Emisor.find('Telefono') and Emisor.find('Telefono').find('NumTelefono'):
+                phone = Emisor.find('Telefono').find('NumTelefono').text
+
+            email = Emisor.find('CorreoElectronico').text
+            name = Emisor.find('Nombre').text
+
+            partner = self.env['res.partner'].with_context(ctx).create({'name': name,
+                                                                         'email': email,
+                                                                         'phone_code': phone_code,
+                                                                         'phone': phone,
+                                                                         'vat': emisor_vat,
+                                                                         'identification_id': tipo.id,
+                                                                         'is_company': is_company,
+                                                                         'customer': customer,
+                                                                         'supplier': supplier})
+            _logger.info('nuevo proveedor %s' % partner)
+        return partner
+
+    @api.model
+    def new_invoice_from_xml(self, xml_encoded, xml_filename,type='in_invoice'):
+
+        partner_id = self._get_partner_from_xml(xml_encoded)
+        journal = self.env['account.journal'].search([('type', '=', 'purchase')], limit=1)
+        # 0-211001 0-Cuentas por pagar a proveedores
+        account = self.env.ref('l10n_cr.1_account_account_template_0_211001')
+        invoice = self.env['account.invoice'].create({'type': type,
+                                                      'xml_supplier_approval': xml_encoded,
+                                                      'fname_xml_supplier_approval': xml_filename,
+                                                      'journal_id': journal.id,
+                                                      'account_id': account.id,
+                                                      'partner_id': partner_id.id})
+
+        self._process_supplier_invoice(invoice)
+        invoice.compute_taxes()
+        return invoice
+
 

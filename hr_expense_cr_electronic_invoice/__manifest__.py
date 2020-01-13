@@ -13,6 +13,7 @@
         "data/data.xml",
         "views/hr_expense_templates.xml",
         "views/hr_expense_views.xml",
+        "views/account_invoice_views.xml"
     ],
     "installable": True
 }

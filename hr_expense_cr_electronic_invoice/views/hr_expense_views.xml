@@ -26,6 +26,7 @@
 <!--					<button name="action_cargar_xml" type="object" string="Cargar archivo XML" colspan="2" attrs="{'invisible':[('xml_supplier_approval','not in', [None, False])]}" />-->
 					<button name="action_enviar_aceptacion" type="object" string="Enviar Mensaje Receptor" colspan="2" attrs="{'invisible':[('state_tributacion','in', [None, 'na'])]}"/>
 					<button name="action_consultar_hacienda" type="object" string="Consultar Hacienda" colspan="2" attrs="{'invisible':[('state_tributacion','not in', ['aceptado', 'rechazado', 'recibido', 'error', 'procesando'])]}"/>
+					<button name="action_convertir_en_factura" type="object" string="Enviar a Compras" colspan="2" attrs="{'invisible':[('state','!=', 'draft')]}"/>
 				</xpath>
 				<xpath expr="//field[@name='employee_id']" position="after">
 					<field name="partner_id" domain="[('supplier', '=', True)]" attrs="{'readonly':[('xml_supplier_approval','not in', [False, None])]}"/>

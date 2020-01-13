@@ -29,57 +29,6 @@ class AccountInvoiceMail(models.TransientModel):
         _logger.info('record %s' % record)
         return record
 
-    def _get_partner_from_xml(self, xml_encoded):
-        xml = etree.fromstring(base64.b64decode(xml_encoded))
-        namespace = xml.nsmap[None]
-        xml = etree.tostring(xml).decode()
-        xml = re.sub(' xmlns="[^"]+"', '', xml)
-        xml = etree.fromstring(xml)
-
-        if (xml.find('Emisor') is None or
-            xml.find('Emisor').find('Identificacion') is None or
-            xml.find('Emisor').find('Identificacion').find('Tipo') is None or
-            xml.find('Emisor').find('Identificacion').find('Numero') is None):
-                return None
-
-        Emisor = xml.find('Emisor')
-        emisor_vat = Emisor.find('Identificacion').find('Numero').text
-        emisor_tipo = Emisor.find('Identificacion').find('Tipo').text
-
-        supplier = self.env['res.partner'].search([]).filtered( lambda p: re.sub('[^0-9]', '', p.vat or '') == emisor_vat)
-
-        if not supplier:
-            ctx = self.env.context.copy()
-            ctx.pop('default_type', False)
-            tipo = self.env['identification.type'].search([('code', '=', emisor_tipo)])
-
-            is_company = True if tipo.code == '02' else False
-
-            phone_code = ''
-            if Emisor.find('Telefono') and Emisor.find('Telefono').find('CodigoPais'):
-                phone_code = Emisor.find('Telefono').find('CodigoPais').text
-
-            phone = ''
-            if Emisor.find('Telefono') and Emisor.find('Telefono').find('NumTelefono'):
-                phone = Emisor.find('Telefono').find('NumTelefono').text
-
-            email = Emisor.find('CorreoElectronico').text
-            name = Emisor.find('Nombre').text
-
-            supplier = self.env['res.partner'].with_context(ctx).create({'name': name,
-                                                                         'email': email,
-                                                                         'phone_code': phone_code,
-                                                                         'phone': phone,
-                                                                         'vat': emisor_vat,
-                                                                         'identification_id': tipo.id,
-                                                                         'is_company': is_company,
-                                                                         'customer': False,
-                                                                         'supplier': True})
-            _logger.info('nuevo proveedor %s' % supplier)
-        return supplier
-
-
-
 
 
     @api.model
@@ -111,10 +60,7 @@ class AccountInvoiceMail(models.TransientModel):
             _logger.info('%s/%s valid doc %s' % (i+1, len(documents), doc))
             xml_encoded = base64.b64encode(doc['xml']).decode('utf-8')
 
-            partner_id = self._get_partner_from_xml(xml_encoded)
-
-
-
+            partner_id = self.env['eicr.tools']._get_partner_from_xml(xml_encoded)
 
             invoice = self.env['account.invoice'].create({'type': 'in_invoice',
                                                           'xml_supplier_approval': xml_encoded,

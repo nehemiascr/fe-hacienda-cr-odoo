@@ -143,4 +143,32 @@ class HrExpense(models.Model):
                 else:
                     _logger.info('!!! son el mismo %s %s' % (self.partner_id, proveedor))
 
+    @api.onchange('product_id')
+    def _onchange_product_id(self):
+        if self.product_id:
+            if not self.name:
+                self.name = self.product_id.display_name or ''
+            # self.unit_amount = self.product_id.price_compute('standard_price')[self.product_id.id]
+            self.product_uom_id = self.product_id.uom_id
+            self.tax_ids = self.product_id.supplier_taxes_id
+            account = self.product_id.product_tmpl_id._get_product_accounts()['expense']
+            if account:
+                self.account_id = account
+
+    @api.multi
+    def action_convertir_en_factura(self):
+        _logger.info('%s' % self, )
+        for i, expense in enumerate(self):
+            _logger.info('%s/%s expense to invoice %s' % (i, len(self), expense))
+            if expense.state == 'draft':
+                invoice = self.env['eicr.tools'].new_invoice_from_xml(expense.xml_supplier_approval, expense.fname_xml_supplier_approval)
+                expense.unlink()
+
+                return {'type': 'ir.actions.act_window',
+                        'res_model': 'account.invoice',
+                        'view_mode': 'form',
+                        'res_id': invoice.id,
+                        'target': 'self'}
+
+
 
