@@ -2157,22 +2157,23 @@ class ElectronicInvoiceCostaRicaTools(models.AbstractModel):
 
     def _process_supplier_invoice(self, invoice):
         _logger.info('_process_supplier_invoice %s' % invoice)
-
         xml = etree.fromstring(base64.b64decode(invoice.xml_supplier_approval))
         namespace = xml.nsmap[None]
         xml = etree.tostring(xml).decode()
         xml = re.sub(' xmlns="[^"]+"', '', xml)
         xml = etree.fromstring(xml)
         document = xml.tag
+        _logger.info('document %s namespace %s' % (document, namespace))
 
-        v42 = 'https://tribunet.hacienda.go.cr/docs/esquemas/2017/v4.2/facturaElectronica'
-        v43 = 'https://cdn.comprobanteselectronicos.go.cr/xml-schemas/v4.3/facturaElectronica'
+        v42 = 'https://tribunet.hacienda.go.cr/docs/esquemas/2017/v4.2/'
+        v43 = 'https://cdn.comprobanteselectronicos.go.cr/xml-schemas/v4.3/'
 
-        if document != 'FacturaElectronica':
+        if document not in ('FacturaElectronica', 'TiqueteElectronico'):
             return {'value': {'xml_supplier_approval': False},
                     'warning': {'title': 'Atención', 'message': 'El archivo xml no es una Factura Electrónica.'}}
 
-        if not (namespace == v42 or namespace == v43):
+        if not (namespace.startswith(v42) or namespace.startswith(v43)):
+            logging.info('invalid namespace %s' % namespace)
             return {'value': {'xml_supplier_approval': False},
                     'warning': {'title': 'Atención',
                                 'message': 'Versión de Factura Electrónica no soportada.\n%s' % namespace}}
@@ -2189,12 +2190,13 @@ class ElectronicInvoiceCostaRicaTools(models.AbstractModel):
                 xml.find('Receptor').find('Identificacion').find('Numero') is None or
                 xml.find('ResumenFactura') is None or
                 xml.find('ResumenFactura').find('TotalComprobante') is None):
+            logging.info('imcomplete xml document')
             return {'value': {'xml_supplier_approval': False},
                     'warning': {'title': 'Atención', 'message': 'El xml parece estar incompleto.'}}
         _logger.info('namespace %s' % namespace)
-        if namespace == v42:
+        if namespace.startswith(v42):
             return self._proccess_supplier_invoicev42(invoice, xml)
-        elif namespace == v43:
+        elif namespace.startswith(v43):
             return self._proccess_supplier_invoicev43(invoice, xml)
         else:
             return {'value': {'xml_supplier_approval': False},
@@ -2307,6 +2309,7 @@ class ElectronicInvoiceCostaRicaTools(models.AbstractModel):
             })
 
     def _proccess_supplier_invoicev43(self, invoice, xml):
+        _logger.info('_proccess_supplier_invoicev43 %s' % invoice)
 
         NumeroConsecutivo = xml.find('NumeroConsecutivo')
         Emisor = xml.find('Emisor')
@@ -2316,8 +2319,10 @@ class ElectronicInvoiceCostaRicaTools(models.AbstractModel):
         emisor_vat = Emisor.find('Identificacion').find('Numero').text
         emisor_tipo = Emisor.find('Identificacion').find('Tipo').text
 
-        supplier = self.env['res.partner'].search([]).filtered( lambda p: re.sub('[^0-9]', '', p.vat or '') == emisor_vat)
-        _logger.info('supplier %s' % supplier)
+        supplier = self.env['res.partner'].search([]).filtered(lambda p: re.sub('[^0-9]', '', p.vat or '') == emisor_vat)
+        # partners with parent are contacts
+        supplier = supplier.filtered(lambda p: not p.parent_id)
+        
         if not supplier:
             ctx = self.env.context.copy()
             ctx.pop('default_type', False)
@@ -2346,7 +2351,7 @@ class ElectronicInvoiceCostaRicaTools(models.AbstractModel):
                                                                          'customer': False,
                                                                          'supplier': True})
             _logger.info('nuevo proveedor %s' % supplier)
-
+        _logger.info('supplier %s' % supplier)
         invoice.partner_id = supplier
         invoice.date_invoice = xml.find('FechaEmision').text
 
@@ -2406,7 +2411,7 @@ class ElectronicInvoiceCostaRicaTools(models.AbstractModel):
                 porcentajeDescuento = montoDescuento * 100 / float(total)
                 _logger.info('descuento de %s %s ' % (porcentajeDescuento, montoDescuento))
 
-            self.env['account.invoice.line'].new({
+            vals = {
                 'quantity': cantidad,
                 'price_unit': precio_unitario,
                 'invoice_id': invoice.id,
@@ -2414,7 +2419,28 @@ class ElectronicInvoiceCostaRicaTools(models.AbstractModel):
                 'account_id': 75,
                 'invoice_line_tax_ids': taxes,
                 'discount': porcentajeDescuento
-            })
+            }
+            _logger.info(':::1 lineas %s' % len(invoice.invoice_line_ids))
+            _logger.info('new line for %s with %s' % (invoice, vals))
+            if isinstance(invoice.id, int):
+                self.env['account.invoice.line'].create(vals)
+            else:
+                self.env['account.invoice.line'].new(vals)
+            _logger.info(':::2 lineas %s' % len(invoice.invoice_line_ids))
+        
+        _logger.info(':::3 lineas %s' % len(invoice.invoice_line_ids))
+
+        # set invoice account to account payable
+        property_account_payable_id = self.env['ir.property'].search([
+            ('company_id', '=', invoice.company_id.id), 
+            ('name', '=', 'property_account_payable_id')])
+        model, resource_id = property_account_payable_id.value_reference.split(',')
+        invoice.account_id = self.env[model].browse(int(resource_id))
+        _logger.info('type %s' % type(invoice))
+        
+        if isinstance(invoice.id, int):
+            invoice.invalidate_cache()
+            invoice.compute_taxes()
 
     @api.model
     def get_partner_emisor(self, base64_encoded_xml):
