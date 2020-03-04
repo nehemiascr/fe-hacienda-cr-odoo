@@ -26,8 +26,10 @@ class PosOrder(models.Model):
         ('rechazado', 'Rechazado'),
         ('recibido', 'Recibido'),
         ('error', 'Error'),
-        ('procesando', 'Procesando')], 'Estado FE',
-        copy=False)
+        ('procesando', 'Procesando')],
+        ('na', 'No Aplica'),
+        ('ne', 'No Encontrado')],
+         'Estado FE', copy=False)
 
     respuesta_tributacion = fields.Text(string="Mensaje en la Respuesta de Tributación", readonly=True, copy=False)
 
