@@ -26,7 +26,7 @@ class PosOrder(models.Model):
         ('rechazado', 'Rechazado'),
         ('recibido', 'Recibido'),
         ('error', 'Error'),
-        ('procesando', 'Procesando')],
+        ('procesando', 'Procesando'),
         ('na', 'No Aplica'),
         ('ne', 'No Encontrado')],
          'Estado FE', copy=False)
