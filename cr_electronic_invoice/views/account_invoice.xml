@@ -177,7 +177,8 @@
 			<field name="groups_id" eval="[(6, 0, [ref('base.group_system')])]"/>
 			<field name="arch" type="xml">
 				<field name="state_tributacion" position="after">
-					<field name="respuesta_tributacion"/>
+					<field name="respuesta_tributacion" invisible="1" groups="base.group_no_one"/>
+					<field name="respuesta_tributacion_preview" groups="base.group_no_one"/>
 				</field>
 			</field>
 		</record>
@@ -194,6 +195,8 @@
 				</tree>
 				<field name="state" position="before">
 					<field name="state_tributacion" string="Estado FE"/>
+					<field name="respuesta_tributacion" invisible="1" groups="base.group_no_one"/>
+					<field name="respuesta_tributacion_preview" groups="base.group_no_one"/>
 				</field>
 			</field>
 		</record>

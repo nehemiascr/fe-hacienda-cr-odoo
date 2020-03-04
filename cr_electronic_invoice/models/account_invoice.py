@@ -41,8 +41,10 @@ class AccountInvoiceElectronic(models.Model):
     invoice_id = fields.Many2one(comodel_name="account.invoice", string="Documento de referencia", copy=False)
     xml_respuesta_tributacion = fields.Binary(string="Respuesta Tributación XML", copy=False, attachment=True)
     fname_xml_respuesta_tributacion = fields.Char(string="Nombre de archivo XML Respuesta Tributación", copy=False)
-
     respuesta_tributacion = fields.Text(string="Mensaje en la Respuesta de Tributación", readonly=True, copy=False)
+    respuesta_tributacion_preview = fields.Text(string='Mensaje de Hacienda', readonly=True, compute='_compute_mensaje_hacienda_preview')
+
+
     xml_comprobante = fields.Binary(string="Comprobante XML", copy=False, attachment=True)
     fname_xml_comprobante = fields.Char(string="Nombre de archivo Comprobante XML", copy=False, attachment=True)
     xml_supplier_approval = fields.Binary(string="XML Proveedor", copy=False, attachment=True)
@@ -62,6 +64,12 @@ class AccountInvoiceElectronic(models.Model):
     _sql_constraints = [
         ('number_electronic_uniq', 'unique (number_electronic)', "La clave de comprobante debe ser única"),
     ]
+
+    @api.depends('respuesta_tributacion')
+    def _compute_mensaje_hacienda_preview(self):
+        for record in self:
+            record.respuesta_tributacion  = record.respuesta_tributacion[:20] if record.respuesta_tributacion else ''
+
 
     @api.multi
     def action_invoice_sent(self):

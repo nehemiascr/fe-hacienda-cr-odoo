@@ -253,7 +253,7 @@ class ElectronicInvoiceCostaRicaHacienda(models.AbstractModel):
             if 'ya fue recibido anteriormente' in object.respuesta_tributacion: object.state_tributacion = 'recibido'
             if 'no ha sido recibido' in object.respuesta_tributacion: object.state_tributacion = 'pendiente'
             return False
-        if response.status_code in (502, 522, 524):
+        if response.status_code in (403, 500, 502, 522, 524):
             object.state_tributacion = 'error'
             object.respuesta_tributacion = response.content
             return False
