@@ -1,0 +1,52 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+  <data>
+
+
+<record model="ir.ui.view" id="facturas_report_wizard">
+        <field name="name">Reporte de facturas</field>
+        <field name="model">cr_electronic_invoice.facturas.report.wizard</field>
+        <field name="type">form</field>
+        <field name="arch" type="xml">
+            <form string="Reporte de facturas">
+                <group>
+                    <group>
+                        <field name="type"/>
+                        <field name="inicio"/>
+                        <field name="final"/>
+                    </group>
+                </group>
+                <footer>
+                    <button name="get_report" string="Descargar archivo de Excel" type="object" class="oe_highlight"/>
+                    <button string="Cerrar esta ventana" special="cancel"/>
+                </footer>
+            </form>
+        </field>
+    </record>
+
+      <act_window
+              id="action_facturas_report_wizard"
+              name="Reporte de facturas"
+              res_model="cr_electronic_invoice.facturas.report.wizard"
+              view_mode="form"
+              target="new"/>
+
+      <menuitem
+        id="menu_facturas_report_wizard"
+        name="Facturas Excel"
+        parent="sale.menu_sale_report"
+        action="action_facturas_report_wizard" />
+
+      <report
+        id="facturas"
+        model="account.invoice"
+        string="Facturas Excel"
+        report_type="xlsx"
+        name="cr_electronic_invoice.facturas"
+        file="Reporte de Facturas"
+        attachment_use="False"
+    />
+
+     </data>
+
+  </odoo>

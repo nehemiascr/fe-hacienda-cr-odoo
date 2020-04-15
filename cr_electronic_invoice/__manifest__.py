@@ -11,7 +11,7 @@
 		'''
 		Facturación electronica Costa Rica.
 		''',
-	'depends': ['base', 'account', 'product', 'sale_management', 'sales_team', 'account_invoicing', 'l10n_cr_country_codes', 'account_cancel', 'res_currency_cr_adapter', ],
+	'depends': ['base', 'account', 'product', 'sale_management', 'sales_team', 'account_invoicing', 'l10n_cr_country_codes', 'account_cancel', 'res_currency_cr_adapter', 'report_xlsx'],
 	'data': ['data/ir_cron_data.xml',
 			 'data/account_account_tag_data.xml',
 			 'data/account_tax_group_data.xml',
@@ -45,6 +45,7 @@
 			 'views/res_partner.xml',
 
 			 'report/report_invoice.xml',
+			 'report/report_facturas.xml',
 
 	         'security/ir.model.access.csv',
 
