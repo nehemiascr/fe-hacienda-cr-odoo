@@ -2351,6 +2351,14 @@ class ElectronicInvoiceCostaRicaTools(models.AbstractModel):
                                                                          'customer': False,
                                                                          'supplier': True})
             _logger.info('nuevo proveedor %s' % supplier)
+        # if more that two partners, we notify the user
+        elif len(supplier) > 1:
+            message = 'Existen %s contactos con la identificación del emisor del comprobante:\n' % len(supplier)
+            for contact in supplier:
+                message += '%s %s\n' % (contact.name, contact.vat)
+            raise UserError(_(message))
+
+
         _logger.info('supplier %s' % supplier)
         invoice.partner_id = supplier
         invoice.date_invoice = xml.find('FechaEmision').text
