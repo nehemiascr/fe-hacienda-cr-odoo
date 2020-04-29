@@ -1,6 +1,8 @@
 # -*- coding: utf-8 -*-
 
 from odoo import models, fields, api, _
+from odoo.exceptions import UserError
+
 import logging, re
 
 _logger = logging.getLogger(__name__)
@@ -11,7 +13,7 @@ REGIMENES = [
     ('2', 'Régimen Simplificado')]
 
 
-class PartnerElectronic(models.Model):
+class ResPartner(models.Model):
     _inherit = "res.partner"
 
     commercial_name = fields.Char(string="Nombre comercial")
@@ -41,3 +43,26 @@ class PartnerElectronic(models.Model):
         identificacion = re.sub('[^0-9]', '', self.vat or '')
         if len(identificacion) >= 9:
             self.env['eicr.tools'].actualizar_info(self)
+
+    def _check_unique(self, vat):
+        vat = re.sub('[^0-9]', '', vat or '') 
+        partner_ids = self.env['res.partner'].search([]).filtered(lambda p: re.sub('[^0-9]', '', p.vat or '') == vat and not p.parent_id)
+        if partner_ids:
+            message = 'La identificación %s ya se encuentra registrada:\n' % vat
+            for p in partner_ids:
+                message += '%s - %s\n' % (p.vat, p.name)
+            raise UserError(_(message))
+
+    @api.model
+    def create(self, vals):
+        if vals.get('vat', False):
+            self._check_unique(vals.get('vat'))
+        return super(ResPartner, self).create(vals)
+
+    @api.multi
+    def write(self, vals):
+        if vals.get('vat', False):
+            self._check_unique(vals.get('vat'))
+        return super(ResPartner, self).write(vals)
+
+
