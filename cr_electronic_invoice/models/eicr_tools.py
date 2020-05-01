@@ -2295,7 +2295,7 @@ class ElectronicInvoiceCostaRicaTools(models.AbstractModel):
             porcentajeDescuento = 0.0
             if linea.find('MontoDescuento') is not None:
                 montoDescuento = float(linea.find('MontoDescuento').text)
-                porcentajeDescuento = montoDescuento * 100 / float(total)
+                porcentajeDescuento = montoDescuento * 100 / float(total) if float(total) else 0.0
                 _logger.info('descuento de %s %s ' % (porcentajeDescuento, montoDescuento))
 
             self.env['account.invoice.line'].new({
@@ -2416,7 +2416,7 @@ class ElectronicInvoiceCostaRicaTools(models.AbstractModel):
             if Descuento is not None and Descuento.find('MontoDescuento') is not None:
                 _logger.info('hay descuento')
                 montoDescuento = float(Descuento.find('MontoDescuento').text)
-                porcentajeDescuento = montoDescuento * 100 / float(total)
+                porcentajeDescuento = montoDescuento * 100 / float(total) if float(total) else 0.0
                 _logger.info('descuento de %s %s ' % (porcentajeDescuento, montoDescuento))
 
             vals = {
