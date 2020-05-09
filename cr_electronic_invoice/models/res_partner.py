@@ -46,7 +46,10 @@ class ResPartner(models.Model):
 
     def _check_unique(self, vat):
         vat = re.sub('[^0-9]', '', vat or '') 
-        partner_ids = self.env['res.partner'].search([]).filtered(lambda p: re.sub('[^0-9]', '', p.vat or '') == vat and not p.parent_id)
+        partner_ids = self.env['res.partner'].search([]).filtered(lambda p: re.sub('[^0-9]', '', p.vat or '') == vat)
+        # here we differentiate between partners (no parent_id) and contacts (with parent_id)
+        partner_ids = partner_ids.filtered(lambda p: not p.parent_id)
+        partner_ids = partner_ids.filtered(lambda p: p != self.parent_id)
         if partner_ids:
             message = 'La identificación %s ya se encuentra registrada:\n' % vat
             for p in partner_ids:
