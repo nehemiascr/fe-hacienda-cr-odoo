@@ -58,7 +58,7 @@ class AccountInvoiceMail(models.TransientModel):
             xml_encoded = base64.b64encode(doc['xml']).decode('utf-8')
             xml_decoded = base64.b64decode(xml_encoded).decode('utf-8')
             company_id = self.env['eicr.tools'].get_company_from_xml(xml_decoded)
-            if not company_id: return False
+            if not company_id: continue
             _logger.info('company_id %s' % company_id)
             journal_id = self.env['account.journal'].sudo().search([('type', '=', 'purchase'), ('company_id', '=', company_id.id)], limit=1)
             _logger.info('journal_id %s' % journal_id)
@@ -76,10 +76,15 @@ class AccountInvoiceMail(models.TransientModel):
                                                           'fname_xml_supplier_approval': doc['filename'],
                                                           'journal_id':journal_id.id,
                                                           'account_id':account_id.id,
-                                                          'partner_id': partner_id.id})
+                                                          'partner_id': partner_id.id,
+                                                          'company_id': company_id.id})
             # invoice.eicr_documento2_tipo = self.env.ref('cr_electronic_invoice.FacturaElectronica_V_4_3')
-
-            self.env['eicr.tools']._process_supplier_invoice(invoice)
+            xml = etree.fromstring(base64.b64decode(xml_encoded))
+            namespace = xml.nsmap[None]
+            xml = etree.tostring(xml).decode()
+            xml = re.sub(' xmlns="[^"]+"', '', xml)
+            xml = etree.fromstring(xml)
+            self.env['eicr.tools']._proccess_supplier_invoicev43(invoice, xml)
 
             invoice.compute_taxes()
             invoice.state_invoice_partner = '1'

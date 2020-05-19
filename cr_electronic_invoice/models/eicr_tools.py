@@ -2155,6 +2155,7 @@ class ElectronicInvoiceCostaRicaTools(models.AbstractModel):
         xml_encoded = base64.b64encode(xml).decode('utf-8')
         return xml_encoded
 
+
     def _process_supplier_invoice(self, invoice):
         _logger.info('_process_supplier_invoice %s' % invoice)
         xml = etree.fromstring(base64.b64decode(invoice.xml_supplier_approval))
@@ -2169,14 +2170,11 @@ class ElectronicInvoiceCostaRicaTools(models.AbstractModel):
         v43 = 'https://cdn.comprobanteselectronicos.go.cr/xml-schemas/v4.3/'
 
         if document not in ('FacturaElectronica', 'TiqueteElectronico'):
-            return {'value': {'xml_supplier_approval': False},
-                    'warning': {'title': 'Atención', 'message': 'El archivo xml no es una Factura Electrónica.'}}
+            raise UserError(_('Debe de seleccionar una FacturaElectronica o TiqueteElectronico.\nEl documento seleccionado es %s' % document))
 
         if not (namespace.startswith(v42) or namespace.startswith(v43)):
             logging.info('invalid namespace %s' % namespace)
-            return {'value': {'xml_supplier_approval': False},
-                    'warning': {'title': 'Atención',
-                                'message': 'Versión de Factura Electrónica no soportada.\n%s' % namespace}}
+            raise UserError(_('Versión %s de %s no soportada.' % (namespace, document)))
 
         if (xml.find('Clave') is None or
                 xml.find('FechaEmision') is None or
@@ -2191,9 +2189,17 @@ class ElectronicInvoiceCostaRicaTools(models.AbstractModel):
                 xml.find('ResumenFactura') is None or
                 xml.find('ResumenFactura').find('TotalComprobante') is None):
             logging.info('imcomplete xml document')
-            return {'value': {'xml_supplier_approval': False},
-                    'warning': {'title': 'Atención', 'message': 'El xml parece estar incompleto.'}}
-        _logger.info('namespace %s' % namespace)
+            raise UserError(_('%s parece incompleto' % document))
+
+        string = etree.tostring(xml).decode()
+        company_id = self.env['eicr.tools'].get_company_from_xml(string)
+
+        if not company_id:
+            raise UserError(_('%s seleccionada no está dirigida a esta compañía.' % document))
+
+        if company_id and company_id != self.env.user.company_id:
+            raise UserError(_('Debe de cambiar a la compañia %s para poder procesar este xml' % company_id.name))
+
         if namespace.startswith(v42):
             return self._proccess_supplier_invoicev42(invoice, xml)
         elif namespace.startswith(v43):
@@ -2452,7 +2458,6 @@ class ElectronicInvoiceCostaRicaTools(models.AbstractModel):
                 line = self.env['account.invoice.line'].sudo().create(vals)
             else:
                 line = self.env['account.invoice.line'].sudo().new(vals)
-            invoice.invoice_line_ids += line
         
         _logger.info(':::3 lineas %s' % len(invoice.invoice_line_ids))
 
