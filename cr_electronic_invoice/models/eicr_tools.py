@@ -2311,6 +2311,11 @@ class ElectronicInvoiceCostaRicaTools(models.AbstractModel):
     def _proccess_supplier_invoicev43(self, invoice, xml):
         _logger.info('_proccess_supplier_invoicev43 %s' % invoice)
 
+        string = etree.tostring(xml).decode()
+        company_id = self.env['eicr.tools'].get_company_from_xml(string)
+        _logger.info(company_id)
+        if not company_id: return False
+        
         NumeroConsecutivo = xml.find('NumeroConsecutivo')
         Emisor = xml.find('Emisor')
 
@@ -2376,6 +2381,19 @@ class ElectronicInvoiceCostaRicaTools(models.AbstractModel):
             invoice.date_due = fecha_de_vencimiento.strftime('%Y-%m-%d')
             _logger.info('date_due %s' % invoice.date_due)
 
+        moneda = xml.find('ResumenFactura').find('CodigoTipoMoneda')
+        codigo = moneda.find('CodigoMoneda').text if moneda else 'CRC'
+        invoice.currency_id = self.env['res.currency'].search([('name', '=', codigo)])
+
+        OtrosCargos = xml.findall('OtrosCargos')
+        print(OtrosCargos)
+        otros_cargos = self.env['account.tax']
+        for cargo in OtrosCargos:
+            code = cargo.find('TipoDocumento').text
+            if code == '06':
+                tax = self.env['account.tax'].search([('type_tax_use','=','purchase'),('tax_code', '=', 'service'), ('company_id', '=', company_id.id)])
+                otros_cargos += tax
+
         lineas = xml.find('DetalleServicio')
         for linea in lineas:
             _logger.info('linea %s de %s %s' % (lineas.index(linea) + 1, len(lineas), linea))
@@ -2383,6 +2401,7 @@ class ElectronicInvoiceCostaRicaTools(models.AbstractModel):
             impuestos = linea.findall('Impuesto')
             _logger.info('impuestos %s' % impuestos)
             taxes = self.env['account.tax']
+            taxes += otros_cargos
             for impuesto in impuestos:
                 _logger.info('impuesto %s de %s %s' % (impuestos.index(impuesto) + 1, len(impuestos), impuesto))
 
@@ -2390,9 +2409,7 @@ class ElectronicInvoiceCostaRicaTools(models.AbstractModel):
 
                 if Codigo.text == '01':  # iva
                     CodigoTarifa = impuesto.find('CodigoTarifa')
-                    tax = self.env['account.tax'].search(
-                        [('type_tax_use', '=', 'purchase'), ('tax_code', '=', Codigo.text),
-                         ('iva_tax_code', '=', CodigoTarifa.text)])
+                    tax = self.env['account.tax'].sudo().search([('type_tax_use','=','purchase'),('tax_code', '=', Codigo.text),('iva_tax_code', '=', CodigoTarifa.text), ('company_id', '=', company_id.id)])
                     _logger.info('tax %s' % tax)
                     taxes += tax
                 elif Codigo.text == '02':  # ISC
@@ -2424,28 +2441,45 @@ class ElectronicInvoiceCostaRicaTools(models.AbstractModel):
                 'price_unit': precio_unitario,
                 'invoice_id': invoice.id,
                 'name': descripcion,
-                'account_id': 75,
+                'account_id': invoice.journal_id.default_debit_account_id.id,
                 'invoice_line_tax_ids': taxes,
-                'discount': porcentajeDescuento
+                'discount': porcentajeDescuento,
+                'company_id': company_id.id
             }
-            _logger.info(':::1 lineas %s' % len(invoice.invoice_line_ids))
             _logger.info('new line for %s with %s' % (invoice, vals))
+            # invoice.write({'invoice_line_ids': [4, ]})
             if isinstance(invoice.id, int):
-                self.env['account.invoice.line'].create(vals)
+                line = self.env['account.invoice.line'].sudo().create(vals)
             else:
-                self.env['account.invoice.line'].new(vals)
-            _logger.info(':::2 lineas %s' % len(invoice.invoice_line_ids))
+                line = self.env['account.invoice.line'].sudo().new(vals)
+            invoice.invoice_line_ids += line
         
         _logger.info(':::3 lineas %s' % len(invoice.invoice_line_ids))
 
         # set invoice account to account payable
-        property_account_payable_id = self.env['ir.property'].search([
-            ('company_id', '=', invoice.company_id.id), 
-            ('name', '=', 'property_account_payable_id')])
-        model, resource_id = property_account_payable_id.value_reference.split(',')
-        invoice.account_id = self.env[model].browse(int(resource_id))
-        _logger.info('type %s' % type(invoice))
-        
+        account_type_id = self.env['account.account.type'].search([('type', '=', 'payable')], limit=1)
+        _logger.info('account_type_id %s' % account_type_id)
+        account_id = self.env['account.account'].sudo().search([('user_type_id', '=', account_type_id.id), ('company_id', '=', company_id.id)])
+        if len(account_id) > 1:
+            account_id = account_id.filtered(lambda a: a.code == '0-211001')
+        invoice.account_id = account_id
+
+        for cargo in xml.findall('OtrosCargos'):
+            tipo = cargo.find('TipoDocumento').text
+            vals = {
+                'quantity': 1,
+                'price_unit': cargo.find('MontoCargo').text,
+                'invoice_id': invoice.id,
+                'name': cargo.find('Detalle').text,
+                'account_id': invoice.journal_id.default_debit_account_id.id,
+                'company_id': company_id.id
+            }
+            if isinstance(invoice.id, int):
+                line = self.env['account.invoice.line'].sudo().create(vals)
+            else:
+                line = self.env['account.invoice.line'].sudo().new(vals)
+            invoice.invoice_line_ids += line
+
         if isinstance(invoice.id, int):
             invoice.invalidate_cache()
             invoice.compute_taxes()
@@ -2545,6 +2579,8 @@ class ElectronicInvoiceCostaRicaTools(models.AbstractModel):
         emisor_tipo = Emisor.find('Identificacion').find('Tipo').text
 
         partner = self.env['res.partner'].search([]).filtered( lambda p: re.sub('[^0-9]', '', p.vat or '') == emisor_vat)
+        # partners with parent are contacts
+        partner = partner.filtered(lambda p: not p.parent_id)
 
         if not partner:
             ctx = self.env.context.copy()
@@ -2593,5 +2629,56 @@ class ElectronicInvoiceCostaRicaTools(models.AbstractModel):
         self._process_supplier_invoice(invoice)
         invoice.compute_taxes()
         return invoice
+
+    def _validar_xml_proveedor(self, xml):
+        _logger.info('validando xml de proveedor')
+        _logger.info(xml)
+        xml = bytes(xml, encoding='utf-8')
+        xml = etree.fromstring(xml)
+        xml = etree.tostring(xml)
+        xml = xml.decode()
+        xml = re.sub(' xmlns="[^"]+"', '', xml, count=1)
+        xml = etree.fromstring(xml)
+        document = xml.tag
+
+        if document not in ('FacturaElectronica', 'TiqueteElectronico'):
+            message = 'El archivo xml debe ser una FacturaElectronica o TiqueteElectronico.\n%s es un documento inválido' % document
+            _logger.info('%s' % (message))
+            return False
+            # raise UserError(message)
+
+        if (xml.find('Clave') is None or
+            xml.find('FechaEmision') is None or
+            xml.find('Emisor') is None or
+            xml.find('Emisor').find('Identificacion') is None or
+            xml.find('Emisor').find('Identificacion').find('Tipo') is None or
+            xml.find('Emisor').find('Identificacion').find('Numero') is None or
+            xml.find('Receptor') is None or
+            xml.find('Receptor').find('Identificacion') is None or
+            xml.find('Receptor').find('Identificacion').find('Tipo') is None or
+            xml.find('Receptor').find('Identificacion').find('Numero') is None or
+            xml.find('ResumenFactura') is None or
+            xml.find('ResumenFactura').find('TotalComprobante') is None ):
+
+            message = 'El archivo xml parece estar incompleto, no se puede procesar.\nDocumento %s' % document
+            _logger.info('%s' % (message))
+            return False
+            # raise UserError(message)
+
+        return True
+
+    def get_company_from_xml(self, xml):
+        string = xml
+        if self._validar_xml_proveedor(string):
+            xml = bytes(xml, encoding='utf-8')
+            xml = etree.fromstring(xml)
+            xml = etree.tostring(xml)
+            xml = xml.decode()
+            xml = re.sub(' xmlns="[^"]+"', '', xml, count=1)
+            xml = etree.fromstring(xml)
+            vat_receptor = xml.find('Receptor').find('Identificacion').find('Numero').text
+            company_id = self.env['res.company'].sudo().search([]).filtered(lambda c: re.sub('[^0-9]', '', c.vat or '') == vat_receptor)
+            _logger.info('vat %s company %s' % (vat_receptor, company_id))
+            return company_id if company_id else False
 
 

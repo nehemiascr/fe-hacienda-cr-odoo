@@ -52,34 +52,34 @@ class AccountInvoiceMail(models.TransientModel):
                 if not invoice:
                     documents.append({'clave': clave, 'xml': attachment.content, 'filename': attachment.fname})
 
-        journal = self.env['account.journal'].search([('type', '=', 'purchase')], limit=1)
-        # 0-211001 0-Cuentas por pagar a proveedores
-        account = self.env.ref('l10n_cr.1_account_account_template_0_211001')
-
+      
         for i, doc in enumerate(documents):
             _logger.info('%s/%s valid doc %s' % (i+1, len(documents), doc))
             xml_encoded = base64.b64encode(doc['xml']).decode('utf-8')
-
+            xml_decoded = base64.b64decode(xml_encoded).decode('utf-8')
+            company_id = self.env['eicr.tools'].get_company_from_xml(xml_decoded)
+            if not company_id: return False
+            _logger.info('company_id %s' % company_id)
+            journal_id = self.env['account.journal'].sudo().search([('type', '=', 'purchase'), ('company_id', '=', company_id.id)], limit=1)
+            _logger.info('journal_id %s' % journal_id)
+            account_type_id = self.env['account.account.type'].search([('type', '=', 'payable')], limit=1)
+            _logger.info('account_type_id %s' % account_type_id)
+            account_id = self.env['account.account'].sudo().search([('user_type_id', '=', account_type_id.id), ('company_id', '=', company_id.id)])
+            _logger.info('account_id %s' % account_id)
+            if len(account_id) > 1:
+                account_id = account_id.filtered(lambda a: a.code == '0-211001')
+            _logger.info('account_id %s' % account_id)
             partner_id = self.env['eicr.tools']._get_partner_from_xml(xml_encoded)
 
             invoice = self.env['account.invoice'].create({'type': 'in_invoice',
                                                           'xml_supplier_approval': xml_encoded,
                                                           'fname_xml_supplier_approval': doc['filename'],
-                                                          'journal_id':journal.id,
-                                                          'account_id':account.id,
+                                                          'journal_id':journal_id.id,
+                                                          'account_id':account_id.id,
                                                           'partner_id': partner_id.id})
             # invoice.eicr_documento2_tipo = self.env.ref('cr_electronic_invoice.FacturaElectronica_V_4_3')
 
             self.env['eicr.tools']._process_supplier_invoice(invoice)
-
-            # data = invoice.copy_data()[0]
-            # data['reference_type'] = 'none'
-            # codigo = 'CRC'
-            # data['currency_id'] = self.env['res.currency'].search([('name', '=', codigo)]).id
-            # _logger.info('new vals %s' % data)
-            #
-            # i2 = self.env['account.invoice'].create(data)
-            # _logger.info('i2 %s' % i2)
 
             invoice.compute_taxes()
             invoice.state_invoice_partner = '1'
