@@ -10,6 +10,13 @@ class AccountInvoice(models.Model):
 
     _inherit = "account.invoice"
 
+    def _get_an_employee(self, company_id):
+        employee_ids = self.env['hr.employee'].search([('company_id','=',company_id.id)])
+        if employee_ids:
+            return employee_ids[0]
+        else:
+            return self.env['hr.employee'].search([]).sorted('id')[0]
+
     @api.multi
     def action_convertir_en_gasto(self):
         _logger.info('%s of type %s' % (self, self.mapped('type')))
@@ -28,7 +35,7 @@ class AccountInvoice(models.Model):
 
                 name = invoice.invoice_line_ids.sorted('price_subtotal')[-1].name[:32]
 
-                expense = self.env['hr.expense'].create({'name': '%s en %s' % (name, invoice.partner_id.name[:20]),
+                expense = self.env['hr.expense'].sudo().create({'name': '%s en %s' % (name, invoice.partner_id.name[:20]),
                                                'quantity': quantity,
                                                'product_id': product.id,
                                                'unit_amount': unit_amount,
@@ -40,7 +47,9 @@ class AccountInvoice(models.Model):
                                                'credito_iva': 100,
                                                'credito_iva_condicion': self.env.ref('cr_electronic_invoice.CreditConditions_1').id,
                                                'reference': invoice.reference,
-                                               'account_id': product.property_account_expense_id.id})
+                                               'account_id': product.property_account_expense_id.id,
+                                               'company_id': invoice.company_id.id,
+                                               'employee_id': self._get_an_employee(invoice.company_id).id})
                 invoice.unlink()
 
                 return {'type': 'ir.actions.act_window',
