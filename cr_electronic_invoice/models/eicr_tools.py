@@ -253,8 +253,11 @@ class ElectronicInvoiceCostaRicaTools(models.AbstractModel):
         if not object.partner_id.email:
             _logger.info('Cliente %s sin email, no vamos a enviar el email' % object.partner_id)
             return False
+        
+        if (object._name == 'account.invoice' and object.type != 'out_invoice') or  object._name == 'hr.expense':
+            return False
 
-        if object._name == 'account.invoice' or object._name == 'hr.expense':
+        if object._name == 'account.invoice':
             email_template = self.env.ref('account.email_template_edi_invoice', False)
         if object._name == 'pos.order':
             email_template = self.env.ref('cr_pos_electronic_invoice.email_template_pos_invoice', False)
