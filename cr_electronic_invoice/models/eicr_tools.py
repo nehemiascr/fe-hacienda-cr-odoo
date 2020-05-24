@@ -1958,6 +1958,7 @@ class ElectronicInvoiceCostaRicaTools(models.AbstractModel):
 
             MontoTotalLinea = etree.Element('MontoTotalLinea')
             montoTotalLinea = linea.price_total + ivaDevuelto
+            totalIVADevuelto += ivaDevuelto
             if servicio:
                 _logger.info('mndl %s' % montoTotalLinea)
                 deduccion = montoTotalLinea * 10.0 / (100.0 + sum(linea.invoice_line_tax_ids.mapped('amount')))
@@ -1993,8 +1994,6 @@ class ElectronicInvoiceCostaRicaTools(models.AbstractModel):
             OtrosCargos.append(MontoCargo)
 
             Documento.append(OtrosCargos)
-
-        totalIVADevuelto += ivaDevuelto
 
         # ResumenFactura
         ResumenFactura = etree.Element('ResumenFactura')
