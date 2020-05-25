@@ -2208,9 +2208,8 @@ class ElectronicInvoiceCostaRicaTools(models.AbstractModel):
         elif namespace.startswith(v43):
             return self._proccess_supplier_invoicev43(invoice, xml)
         else:
-            return {'value': {'xml_supplier_approval': False},
-                    'warning': {'title': 'Atención',
-                                'message': 'Versión de Factura Electrónica no soportada.\n%s' % namespace}}
+            raise UserError(_('Versión de Factura Electrónica no soportada.\n%s' % namespace))
+
 
     def _proccess_supplier_invoicev42(self, invoice, xml):
 
@@ -2460,7 +2459,7 @@ class ElectronicInvoiceCostaRicaTools(models.AbstractModel):
             if isinstance(invoice.id, int):
                 line = self.env['account.invoice.line'].sudo().create(vals)
             else:
-                line = self.env['account.invoice.line'].sudo().new(vals)
+                line = self.env['account.invoice.line'].new(vals)
         
         _logger.info(':::3 lineas %s' % len(invoice.invoice_line_ids))
 
