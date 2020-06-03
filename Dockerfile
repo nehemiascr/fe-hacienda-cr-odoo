@@ -11,7 +11,7 @@ RUN git clone https://github.com/nehemiascr/fe-hacienda-cr-odoo.git --branch 4.3
  # Reporting Engine
  && git clone https://github.com/OCA/reporting-engine.git --branch 11.0 --single-branch /opt/OCA/reporting-engine \
  # multi-company
- && git clone https://github.com/ingadhoc/multi-company.git --branch 11.0 --single-branch  /opt/ingadhoc/multi-company \
+ && git clone https://github.com/ingadhoc/multi-company.git --branch 11.0 --single-branch  /opt/ingadhoc/multi-company
 
 
 FROM odoo:11
