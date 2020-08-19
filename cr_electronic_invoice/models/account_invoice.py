@@ -62,7 +62,7 @@ class AccountInvoiceElectronic(models.Model):
 
 
     _sql_constraints = [
-        ('number_electronic_uniq', 'unique (number_electronic)', "La clave de comprobante debe ser única"),
+        ('number_electronic_uniq', 'unique (type, number_electronic)', "La clave de comprobante debe ser única"),
     ]
 
     @api.depends('respuesta_tributacion')
