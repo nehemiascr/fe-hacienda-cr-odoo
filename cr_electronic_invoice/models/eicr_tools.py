@@ -884,7 +884,7 @@ class ElectronicInvoiceCostaRicaTools(models.AbstractModel):
             MontoTotalLinea.text = str(round(montoTotalLinea, decimales))
             LineaDetalle.append(MontoTotalLinea)
 
-            DetalleServicio.append(LineaDetalle[:200])
+            DetalleServicio.append(LineaDetalle)
             indice += 1
 
         Documento.append(DetalleServicio)
@@ -1320,7 +1320,7 @@ class ElectronicInvoiceCostaRicaTools(models.AbstractModel):
             LineaDetalle.append(UnidadMedida)
 
             Detalle = etree.Element('Detalle')
-            Detalle.text = linea.name
+            Detalle.text = linea.name[:200]
             LineaDetalle.append(Detalle)
 
             PrecioUnitario = etree.Element('PrecioUnitario')
@@ -1404,7 +1404,7 @@ class ElectronicInvoiceCostaRicaTools(models.AbstractModel):
             MontoTotalLinea.text = str(round(linea.price_total, decimales))
             LineaDetalle.append(MontoTotalLinea)
 
-            DetalleServicio.append(LineaDetalle[:200])
+            DetalleServicio.append(LineaDetalle)
 
         Documento.append(DetalleServicio)
 
@@ -1867,7 +1867,7 @@ class ElectronicInvoiceCostaRicaTools(models.AbstractModel):
             LineaDetalle.append(UnidadMedida)
 
             Detalle = etree.Element('Detalle')
-            Detalle.text = linea.name
+            Detalle.text = linea.name[:200]
             LineaDetalle.append(Detalle)
 
             PrecioUnitario = etree.Element('PrecioUnitario')
@@ -1969,7 +1969,7 @@ class ElectronicInvoiceCostaRicaTools(models.AbstractModel):
 
             LineaDetalle.append(MontoTotalLinea)
 
-            DetalleServicio.append(LineaDetalle[:200])
+            DetalleServicio.append(LineaDetalle)
 
         Documento.append(DetalleServicio)
 
