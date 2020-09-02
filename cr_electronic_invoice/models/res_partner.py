@@ -30,7 +30,7 @@ class ResPartner(models.Model):
 
     email_facturas = fields.Char()
 
-    _sql_constraints = [('vat_uniq', 'unique (vat)', "Ya hay un contacto con esa identifcación"), ]
+    # _sql_constraints = [('vat_uniq', 'unique (vat)', "Ya hay un contacto con esa identifcación"), ]
 
     @api.multi
     def action_update_info(self):
@@ -49,8 +49,8 @@ class ResPartner(models.Model):
         partner_ids = self.env['res.partner'].search([]).filtered(lambda p: re.sub('[^0-9]', '', p.vat or '') == vat)
         # here we differentiate between partners (no parent_id) and contacts (with parent_id)
         partner_ids = partner_ids.filtered(lambda p: not p.parent_id)
-        partner_ids = partner_ids.filtered(lambda p: p != self.parent_id)
-        if partner_ids:
+        partner_ids = partner_ids.filtered(lambda p: p not in self.mapped('parent_id'))
+        if self and partner_ids:
             message = 'La identificación %s ya se encuentra registrada:\n' % vat
             for p in partner_ids:
                 message += '%s - %s\n' % (p.vat, p.name)
