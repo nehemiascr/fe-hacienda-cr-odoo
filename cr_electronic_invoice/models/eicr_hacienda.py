@@ -383,7 +383,8 @@ class ElectronicInvoiceCostaRicaHacienda(models.AbstractModel):
             for indice, factura in enumerate(facturas):
                 _logger.info('Consultando documento %s / %s ' % (indice + 1, len(facturas)))
                 if not factura.xml_comprobante: pass
-                if self._consultar_documento(factura): self.env['eicr.tools']._enviar_email(factura)
+                if self._consultar_documento(factura) and factura.type != 'out_refund':
+                    self.env['eicr.tools']._enviar_email(factura)
                 self.env.cr.commit()
                 max_documentos -= 1
 
