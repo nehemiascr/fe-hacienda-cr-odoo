@@ -30,7 +30,7 @@ class ResPartner(models.Model):
 
     email_facturas = fields.Char()
 
-    # _sql_constraints = [('vat_uniq', 'unique (vat)', "Ya hay un contacto con esa identifcación"), ]
+    _sql_constraints = [('vat_uniq', 'Check(1=1)', 'Ya hay un contacto con esa identifcación'), ]
 
     @api.multi
     def action_update_info(self):
