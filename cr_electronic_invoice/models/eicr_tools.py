@@ -884,7 +884,7 @@ class ElectronicInvoiceCostaRicaTools(models.AbstractModel):
             MontoTotalLinea.text = str(round(montoTotalLinea, decimales))
             LineaDetalle.append(MontoTotalLinea)
 
-            DetalleServicio.append(LineaDetalle)
+            DetalleServicio.append(LineaDetalle[:200])
             indice += 1
 
         Documento.append(DetalleServicio)
@@ -1404,7 +1404,7 @@ class ElectronicInvoiceCostaRicaTools(models.AbstractModel):
             MontoTotalLinea.text = str(round(linea.price_total, decimales))
             LineaDetalle.append(MontoTotalLinea)
 
-            DetalleServicio.append(LineaDetalle)
+            DetalleServicio.append(LineaDetalle[:200])
 
         Documento.append(DetalleServicio)
 
@@ -1969,7 +1969,7 @@ class ElectronicInvoiceCostaRicaTools(models.AbstractModel):
 
             LineaDetalle.append(MontoTotalLinea)
 
-            DetalleServicio.append(LineaDetalle)
+            DetalleServicio.append(LineaDetalle[:200])
 
         Documento.append(DetalleServicio)
 
