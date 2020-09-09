@@ -2118,7 +2118,7 @@ class ElectronicInvoiceCostaRicaTools(models.AbstractModel):
             InformacionReferencia.append(Codigo)
 
             Razon = etree.Element('Razon')
-            Razon.text = invoice.name or 'Error en Factura'
+            Razon.text = invoice.name[:180] or 'Error en Factura'
             InformacionReferencia.append(Razon)
 
             Documento.append(InformacionReferencia)
