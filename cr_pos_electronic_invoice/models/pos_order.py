@@ -78,6 +78,11 @@ class PosOrder(models.Model):
         pos_order.fecha = now_cr.strftime('%Y-%m-%d %H:%M:%S')
         pos_order.date_issuance = now_cr.strftime("%Y-%m-%dT%H:%M:%S-06:00")
 
+        # eicr can be disabled in the journal's sequence
+        if pos_order.config_id.sequence_id.eicr_no: 
+            pos_order.state_tributacion = 'na'
+            return pos_order
+
         xml_firmado = self.env['eicr.tools'].get_xml(pos_order)
 
         if xml_firmado:
