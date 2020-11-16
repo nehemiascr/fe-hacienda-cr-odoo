@@ -756,6 +756,7 @@ class ElectronicInvoiceCostaRicaTools(models.AbstractModel):
 
         impuestoServicio = self.env['account.tax'].search([('tax_code', '=', 'service')])
         servicio = True if impuestoServicio in order.lines.mapped('tax_ids_after_fiscal_position') else False
+        totalImpuestoServicio = 0.0
 
         indice = 1
         for linea in order.lines:
@@ -875,12 +876,13 @@ class ElectronicInvoiceCostaRicaTools(models.AbstractModel):
 
             MontoTotalLinea = etree.Element('MontoTotalLinea')
             montoTotalLinea = linea.price_subtotal_incl
-            if servicio:
+            if impuestoServicio in linea.tax_ids_after_fiscal_position:
                 _logger.info('mndl %s' % montoTotalLinea)
                 deduccion = montoTotalLinea * 10.0 / (100.0 + sum(linea.tax_ids_after_fiscal_position.mapped('amount')))
                 _logger.info('mndl %s' % deduccion)
                 montoTotalLinea -= deduccion
                 _logger.info('mndl %s' % montoTotalLinea)
+                totalImpuestoServicio += deduccion
             MontoTotalLinea.text = str(round(montoTotalLinea, decimales))
             LineaDetalle.append(MontoTotalLinea)
 
@@ -906,7 +908,7 @@ class ElectronicInvoiceCostaRicaTools(models.AbstractModel):
             OtrosCargos.append(Porcentaje)
 
             MontoCargo = etree.Element('MontoCargo')
-            MontoCargo.text = str(round((order.amount_total - order.amount_tax) * 10.0 / 100.0, decimales))
+            MontoCargo.text = str(round(totalImpuestoServicio, decimales))
             OtrosCargos.append(MontoCargo)
 
             Documento.append(OtrosCargos)
@@ -978,7 +980,7 @@ class ElectronicInvoiceCostaRicaTools(models.AbstractModel):
 
         if servicio:
             TotalOtrosCargos = etree.Element('TotalOtrosCargos')
-            TotalOtrosCargos.text = str(round((order.amount_total - order.amount_tax) * 10.0 / 100.0, decimales))
+            TotalOtrosCargos.text = str(round(totalImpuestoServicio, decimales))
             ResumenFactura.append(TotalOtrosCargos)
 
         TotalComprobante = etree.Element('TotalComprobante')
@@ -1836,6 +1838,7 @@ class ElectronicInvoiceCostaRicaTools(models.AbstractModel):
 
         impuestoServicio = self.env['account.tax'].search([('tax_code', '=', 'service')])
         servicio = True if impuestoServicio in invoice.invoice_line_ids.mapped('invoice_line_tax_ids') else False
+        totalImpuestoServicio = 0.0
 
         for indice, linea in enumerate(invoice.invoice_line_ids.sorted(lambda l: l.sequence)):
             LineaDetalle = etree.Element('LineaDetalle')
@@ -1959,14 +1962,14 @@ class ElectronicInvoiceCostaRicaTools(models.AbstractModel):
             MontoTotalLinea = etree.Element('MontoTotalLinea')
             montoTotalLinea = linea.price_total + ivaDevuelto
             totalIVADevuelto += ivaDevuelto
-            if servicio:
+            if impuestoServicio in linea.invoice_line_tax_ids:
                 _logger.info('mndl %s' % montoTotalLinea)
                 deduccion = montoTotalLinea * 10.0 / (100.0 + sum(linea.invoice_line_tax_ids.mapped('amount')))
                 _logger.info('mndl %s' % deduccion)
                 montoTotalLinea -= deduccion
                 _logger.info('mndl %s' % montoTotalLinea)
+                totalImpuestoServicio += deduccion
             MontoTotalLinea.text = str(round(montoTotalLinea, decimales))
-
             LineaDetalle.append(MontoTotalLinea)
 
             DetalleServicio.append(LineaDetalle)
@@ -1990,7 +1993,7 @@ class ElectronicInvoiceCostaRicaTools(models.AbstractModel):
             OtrosCargos.append(Porcentaje)
 
             MontoCargo = etree.Element('MontoCargo')
-            MontoCargo.text = str(round((invoice.amount_total - invoice.amount_tax) * 10.0 / 100.0, decimales))
+            MontoCargo.text = str(round(totalImpuestoServicio, decimales))
             OtrosCargos.append(MontoCargo)
 
             Documento.append(OtrosCargos)
@@ -2077,7 +2080,7 @@ class ElectronicInvoiceCostaRicaTools(models.AbstractModel):
 
         if servicio:
             TotalOtrosCargos = etree.Element('TotalOtrosCargos')
-            TotalOtrosCargos.text = str(round((invoice.amount_total - invoice.amount_tax) * 10.0 / 100.0, decimales))
+            TotalOtrosCargos.text = str(round(totalImpuestoServicio, decimales))
             ResumenFactura.append(TotalOtrosCargos)
 
         TotalComprobante = etree.Element('TotalComprobante')
