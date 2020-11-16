@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+
+    <record id="sequence_view" model="ir.ui.view">
+        <field name="name">ir.sequence.form</field>
+        <field name="model">ir.sequence</field>
+        <field name="inherit_id" ref="base.sequence_view"/>
+        <field name="arch" type="xml">
+            <xpath expr="//page[last()]" position="after">
+            <page string="Facturación Electrónica" name="facturacion_electronica">
+                <group>
+                <field name="eicr_no" />
+                </group>
+            </page>
+        </xpath>
+        </field>
+    </record>
+
+</odoo>

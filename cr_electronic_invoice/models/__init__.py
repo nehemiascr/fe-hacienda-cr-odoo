@@ -18,6 +18,7 @@ from . import account_invoice_refund
 from . import account_journal
 from . import account_payment_term
 from . import identificacion_type
+from . import ir_sequence
 
 from . import code_type_product
 from . import credit_conditions

@@ -195,6 +195,11 @@ class AccountInvoiceElectronic(models.Model):
         if invoice.type not in ('out_invoice', 'out_refund'):
             return invoice
 
+        # eicr can be disabled in the journal's sequence
+        if invoice.journal_id.sequence_id.eicr_no: 
+            invoice.state_tributacion = 'na'
+            return invoice
+
         consecutivo = self.env['eicr.tools']._get_consecutivo(invoice)
         if not consecutivo:
             raise UserError('Error con el consecutivo de la factura %s' % consecutivo)
