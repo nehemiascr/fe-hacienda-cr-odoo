@@ -767,6 +767,17 @@ class ElectronicInvoiceCostaRicaTools(models.AbstractModel):
             NumeroLinea.text = '%s' % indice  # indice + 1
             LineaDetalle.append(NumeroLinea)
 
+            Codigo = etree.Element('Codigo')
+            if linea.product_id and linea.product_id.cabys_code:
+                Codigo.text = linea.product_id.cabys_code 
+            elif linea.product_id.categ_id and linea.product_id.categ_id.cabys_code:
+                Codigo.text = linea.product_id.categ_id.cabys_code
+            elif self.company_id.cabys_product_id:
+                Codigo.text = self.company_id.cabys_product_id.codigo
+            else:
+                raise UserError('No se ha seleccionado un código Cabys para [%s]' % linea.name[:200])
+            LineaDetalle.append(Codigo)
+
             if linea.product_id.default_code:
                 CodigoComercial = etree.Element('CodigoComercial')
 
