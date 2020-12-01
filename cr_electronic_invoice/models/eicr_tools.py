@@ -772,8 +772,8 @@ class ElectronicInvoiceCostaRicaTools(models.AbstractModel):
                 Codigo.text = linea.product_id.cabys_code 
             elif linea.product_id.categ_id and linea.product_id.categ_id.cabys_code:
                 Codigo.text = linea.product_id.categ_id.cabys_code
-            elif self.company_id.cabys_product_id:
-                Codigo.text = self.company_id.cabys_product_id.codigo
+            elif order.company_id.cabys_product_id:
+                Codigo.text = order.company_id.cabys_product_id.codigo
             else:
                 raise UserError('No se ha seleccionado un código Cabys para [%s]' % linea.name[:200])
             LineaDetalle.append(Codigo)
