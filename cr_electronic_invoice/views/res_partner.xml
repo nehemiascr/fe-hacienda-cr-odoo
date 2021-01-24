@@ -18,6 +18,7 @@
 				<xpath expr="//group[@name='fiscal_information']" position="inside">
 					<field name="eicr_regimen"/>
 					<field name="eicr_activity_ids" widget="many2many_tags"/>
+					<field name="eicr_exoneration_ids" widget="many2many_tags" domain="['|',('partner_id', 'in', (None, False)),('partner_id','=',self)]"/>
 				</xpath>
 
 

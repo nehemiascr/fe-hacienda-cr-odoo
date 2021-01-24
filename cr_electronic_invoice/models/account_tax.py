@@ -12,7 +12,7 @@ class IvaCodeType(models.Model):
         string="Tarifa IVA", default='N/A', required=False, )
     iva_tax_code = fields.Char(
         string="Código Tarifa IVA", default='N/A', required=False, )
-    has_exoneration = fields.Boolean(string="Impuesto Exonerado", required=False)
+    has_exoneration = fields.Boolean(string="Impuesto de Exoneración", required=False)
     percentage_exoneration = fields.Integer(string="Porcentaje de Exoneracion", required=False)
     tax_root = fields.Many2one(
         comodel_name="account.tax", string="Impuesto Padre", required=False, )

@@ -1367,7 +1367,7 @@ class ElectronicInvoiceCostaRicaTools(models.AbstractModel):
                 LineaDetalle.append(MontoDescuento)
 
                 NaturalezaDescuento = etree.Element('NaturalezaDescuento')
-                NaturalezaDescuento.text = linea.discount_note or 'Descuento Comercial'
+                NaturalezaDescuento.text = 'Descuento Comercial'
                 LineaDetalle.append(NaturalezaDescuento)
 
             SubTotal = etree.Element('SubTotal')
@@ -1836,8 +1836,10 @@ class ElectronicInvoiceCostaRicaTools(models.AbstractModel):
 
         totalServiciosGravados = round(0.00, decimales)
         totalServiciosExentos = round(0.00, decimales)
+        totalServExonerado = round(0.00, decimales)
         totalMercanciasGravadas = round(0.00, decimales)
         totalMercanciasExentas = round(0.00, decimales)
+        totalMercExonerada = round(0.00, decimales)
 
         totalDescuentosMercanciasExentas = round(0.00, decimales)
         totalDescuentosMercanciasGravadas = round(0.00, decimales)
@@ -1846,6 +1848,7 @@ class ElectronicInvoiceCostaRicaTools(models.AbstractModel):
 
         totalImpuesto = round(0.00, decimales)
         totalIVADevuelto = round(0.00, decimales)
+        totalExonerado = round(0.00, decimales)
 
         impuestoServicio = self.env['account.tax'].search([('tax_code', '=', 'service')])
         servicio = True if impuestoServicio in invoice.invoice_line_ids.mapped('invoice_line_tax_ids') else False
@@ -1925,7 +1928,7 @@ class ElectronicInvoiceCostaRicaTools(models.AbstractModel):
                 Descuento.append(MontoDescuento)
 
                 NaturalezaDescuento = etree.Element('NaturalezaDescuento')
-                NaturalezaDescuento.text = linea.discount_note or 'Descuento Comercial'
+                NaturalezaDescuento.text = 'Descuento Comercial'
                 Descuento.append(NaturalezaDescuento)
 
                 LineaDetalle.append(Descuento)
@@ -1946,6 +1949,58 @@ class ElectronicInvoiceCostaRicaTools(models.AbstractModel):
                     if (impuesto.tax_code == '01' and impuesto.iva_tax_code == '04D'):
                         if invoice.payment_methods_id.sequence == '02':
                             ivaDevuelto += abs(monto)
+                    
+                    if impuesto.has_exoneration:
+                        
+                        totalExonerado += abs(monto)
+                        Exoneracion = etree.Element('Exoneracion')
+
+                        TipoDocumento = etree.Element('TipoDocumento')
+                        TipoDocumento.text = linea.exoneration_id.tipo_documento_id.code
+                        Exoneracion.append(TipoDocumento)
+
+                        NumeroDocumento = etree.Element('NumeroDocumento')
+                        NumeroDocumento.text = linea.exoneration_id.name
+                        Exoneracion.append(NumeroDocumento)
+
+                        NombreInstitucion = etree.Element('NombreInstitucion')
+                        NombreInstitucion.text = linea.exoneration_id.nombre_institucion
+                        Exoneracion.append(NombreInstitucion)
+
+                        FechaEmision = etree.Element('FechaEmision')
+                        fecha_emision = datetime.strptime(linea.exoneration_id.fecha_emision, '%Y-%m-%d')
+                        FechaEmision.text = fecha_emision.strftime("%Y-%m-%dT%H:%M:%S")
+                        Exoneracion.append(FechaEmision)
+
+                        PorcentajeExoneracion = etree.Element('PorcentajeExoneracion')
+                        PorcentajeExoneracion.text = str(int(linea.exoneration_id.percentage_exoneration))
+                        Exoneracion.append(PorcentajeExoneracion)
+
+                        MontoExoneracion = etree.Element('MontoExoneracion')
+                        MontoExoneracion.text = str(round(abs(monto), decimales))
+                        Exoneracion.append(MontoExoneracion)
+
+                        totalImpuesto += monto
+                        Impuesto = LineaDetalle.find('Impuesto')
+                        Impuesto.append(Exoneracion)
+                        print(Impuesto)
+                        
+                        # exoneration tax
+                        exonerated_tax_id = linea.invoice_line_tax_ids.filtered(lambda t: t.has_exoneration)
+
+                        ImpuestoNeto = etree.Element('ImpuestoNeto')
+                        monto_exoneracion = round(linea.price_subtotal * exonerated_tax_id.amount / 100.00, decimales)
+                        ImpuestoNeto.text = str(round(monto - monto_exoneracion, decimales))
+
+                        Impuesto.addnext(ImpuestoNeto)
+
+                        if linea.product_id and linea.product_id.type == 'service':
+                            totalServiciosGravados -= linea.price_subtotal
+                            totalServExonerado += linea.price_subtotal
+                        else:
+                            totalMercanciasGravadas -= linea.price_subtotal
+                            totalMercExonerada += linea.price_subtotal
+
                     else:
                         Impuesto = etree.Element('Impuesto')
 
@@ -2036,7 +2091,7 @@ class ElectronicInvoiceCostaRicaTools(models.AbstractModel):
 
             ResumenFactura.append(CodigoTipoMoneda)
 
-        if totalServiciosGravados:
+        if totalServiciosGravados or totalServExonerado:
             TotalServGravados = etree.Element('TotalServGravados')
             TotalServGravados.text = str(round(totalServiciosGravados + totalDescuentosServiciosGravados, decimales))
             ResumenFactura.append(TotalServGravados)
@@ -2046,7 +2101,12 @@ class ElectronicInvoiceCostaRicaTools(models.AbstractModel):
             TotalServExentos.text = str(round(totalServiciosExentos + totalDescuentosServiciosExentos, decimales))
             ResumenFactura.append(TotalServExentos)
 
-        if totalMercanciasGravadas:
+        if totalServExonerado:
+            TotalServExonerado = etree.Element('TotalServExonerado')
+            TotalServExonerado.text = str(round(totalServExonerado, decimales))
+            ResumenFactura.append(TotalServExonerado)
+
+        if totalMercanciasGravadas or totalMercExonerada:
             TotalMercanciasGravadas = etree.Element('TotalMercanciasGravadas')
             TotalMercanciasGravadas.text = str(
                 round(totalMercanciasGravadas + totalDescuentosMercanciasGravadas, decimales))
@@ -2058,7 +2118,12 @@ class ElectronicInvoiceCostaRicaTools(models.AbstractModel):
                 round(totalMercanciasExentas + totalDescuentosMercanciasExentas, decimales))
             ResumenFactura.append(TotalMercanciasExentas)
 
-        if totalServiciosGravados + totalMercanciasGravadas:
+        if totalMercExonerada:
+            TotalMercExonerada = etree.Element('TotalMercExonerada')
+            TotalMercExonerada.text = str(round(totalMercExonerada, decimales))
+            ResumenFactura.append(TotalMercExonerada)
+
+        if totalServiciosGravados or totalMercanciasGravadas or totalServExonerado or totalMercExonerada:
             TotalGravado = etree.Element('TotalGravado')
             TotalGravado.text = str(round(
                 totalServiciosGravados + totalDescuentosServiciosGravados + totalMercanciasGravadas + totalDescuentosMercanciasGravadas,
@@ -2071,6 +2136,11 @@ class ElectronicInvoiceCostaRicaTools(models.AbstractModel):
                 totalServiciosExentos + totalDescuentosServiciosExentos + totalMercanciasExentas + totalDescuentosMercanciasExentas,
                 decimales))
             ResumenFactura.append(TotalExento)
+
+        if totalServExonerado or totalMercExonerada:
+            TotalExonerado = etree.Element('TotalExonerado')
+            TotalExonerado.text = str(round(totalServExonerado + totalMercExonerada,decimales))
+            ResumenFactura.append(TotalExonerado)
 
         TotalVenta = etree.Element('TotalVenta')
         TotalVenta.text = str(round(

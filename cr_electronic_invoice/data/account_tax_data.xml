@@ -579,5 +579,176 @@
             <field name="iva_tax_desc">N/A</field>
             <field name="iva_tax_code">N/A</field>
         </record>
+
+        <record id="l10n_cr.account_tax_iva_exoneration_1_sale" model="account.tax">
+            <field name="name">Exoneración al IVA del 1%</field>
+            <field name="sequence">101</field>
+            <field name="amount">-1</field>
+            <field name="type_tax_use">sale</field>
+            <field name="has_exoneration">True</field>
+            <field name="chart_template_id" ref="l10n_cr.account_chart_template_0"/>
+            <field name="account_id" ref="l10n_cr.account_account_template_0_212101"/>
+            <field name="refund_account_id" ref="l10n_cr.account_account_template_0_212101"/>
+            <field name="tag_ids" eval="[(6,0,[ref('l10n_cr.tag_iva_exoneration_1')])]"/>
+            <field name="tax_group_id" ref="l10n_cr.tax_group_iva_exoneration_1"/>
+        </record>
+
+        <record id="l10n_cr.account_tax_iva_exoneration_2_sale" model="account.tax">
+            <field name="name">Exoneración al IVA del 2%</field>
+            <field name="sequence">102</field>
+            <field name="amount">-2</field>
+            <field name="type_tax_use">sale</field>
+            <field name="has_exoneration">True</field>
+            <field name="chart_template_id" ref="l10n_cr.account_chart_template_0"/>
+            <field name="account_id" ref="l10n_cr.account_account_template_0_212101"/>
+            <field name="refund_account_id" ref="l10n_cr.account_account_template_0_212101"/>
+            <field name="tag_ids" eval="[(6,0,[ref('l10n_cr.tag_iva_exoneration_2')])]"/>
+            <field name="tax_group_id" ref="l10n_cr.tax_group_iva_exoneration_2"/>
+        </record>
+
+        <record id="l10n_cr.account_tax_iva_exoneration_3_sale" model="account.tax">
+            <field name="name">Exoneración al IVA del 3%</field>
+            <field name="sequence">103</field>
+            <field name="amount">-3</field>
+            <field name="type_tax_use">sale</field>
+            <field name="has_exoneration">True</field>
+            <field name="chart_template_id" ref="l10n_cr.account_chart_template_0"/>
+            <field name="account_id" ref="l10n_cr.account_account_template_0_212101"/>
+            <field name="refund_account_id" ref="l10n_cr.account_account_template_0_212101"/>
+            <field name="tag_ids" eval="[(6,0,[ref('l10n_cr.tag_iva_exoneration_3')])]"/>
+            <field name="tax_group_id" ref="l10n_cr.tax_group_iva_exoneration_3"/>
+        </record>
+
+        <record id="l10n_cr.account_tax_iva_exoneration_4_sale" model="account.tax">
+            <field name="name">Exoneración al IVA del 4%</field>
+            <field name="sequence">104</field>
+            <field name="amount">-4</field>
+            <field name="type_tax_use">sale</field>
+            <field name="has_exoneration">True</field>
+            <field name="chart_template_id" ref="l10n_cr.account_chart_template_0"/>
+            <field name="account_id" ref="l10n_cr.account_account_template_0_212101"/>
+            <field name="refund_account_id" ref="l10n_cr.account_account_template_0_212101"/>
+            <field name="tag_ids" eval="[(6,0,[ref('l10n_cr.tag_iva_exoneration_4')])]"/>
+            <field name="tax_group_id" ref="l10n_cr.tax_group_iva_exoneration_4"/>
+        </record>
+
+        <record id="l10n_cr.account_tax_iva_exoneration_5_sale" model="account.tax">
+            <field name="name">Exoneración al IVA del 5%</field>
+            <field name="sequence">105</field>
+            <field name="amount">-5</field>
+            <field name="type_tax_use">sale</field>
+            <field name="has_exoneration">True</field>
+            <field name="chart_template_id" ref="l10n_cr.account_chart_template_0"/>
+            <field name="account_id" ref="l10n_cr.account_account_template_0_212101"/>
+            <field name="refund_account_id" ref="l10n_cr.account_account_template_0_212101"/>
+            <field name="tag_ids" eval="[(6,0,[ref('l10n_cr.tag_iva_exoneration_5')])]"/>
+            <field name="tax_group_id" ref="l10n_cr.tax_group_iva_exoneration_5"/>
+        </record>
+
+        <record id="l10n_cr.account_tax_iva_exoneration_6_sale" model="account.tax">
+            <field name="name">Exoneración al IVA del 6%</field>
+            <field name="sequence">106</field>
+            <field name="amount">-6</field>
+            <field name="type_tax_use">sale</field>
+            <field name="has_exoneration">True</field>
+            <field name="chart_template_id" ref="l10n_cr.account_chart_template_0"/>
+            <field name="account_id" ref="l10n_cr.account_account_template_0_212101"/>
+            <field name="refund_account_id" ref="l10n_cr.account_account_template_0_212101"/>
+            <field name="tag_ids" eval="[(6,0,[ref('l10n_cr.tag_iva_exoneration_6')])]"/>
+            <field name="tax_group_id" ref="l10n_cr.tax_group_iva_exoneration_6"/>
+        </record>
+
+        <record id="l10n_cr.account_tax_iva_exoneration_7_sale" model="account.tax">
+            <field name="name">Exoneración al IVA del 7%</field>
+            <field name="sequence">107</field>
+            <field name="amount">-7</field>
+            <field name="type_tax_use">sale</field>
+            <field name="has_exoneration">True</field>
+            <field name="chart_template_id" ref="l10n_cr.account_chart_template_0"/>
+            <field name="account_id" ref="l10n_cr.account_account_template_0_212101"/>
+            <field name="refund_account_id" ref="l10n_cr.account_account_template_0_212101"/>
+            <field name="tag_ids" eval="[(6,0,[ref('l10n_cr.tag_iva_exoneration_7')])]"/>
+            <field name="tax_group_id" ref="l10n_cr.tax_group_iva_exoneration_7"/>
+        </record>
+
+        <record id="l10n_cr.account_tax_iva_exoneration_8_sale" model="account.tax">
+            <field name="name">Exoneración al IVA del 8%</field>
+            <field name="sequence">108</field>
+            <field name="amount">-8</field>
+            <field name="type_tax_use">sale</field>
+            <field name="has_exoneration">True</field>
+            <field name="chart_template_id" ref="l10n_cr.account_chart_template_0"/>
+            <field name="account_id" ref="l10n_cr.account_account_template_0_212101"/>
+            <field name="refund_account_id" ref="l10n_cr.account_account_template_0_212101"/>
+            <field name="tag_ids" eval="[(6,0,[ref('l10n_cr.tag_iva_exoneration_8')])]"/>
+            <field name="tax_group_id" ref="l10n_cr.tax_group_iva_exoneration_8"/>
+        </record>
+
+        <record id="l10n_cr.account_tax_iva_exoneration_9_sale" model="account.tax">
+            <field name="name">Exoneración al IVA del 9%</field>
+            <field name="sequence">109</field>
+            <field name="amount">-9</field>
+            <field name="type_tax_use">sale</field>
+            <field name="has_exoneration">True</field>
+            <field name="chart_template_id" ref="l10n_cr.account_chart_template_0"/>
+            <field name="account_id" ref="l10n_cr.account_account_template_0_212101"/>
+            <field name="refund_account_id" ref="l10n_cr.account_account_template_0_212101"/>
+            <field name="tag_ids" eval="[(6,0,[ref('l10n_cr.tag_iva_exoneration_9')])]"/>
+            <field name="tax_group_id" ref="l10n_cr.tax_group_iva_exoneration_9"/>
+        </record>
+
+        <record id="l10n_cr.account_tax_iva_exoneration_10_sale" model="account.tax">
+            <field name="name">Exoneración al IVA del 10%</field>
+            <field name="sequence">110</field>
+            <field name="amount">-10</field>
+            <field name="type_tax_use">sale</field>
+            <field name="has_exoneration">True</field>
+            <field name="chart_template_id" ref="l10n_cr.account_chart_template_0"/>
+            <field name="account_id" ref="l10n_cr.account_account_template_0_212101"/>
+            <field name="refund_account_id" ref="l10n_cr.account_account_template_0_212101"/>
+            <field name="tag_ids" eval="[(6,0,[ref('l10n_cr.tag_iva_exoneration_10')])]"/>
+            <field name="tax_group_id" ref="l10n_cr.tax_group_iva_exoneration_10"/>
+        </record>
+
+        <record id="l10n_cr.account_tax_iva_exoneration_11_sale" model="account.tax">
+            <field name="name">Exoneración al IVA del 11%</field>
+            <field name="sequence">111</field>
+            <field name="amount">-11</field>
+            <field name="type_tax_use">sale</field>
+            <field name="has_exoneration">True</field>
+            <field name="chart_template_id" ref="l10n_cr.account_chart_template_0"/>
+            <field name="account_id" ref="l10n_cr.account_account_template_0_212101"/>
+            <field name="refund_account_id" ref="l10n_cr.account_account_template_0_212101"/>
+            <field name="tag_ids" eval="[(6,0,[ref('l10n_cr.tag_iva_exoneration_11')])]"/>
+            <field name="tax_group_id" ref="l10n_cr.tax_group_iva_exoneration_11"/>
+        </record>
+
+        <record id="l10n_cr.account_tax_iva_exoneration_12_sale" model="account.tax">
+            <field name="name">Exoneración al IVA del 12%</field>
+            <field name="sequence">112</field>
+            <field name="amount">-12</field>
+            <field name="type_tax_use">sale</field>
+            <field name="has_exoneration">True</field>
+            <field name="chart_template_id" ref="l10n_cr.account_chart_template_0"/>
+            <field name="account_id" ref="l10n_cr.account_account_template_0_212101"/>
+            <field name="refund_account_id" ref="l10n_cr.account_account_template_0_212101"/>
+            <field name="tag_ids" eval="[(6,0,[ref('l10n_cr.tag_iva_exoneration_12')])]"/>
+            <field name="tax_group_id" ref="l10n_cr.tax_group_iva_exoneration_12"/>
+        </record>
+
+        <record id="l10n_cr.account_tax_iva_exoneration_13_sale" model="account.tax">
+            <field name="name">Exoneración al IVA del 13%</field>
+            <field name="sequence">113</field>
+            <field name="amount">-13</field>
+            <field name="type_tax_use">sale</field>
+            <field name="has_exoneration">True</field>
+            <field name="chart_template_id" ref="l10n_cr.account_chart_template_0"/>
+            <field name="account_id" ref="l10n_cr.account_account_template_0_212101"/>
+            <field name="refund_account_id" ref="l10n_cr.account_account_template_0_212101"/>
+            <field name="tag_ids" eval="[(6,0,[ref('l10n_cr.tag_iva_exoneration_13')])]"/>
+            <field name="tax_group_id" ref="l10n_cr.tax_group_iva_exoneration_13"/>
+        </record>
+
+        
     </data>
 </odoo>

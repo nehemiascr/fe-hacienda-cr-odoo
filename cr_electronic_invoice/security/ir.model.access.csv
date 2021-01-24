@@ -9,3 +9,6 @@ access_ElectronicInvoiceSchema,electronic_invoice.schema,model_electronic_invoic
 access_ElectronicInvoiceVersion,electronic_invoice.version,model_electronic_invoice_version,account.group_account_invoice,1,0,0,0
 access_economic_activity,economic_activity,model_economic_activity,account.group_account_invoice,1,0,0,0
 access_credit_conditions,credit_conditions,model_credit_conditions,account.group_account_invoice,1,0,0,0
+
+access_eicr_exoneration_type,eicr.exoneration_type,model_eicr_exoneration_type,base.group_user,1,0,0,0
+edit_eicr_exoneration_type,eicr.exoneration_type,model_eicr_exoneration_type,account.group_account_invoice,1,1,1,1

@@ -267,6 +267,10 @@ class AccountInvoiceElectronic(models.Model):
                     if iva4 in line.invoice_line_tax_ids:
                         line.invoice_line_tax_ids = [(4, iva4_devolucion.id)]
                 invoice.compute_taxes()
+            if any(l.exoneration_id for l in invoice.invoice_line_ids):
+                for line in invoice.invoice_line_ids.filtered(lambda l: l.exoneration_id):
+                    line._fix_exoneration()
+                invoice.compute_taxes()
 
         super(AccountInvoiceElectronic, self).action_invoice_open()
 

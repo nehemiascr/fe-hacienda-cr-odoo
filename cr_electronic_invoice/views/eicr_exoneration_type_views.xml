@@ -1,0 +1,43 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+	<data>
+
+		<record id="view_exoneration_type_tree" model="ir.ui.view">
+            <field name="name">eicr.exoneration_type.tree</field>
+            <field name="model">eicr.exoneration_type</field>
+            <field name="arch" type="xml">
+                <tree string="Tipo de Exoneración">
+                    <field name="code"/>
+                    <field name="name"/>
+                    <field name="notes"/>
+                </tree>
+            </field>
+        </record>
+
+		<record id="view_exoneration_type_form" model="ir.ui.view">
+            <field name="name">eicr.exoneration_type.form</field>
+            <field name="model">eicr.exoneration_type</field>
+            <field name="arch" type="xml">
+                <form string="Tipo de Exoneración">
+                    <sheet>
+                            <group>
+                                <field name="code"/>
+                                <field name="name"/>
+                                <field name="notes"/>
+                            </group>
+                    </sheet>
+                </form>
+            </field>
+        </record>
+
+		<record id="eicr_exoneration_type" model="ir.actions.act_window">
+			<field name="name">Tipo de Exoneración</field>
+			<field name="res_model">eicr.exoneration_type</field>
+			<field name="view_type">form</field>
+			<field name="view_mode">tree,form</field>
+		</record>
+
+		<menuitem id="menu_exoneration_type" name="Tipo de Exoneración" parent="menu_electronic_invoice" sequence="70" action="eicr_exoneration_type"/>
+
+	</data>
+</odoo>

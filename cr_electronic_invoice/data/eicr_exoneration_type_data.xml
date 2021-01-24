@@ -1,0 +1,47 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <data noupdate="0">
+
+        <!-- exoneration types -->
+        <record id="ExonerationType_01" model="eicr.exoneration_type">
+            <field name="code">01</field>
+            <field name="name">Compras autorizadas</field>
+        </record>
+
+        <record id="ExonerationType_02" model="eicr.exoneration_type">
+            <field name="code">02</field>
+            <field name="name">Ventas exentas a diplomáticos</field>
+        </record>
+
+        <record id="ExonerationType_03" model="eicr.exoneration_type">
+            <field name="code">03</field>
+            <field name="name">Autorizado por Ley especial</field>
+        </record>
+
+        <record id="ExonerationType_04" model="eicr.exoneration_type">
+            <field name="code">04</field>
+            <field name="name">Exenciones Dirección General de Hacienda</field>
+        </record>
+
+        <record id="ExonerationType_05" model="eicr.exoneration_type">
+            <field name="code">05</field>
+            <field name="name">Transitorio V</field>
+        </record>
+
+        <record id="ExonerationType_06" model="eicr.exoneration_type">
+            <field name="code">06</field>
+            <field name="name">Transitorio IX</field>
+        </record>
+
+        <record id="ExonerationType_07" model="eicr.exoneration_type">
+            <field name="code">07</field>
+            <field name="name">Transitorio XVII</field>
+        </record>
+
+        <record id="ExonerationType_99" model="eicr.exoneration_type">
+            <field name="code">99</field>
+            <field name="name">Otros</field>
+        </record>
+
+    </data>
+</odoo>

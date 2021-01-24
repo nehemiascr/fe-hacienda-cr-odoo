@@ -1,0 +1,56 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+	<data>
+
+		<record id="view_exoneration_tree" model="ir.ui.view">
+            <field name="name">eicr.exoneration.tree</field>
+            <field name="model">eicr.exoneration</field>
+            <field name="arch" type="xml">
+                <tree string="Exoneración">
+                    <field name="name"/>
+                    <field name="identificacion"/>
+                    <field name="fecha_emision"/>
+                    <field name="fecha_vencimiento"/>
+                    <field name="nombre_institucion"/>
+                    <field name="percentage_exoneration"/>
+                    <field name="nombre_institucion"/>
+                </tree>
+            </field>
+        </record>
+
+		<record id="view_exoneration_form" model="ir.ui.view">
+            <field name="name">eicr.exoneration.form</field>
+            <field name="model">eicr.exoneration</field>
+            <field name="arch" type="xml">
+                <form string="Exoneración">
+                    <sheet>
+                        <group>
+                            <field name="name"/>
+                            <field name="identificacion" />
+                            <field name="codigo_proyecto_cfia" />
+                            <field name="fecha_emision" />
+                            <field name="fecha_vencimiento" />
+                            <field name="percentage_exoneration" />
+                            <field name="tax_id"/>
+                            <field name="tipo_documento_id" />
+                            <field name="nombre_institucion" />
+                            <field name="cabys_ids" />
+                            <field name="partner_id"/>
+                            <field name="json" groups="base.group_no_one" />
+                        </group>
+                    </sheet>
+                </form>
+            </field>
+        </record>
+
+		<record id="eicr_exoneration" model="ir.actions.act_window">
+			<field name="name">Exoneraciones</field>
+			<field name="res_model">eicr.exoneration</field>
+			<field name="view_type">form</field>
+			<field name="view_mode">tree,form</field>
+		</record>
+
+		<menuitem id="menu_exoneration" name="Exoneraciones" parent="account.menu_finance_entries_actions" sequence="70" action="eicr_exoneration"/>
+		
+	</data>
+</odoo>

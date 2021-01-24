@@ -16,6 +16,7 @@
 			 'data/account_account_tag_data.xml',
 			 'data/account_tax_group_data.xml',
 			 'data/account_tax_template_data.xml',
+			 'data/eicr_exoneration_type_data.xml',
 			 'data/account_tax_data.xml',
 			 'data/code.type.product.csv',
 	         'data/identification.type.csv',
@@ -44,7 +45,8 @@
 			 'views/product_category_views.xml',
 			 'views/res_partner.xml',
 			 'views/ir_sequence_view.xml',
-
+		 	 'views/eicr_exoneration_type_views.xml',
+		 	 'views/eicr_exoneration_views.xml',
 			 'report/report_invoice.xml',
 			 'report/report_facturas.xml',
 

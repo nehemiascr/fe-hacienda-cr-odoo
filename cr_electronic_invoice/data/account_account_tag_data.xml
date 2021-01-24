@@ -78,5 +78,70 @@
             <field name="applicability">taxes</field>
         </record>
 
+        <record id="l10n_cr.tag_iva_exoneration_1" model="account.account.tag">
+            <field name="name">Exoneración al IVA del 1%</field>
+            <field name="applicability">taxes</field>
+        </record>
+
+        <record id="l10n_cr.tag_iva_exoneration_2" model="account.account.tag">
+            <field name="name">Exoneración al IVA del 2%</field>
+            <field name="applicability">taxes</field>
+        </record>
+
+        <record id="l10n_cr.tag_iva_exoneration_3" model="account.account.tag">
+            <field name="name">Exoneración al IVA del 3%</field>
+            <field name="applicability">taxes</field>
+        </record>
+
+        <record id="l10n_cr.tag_iva_exoneration_4" model="account.account.tag">
+            <field name="name">Exoneración al IVA del 4%</field>
+            <field name="applicability">taxes</field>
+        </record>
+
+        <record id="l10n_cr.tag_iva_exoneration_5" model="account.account.tag">
+            <field name="name">Exoneración al IVA del 5%</field>
+            <field name="applicability">taxes</field>
+        </record>
+
+        <record id="l10n_cr.tag_iva_exoneration_6" model="account.account.tag">
+            <field name="name">Exoneración al IVA del 6%</field>
+            <field name="applicability">taxes</field>
+        </record>
+
+        <record id="l10n_cr.tag_iva_exoneration_7" model="account.account.tag">
+            <field name="name">Exoneración al IVA del 7%</field>
+            <field name="applicability">taxes</field>
+        </record>
+
+        <record id="l10n_cr.tag_iva_exoneration_8" model="account.account.tag">
+            <field name="name">Exoneración al IVA del 8%</field>
+            <field name="applicability">taxes</field>
+        </record>
+
+        <record id="l10n_cr.tag_iva_exoneration_9" model="account.account.tag">
+            <field name="name">Exoneración al IVA del 9%</field>
+            <field name="applicability">taxes</field>
+        </record>
+
+        <record id="l10n_cr.tag_iva_exoneration_10" model="account.account.tag">
+            <field name="name">Exoneración al IVA del 10%</field>
+            <field name="applicability">taxes</field>
+        </record>
+
+        <record id="l10n_cr.tag_iva_exoneration_11" model="account.account.tag">
+            <field name="name">Exoneración al IVA del 11%</field>
+            <field name="applicability">taxes</field>
+        </record>
+
+        <record id="l10n_cr.tag_iva_exoneration_12" model="account.account.tag">
+            <field name="name">Exoneración al IVA del 12%</field>
+            <field name="applicability">taxes</field>
+        </record>
+
+        <record id="l10n_cr.tag_iva_exoneration_13" model="account.account.tag">
+            <field name="name">Exoneración al IVA del 13%</field>
+            <field name="applicability">taxes</field>
+        </record>
+
     </data>
 </odoo>

@@ -413,3 +413,30 @@ class ElectronicInvoiceCostaRicaHacienda(models.AbstractModel):
                 max_documentos -= 1
 
         _logger.info('Consulta Hacienda - Finalizado Exitosamente')
+
+    def get_actividades_economicas(self, identificacion=None):
+        '''Obtiene las actividades económicas de la compañia'''
+
+        info = self.get_info_contribuyente(identificacion)
+
+        if info:
+            return [x for x in info['actividades'] if x['estado'] == 'A']
+        else:
+            return False
+
+    def get_exoneration(self, autorizacion):
+        try:
+            url = 'https://api.hacienda.go.cr/fe/ex'
+            response = requests.get(url, params={'autorizacion': autorizacion}, timeout=5, verify=False)
+
+        except requests.exceptions.RequestException as e:
+            _logger.info('RequestException %s' % e)
+            return False
+
+        _logger.info('%s %s' % (response, response.__dict__))
+
+        if response.status_code in (200,):
+            _logger.info(response.json())
+            return response.json()
+        else:
+            return False

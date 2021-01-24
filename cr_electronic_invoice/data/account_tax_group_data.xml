@@ -20,5 +20,46 @@
         <record id="l10n_cr.tax_group_iuc" model="account.tax.group"><field name="name">IUC</field></record>
         <record id="l10n_cr.tax_group_ic" model="account.tax.group"><field name="name">IC</field></record>
 
+        <!-- Exonerations - Account Tax Group -->
+        <record model="account.tax.group" id="l10n_cr.tax_group_iva_exoneration_1">
+            <field name="name">Exoneración al IVA del 1%</field>
+        </record>
+        <record model="account.tax.group" id="l10n_cr.tax_group_iva_exoneration_2">
+            <field name="name">Exoneración al IVA del 2%</field>
+        </record>
+        <record model="account.tax.group" id="l10n_cr.tax_group_iva_exoneration_3">
+            <field name="name">Exoneración al IVA del 3%</field>
+        </record>
+        <record model="account.tax.group" id="l10n_cr.tax_group_iva_exoneration_4">
+            <field name="name">Exoneración al IVA del 4%</field>
+        </record>
+        <record model="account.tax.group" id="l10n_cr.tax_group_iva_exoneration_5">
+            <field name="name">Exoneración al IVA del 5%</field>
+        </record>
+        <record model="account.tax.group" id="l10n_cr.tax_group_iva_exoneration_6">
+            <field name="name">Exoneración al IVA del 6%</field>
+        </record>
+        <record model="account.tax.group" id="l10n_cr.tax_group_iva_exoneration_7">
+            <field name="name">Exoneración al IVA del 7%</field>
+        </record>
+        <record model="account.tax.group" id="l10n_cr.tax_group_iva_exoneration_8">
+            <field name="name">Exoneración al IVA del 8%</field>
+        </record>
+        <record model="account.tax.group" id="l10n_cr.tax_group_iva_exoneration_9">
+            <field name="name">Exoneración al IVA del 9%</field>
+        </record>
+        <record model="account.tax.group" id="l10n_cr.tax_group_iva_exoneration_10">
+            <field name="name">Exoneración al IVA del 10%</field>
+        </record>
+        <record model="account.tax.group" id="l10n_cr.tax_group_iva_exoneration_11">
+            <field name="name">Exoneración al IVA del 11%</field>
+        </record>
+        <record model="account.tax.group" id="l10n_cr.tax_group_iva_exoneration_12">
+            <field name="name">Exoneración al IVA del 12%</field>
+        </record>
+        <record model="account.tax.group" id="l10n_cr.tax_group_iva_exoneration_13">
+            <field name="name">Exoneración al IVA del 13%</field>
+        </record>
+
     </data>
 </odoo>
