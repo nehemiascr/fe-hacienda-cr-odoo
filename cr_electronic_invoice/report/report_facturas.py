@@ -10,24 +10,28 @@ strings = {
         'name': 'Facturas de Cliente',
         'title': 'Listado de Facturas Emitidas',
         'vat': 'Cédula de Cliente',
-        'type': 'Cliente'
+        'type': 'Cliente',
+        'inverse': 'Nota de Crédito',
+        'document': 'Factura'
     },
     'out_refund': {
         'name': 'Notas de Crédito',
         'title': 'Listado de Notas de Crédito Emitidas',
         'vat': 'Cédula de Cliente',
-        'type': 'Cliente'
+        'type': 'Cliente',
+        'inverse': 'Factura',
+        'document': 'Nota de Crédito'
     },
     'in_invoice': {
         'name': 'Facturas de Proveedor',
         'title': 'Listado de Documentos Recibidos',
         'vat': 'Cédula de Proveedor',
-        'type': 'Proveedor'
+        'type': 'Proveedor',
+        'document': 'Factura de Proveedor'
     }
 }
 
-h = {0:'A', 1:'B', 2:'C', 3:'D', 4:'E', 5:'F', 6:'G', 7:'H', 8:'I', 9:'J', 10:'K', 11:'L'}
-
+h = {0:'A', 1:'B', 2:'C', 3:'D', 4:'E', 5:'F', 6:'G', 7:'H', 8:'I', 9:'J', 10:'K', 11:'L', 12:'M', 13:'N', 14:'O', 15:'P', 16:'Q'}
 
 
 class FacturasReportWizard(models.TransientModel):
@@ -38,7 +42,6 @@ class FacturasReportWizard(models.TransientModel):
     type = fields.Selection([   ('out_invoice', _(strings['out_invoice']['name'])),
                                 ('out_refund' , _(strings['out_refund']['name'])),
                                 ('in_invoice' , _(strings['in_invoice']['name']))   ])
-
 
 
     @api.multi
@@ -85,6 +88,7 @@ class Facturas(models.AbstractModel):
         money = workbook.add_format({'num_format': '₡#,##0.00'})
         date = workbook.add_format({'num_format': 'dd/mm/yy'})
         taxes = facturas.mapped('invoice_line_ids').mapped('invoice_line_tax_ids')
+        credit_notes = True if data['form']['type'] == 'out_invoice' and facturas.mapped('refund_invoice_ids') else False
 
         # Report Header
         # first row : Name     Vat     Date Range
@@ -96,7 +100,7 @@ class Facturas(models.AbstractModel):
         # third row : Column Names
         sheet.write(2, 0, strings[data['form']['type']]['vat'], bold)
         sheet.write(2, 1, strings[data['form']['type']]['type'], bold)
-        sheet.write(2, 2, 'Factura', bold)
+        sheet.write(2, 2, strings[data['form']['type']]['document'], bold)
         sheet.write(2, 3, 'Consecutivo', bold)
         sheet.write(2, 4, 'Fecha', bold)
         sheet.write(2, 5, 'Subtotal', bold)
@@ -105,37 +109,68 @@ class Facturas(models.AbstractModel):
             sheet.write(2, columna+i, tax.name, bold)
         sheet.write(2, columna+len(taxes)+0, 'Total Impuestos', bold)
         sheet.write(2, columna+len(taxes)+1, 'Total', bold)
+        sheet.write(2, columna+len(taxes)+2, 'Moneda', bold)
+        sheet.write(2, columna+len(taxes)+3, 'Tipo de Cambio', bold)
+        if credit_notes or data['form']['type'] == 'out_refund':
+            sheet.write(2, columna+len(taxes)+4, strings[data['form']['type']]['inverse'], bold)
 
         # Report Lines
         fila = 3
         for i, factura in enumerate(facturas):
+            # Tipo de Cambio
+            exchange_rate = factura.amount_total_company_signed / factura.amount_total_signed if factura.amount_total_signed else 0
+            if factura.currency_id.name == 'USD' and exchange_rate == 1.0:
+                name = factura.date_invoice.strftime('%Y-%m-%d')
+                rate_id = self.env['res.currency.rate'].search([('name', '=', name)])
+                if rate_id:
+                    rate_id = rate_id[0]
+                    exchange_rate = rate_id['original_rate']
+            
+            # Contacto
             sheet.write(i+fila, 0, factura.partner_id.vat or '')
+            # Nombre
             sheet.write(i+fila, 1, factura.partner_id.name)
+            # Clave
             sheet.write(i+fila, 2, factura.number_electronic)
+            # Consecutivo
             sheet.write(i+fila, 3, factura.number_electronic[21:41] if factura.number_electronic else factura.number)
+            # Fecha
             sheet.write(i+fila, 4, factura.date_invoice, date)
             price_subtotal = sum(factura.invoice_line_ids.mapped('price_subtotal'))
             if factura.refund_invoice_ids:
                 price_subtotal -= sum(factura.refund_invoice_ids.mapped('invoice_line_ids').mapped('price_subtotal'))
-            sheet.write(i+fila, 5, round(price_subtotal, 2), money)
+            # Subtotal
+            sheet.write(i+fila, 5, round((price_subtotal if price_subtotal > 0 else 0) * exchange_rate, 2), money)
             # sheet.write(indice+fila, 5, round(sum(factura.invoice_line_ids.mapped(lambda l: (l.price_unit * l.quantity) - l.price_subtotal)), 2))
-
+            # Impuestos
             for j, tax in enumerate(taxes):
                 total = factura.tax_line_ids.filtered(lambda t: t.tax_id == tax).ensure_one().amount_total if tax in factura.tax_line_ids.mapped('tax_id') else 0.0
                 if factura.refund_invoice_ids:
                     for refund_invoice in factura.refund_invoice_ids:
                         total -= refund_invoice.tax_line_ids.filtered(lambda t: t.tax_id == tax).ensure_one().amount_total if tax in refund_invoice.tax_line_ids.mapped('tax_id') else 0.0
-                sheet.write(i+fila, columna+j, round(total, 2), money)
-
-            amount_total = sum(factura.tax_line_ids.mapped('amount_total'))
+                sheet.write(i+fila, columna+j, round((total if total > 0 else 0) * exchange_rate, 2), money)
+            # Total Impuestos
+            amount_total_tax = sum(factura.tax_line_ids.mapped('amount_total'))
             if factura.refund_invoice_ids:
-                amount_total -= sum(factura.refund_invoice_ids.mapped('tax_line_ids').mapped('amount_total'))
-            sheet.write(i+fila, columna+len(taxes)+0, round(amount_total, 2), money)
-
+                amount_total_tax -= sum(factura.refund_invoice_ids.mapped('tax_line_ids').mapped('amount_total'))
+            sheet.write(i+fila, columna+len(taxes)+0, round((amount_total_tax if amount_total_tax > 0 else 0) * exchange_rate, 2), money)
+            # Total
             amount_total = factura.amount_total
             if factura.refund_invoice_ids:
                 amount_total -= sum(factura.refund_invoice_ids.mapped('amount_total'))
-            sheet.write(i+fila, columna+len(taxes)+1, round(amount_total, 2), money)
+            
+            sheet.write(i+fila, columna+len(taxes)+1, round((amount_total if amount_total > 0 else 0) * exchange_rate, 2), money)
+            # Moneda
+            sheet.write(i+fila, columna+len(taxes)+2, factura.currency_id.name)
+            # Tipo de Cambio
+            sheet.write(i+fila, columna+len(taxes)+3, exchange_rate, money)
+            # Notas de Crédito
+            if credit_notes and factura.refund_invoice_ids:
+                credit_note_numbers = factura.refund_invoice_ids.mapped(lambda r: r.number_electronic[31:41])
+                credit_note_numbers = (', ').join(credit_note_numbers)
+                sheet.write(i+fila, columna+len(taxes)+4, credit_note_numbers)
+            elif data['form']['type'] == 'out_refund':
+                sheet.write(i+fila, columna+len(taxes)+4, factura.invoice_id.number_electronic[21:41])
 
         # Report footer
         f_index = fila+len(facturas)
@@ -152,10 +187,22 @@ class Facturas(models.AbstractModel):
         sheet.write_formula('%s%s'% (h[h_index+1], f_index+1), '=SUM(%s%s:%s%s)' % (h[h_index+1], fila, h[h_index+1], f_index), money)
         
 
-
+        # Ancho de columnas
+        # Contacto
         sheet.set_column('A:A', 15)
+        # Nombre
         sheet.set_column('B:B', 30)
+        # Clave
         sheet.set_column('C:C', 20)
+        # Consecutivo
         sheet.set_column('D:D', 20)
+        # Fecha
         sheet.set_column('E:E', 10)
-        sheet.set_column('F:J', 15)
+        # Subtotal
+        sheet.set_column('F:F', 15)
+        # Impuestos
+        sheet.set_column('%s:%s' % (h[columna], h[columna+len(taxes)+1]), 15)
+        # Moneda
+        sheet.set_column('%s:%s' % (h[columna+len(taxes)+2], h[columna+len(taxes)+2]), 7)
+        # Tipo de Cambio
+        sheet.set_column('%s:%s' % (h[columna+len(taxes)+3], h[columna+len(taxes)+3]), 13)
