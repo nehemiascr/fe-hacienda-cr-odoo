@@ -2180,6 +2180,20 @@ class ElectronicInvoiceCostaRicaTools(models.AbstractModel):
         ResumenFactura.append(TotalComprobante)
 
         Documento.append(ResumenFactura)
+        if invoice.type == 'out_invoice' and invoice.partner_id.extra_node_ids:
+            for extra_node in invoice.partner_id.extra_node_ids:
+                Nodo = etree.Element(extra_node.node_location.strip())
+                node = extra_node.get_node(invoice)
+                msg = '\n'
+                for e in node:
+                    Nodo.append(e)
+                    msg += '%s %s\n' % (e.tag, e.text)
+                if extra_node.show_in_report:
+                    if invoice.comment:
+                        invoice.comment += msg
+                    else:
+                        invoice.comment = msg
+            Documento.append(Nodo)
 
         if invoice.type == 'out_refund':
 

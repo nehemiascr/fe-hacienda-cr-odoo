@@ -10,6 +10,7 @@ from . import electronic_invoice_schema
 from . import electronic_invoice_version
 from . import eicr_hacienda
 from . import eicr_tools
+from . import eicr_extra_node
 from . import account_tax
 from . import account_tax_template
 from . import account_invoice

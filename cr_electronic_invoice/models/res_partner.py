@@ -31,6 +31,8 @@ class ResPartner(models.Model):
     email_facturas = fields.Char()
 
     eicr_exoneration_ids = fields.One2many('eicr.exoneration','partner_id',string="Exoneraciones")
+    extra_node_ids = fields.Many2many('eicr.extra_node', 'extra_node_res_partner_rel',
+     'partner_id', 'extra_node_id', help='Nodo extra a incluir en Documentos Electrónicos')
 
     _sql_constraints = [('vat_uniq', 'Check(1=1)', 'Ya hay un contacto con esa identifcación'), ]
 

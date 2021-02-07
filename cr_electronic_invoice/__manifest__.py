@@ -47,6 +47,7 @@
 			 'views/ir_sequence_view.xml',
 		 	 'views/eicr_exoneration_type_views.xml',
 		 	 'views/eicr_exoneration_views.xml',
+			 'views/eicr_extra_node_views.xml',
 			 'report/report_invoice.xml',
 			 'report/report_facturas.xml',
 
