@@ -30,6 +30,13 @@ strings = {
         'vat': 'Cédula de Proveedor',
         'type': 'Proveedor',
         'document': 'Factura de Proveedor'
+    },
+    'in_refund': {
+        'name': 'Facturas Rectificativas de Proveedor',
+        'title': 'Listado de Rectificativas de Proveedor',
+        'vat': 'Cédula de Proveedor',
+        'type': 'Proveedor',
+        'document': 'Factura Rectificativa de Proveedor'
     }
 }
 
@@ -141,9 +148,9 @@ class Facturas(models.AbstractModel):
             invoice_ids += factura.mapped('refund_invoice_ids').filtered(lambda i: i.state in ('open', 'paid')).sorted(key=lambda f: f.number)
             for j, i_id in enumerate(invoice_ids):
                 row += j
-                cell_format = cell_nc if i_id.type == 'out_refund' else cell
-                date_format = date_nc if i_id.type == 'out_refund' else date
-                mony_format = money_nc if i_id.type == 'out_refund' else money
+                cell_format = cell_nc if i_id.type in ('out_refund', 'in_refund') else cell
+                date_format = date_nc if i_id.type in ('out_refund', 'in_refund') else date
+                mony_format = money_nc if i_id.type in ('out_refund', 'in_refund') else money
                 # Tipo de Cambio
                 exchange_rate = i_id.amount_total_company_signed / i_id.amount_total_signed if i_id.amount_total_signed else 1.0
                 # Contacto
