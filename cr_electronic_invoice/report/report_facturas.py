@@ -135,6 +135,7 @@ class Facturas(models.AbstractModel):
 
         # Report Lines
         row+=1 # 3
+        first_data_row_index = row
         for i, factura in enumerate(facturas):
             invoice_ids = factura
             invoice_ids += factura.mapped('refund_invoice_ids').filtered(lambda i: i.state in ('open', 'paid')).sorted(key=lambda f: f.number)
@@ -184,15 +185,15 @@ class Facturas(models.AbstractModel):
         f_index = row+len(facturas)
         sheet.write(f_index, 4, 'Totales', bold)
         # Subtotal
-        sheet.write_formula('%s%s'% (h[columna-1], f_index+1), '=SUM(%s%s:%s%s)' % (h[columna-1], row, h[columna-1], f_index), money)
+        sheet.write_formula('%s%s'% (h[columna-1], f_index+1), '=SUM(%s%s:%s%s)' % (h[columna-1], first_data_row_index+1, h[columna-1], f_index), money)
         # Taxes
         for i, tax in enumerate(tax_ids):
-            sheet.write_formula('%s%s'% (h[i+columna], f_index+1), '=SUM(%s%s:%s%s)' % (h[i+columna], row+1, h[i+columna], f_index), money)
+            sheet.write_formula('%s%s'% (h[i+columna], f_index+1), '=SUM(%s%s:%s%s)' % (h[i+columna], first_data_row_index+1, h[i+columna], f_index), money)
         # Total Impuestos
         h_index = columna+len(tax_ids)
-        sheet.write_formula('%s%s'% (h[h_index], f_index+1), '=SUM(%s%s:%s%s)' % (h[h_index], row, h[h_index], f_index), money)
+        sheet.write_formula('%s%s'% (h[h_index], f_index+1), '=SUM(%s%s:%s%s)' % (h[h_index], first_data_row_index+1, h[h_index], f_index), money)
         # Total
-        sheet.write_formula('%s%s'% (h[h_index+1], f_index+1), '=SUM(%s%s:%s%s)' % (h[h_index+1], row, h[h_index+1], f_index), money)
+        sheet.write_formula('%s%s'% (h[h_index+1], f_index+1), '=SUM(%s%s:%s%s)' % (h[h_index+1], first_data_row_index+1, h[h_index+1], f_index), money)
         
 
         # Ancho de columnas
