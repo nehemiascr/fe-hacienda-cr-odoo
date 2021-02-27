@@ -1297,8 +1297,10 @@ class ElectronicInvoiceCostaRicaTools(models.AbstractModel):
         totalDescuentosServiciosGravados = round(0.00, decimales)
 
         totalImpuesto = round(0.00, decimales)
-        totalIVADevuelto = round(0.00, decimales)
         totalExonerado = round(0.00, decimales)
+
+        impuestoIVADevuelto = self.env['account.tax'].search([('tax_code', '=', '01'), ('iva_tax_code', '=', '04'), ('type_tax_use', '=', 'sale'), ('amount', '=', -4)])
+        totalIVADevuelto = 0.0
 
         impuestoServicio = self.env['account.tax'].search([('tax_code', '=', 'service')])
         servicio = True if impuestoServicio in invoice.invoice_line_ids.mapped('invoice_line_tax_ids') else False
@@ -1387,19 +1389,13 @@ class ElectronicInvoiceCostaRicaTools(models.AbstractModel):
             SubTotal.text = str(round(linea.price_subtotal, decimales))
             LineaDetalle.append(SubTotal)
 
-            ivaDevuelto = round(0.00, decimales)
-
-            impuestos = linea.invoice_line_tax_ids - impuestoServicio
+            impuestos = linea.invoice_line_tax_ids - impuestoServicio - impuestoIVADevuelto
 
             if impuestos:
                 for impuesto in impuestos:
 
                     monto = round(linea.price_subtotal * impuesto.amount / 100.00, decimales)
-
-                    if (impuesto.tax_code == '01' and impuesto.iva_tax_code == '04D'):
-                        if invoice.payment_methods_id.sequence == '02':
-                            ivaDevuelto += abs(monto)
-
+                           
                     if impuesto.has_exoneration:
                         
                         totalExonerado += abs(monto)
@@ -1486,6 +1482,7 @@ class ElectronicInvoiceCostaRicaTools(models.AbstractModel):
                 else:
                     totalMercanciasExentas += linea.price_subtotal
 
+            ivaDevuelto = abs(sum(linea.invoice_line_tax_ids.filtered(lambda t: t == impuestoIVADevuelto).mapped(lambda t: round(linea.price_subtotal * t.amount / 100.00, decimales))))
             MontoTotalLinea = etree.Element('MontoTotalLinea')
             montoTotalLinea = linea.price_total + ivaDevuelto
             totalIVADevuelto += ivaDevuelto

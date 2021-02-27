@@ -193,7 +193,7 @@
             <field name="sequence">10</field>
             <field name="price_include">False</field>
             <field name="iva_tax_desc">Devolución IVA 4%</field>
-            <field name="iva_tax_code">04D</field>
+            <field name="iva_tax_code">04</field>
             <field name="chart_template_id" ref="l10n_cr.account_chart_template_0"/>
             <field name="account_id" ref="l10n_cr.account_account_template_0_212101"/>
             <field name="refund_account_id" ref="l10n_cr.account_account_template_0_212101"/>
@@ -211,7 +211,7 @@
             <field name="sequence">10</field>
             <field name="price_include">False</field>
             <field name="iva_tax_desc">Devolución IVA 4%</field>
-            <field name="iva_tax_code">04D</field>
+            <field name="iva_tax_code">04</field>
             <field name="chart_template_id" ref="l10n_cr.account_chart_template_0"/>
             <field name="account_id" ref="l10n_cr.account_account_template_0_212101"/>
             <field name="refund_account_id" ref="l10n_cr.account_account_template_0_212101"/>

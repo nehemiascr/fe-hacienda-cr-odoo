@@ -185,6 +185,11 @@ class AccountInvoiceElectronic(models.Model):
         self.payment_methods_id = self.partner_id.payment_methods_id
         self.payment_methods_id = self.env.ref('cr_electronic_invoice.PaymentMethods_1')
 
+    @api.onchange('payment_methods_id')
+    def _onchange_payment_methods_id(self):
+        for line in self.invoice_line_ids:
+            line.check_taxes()
+
     @api.multi
     def action_consultar_hacienda(self):
         for invoice in self:
