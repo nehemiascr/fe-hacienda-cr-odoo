@@ -71,6 +71,11 @@ class AccountInvoiceMail(models.TransientModel):
             _logger.info('account_id %s' % account_id)
             partner_id = self.env['eicr.tools']._get_partner_from_xml(xml_encoded)
 
+            # in multi company environments, partners with same id are shared,
+            # company_id must be unset
+            if partner_id.company_id and partner_id.company_id != company_id:
+                partner_id.company_id = None
+
             invoice = self.env['account.invoice'].create({'type': 'in_invoice',
                                                           'xml_supplier_approval': xml_encoded,
                                                           'fname_xml_supplier_approval': doc['filename'],
