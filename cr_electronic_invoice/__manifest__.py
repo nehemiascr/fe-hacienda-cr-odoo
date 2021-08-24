@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-
+#     dev@fakturacion.com
 {
 	'name': 'Facturación electrónica Costa Rica',
 	'version': '1.0.0',
@@ -50,6 +50,7 @@
 			 'views/eicr_extra_node_views.xml',
 			 'report/report_invoice.xml',
 			 'report/report_facturas.xml',
+			 'report/account_report_overdue.xml',
 
 	         'security/ir.model.access.csv',
 

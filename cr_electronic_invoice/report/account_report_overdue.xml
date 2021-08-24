@@ -1,0 +1,82 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+
+    <template id="account.report_overdue_document">
+    <t t-call="web.external_layout">
+        <div class="page">
+            <div class="row">
+                <div class="col-xs-5 col-xs-offset-7">
+                    <span t-field="o.name"/><br/>
+                    <span t-raw="o.contact_address.replace('\n\n', '\n').replace('\n', '&lt;br&gt;')"/>
+                    <span t-field="o.vat"/>
+                </div>
+                <p>
+                    Document: Customer account statement<br/>
+                    Date: <span t-esc="Date"/><br/>
+                    <t t-if="o.ref">Customer ref: <span t-field="o.ref"/></t>
+                </p>
+
+
+                <t t-if="facturas[o.id]">
+                    <span t-field="res_company.with_context(lang=o.lang).overdue_msg"/>
+                    <p>
+
+                    </p>
+                    <table class="table table-condensed">
+                        <thead>
+                            <tr>
+                                <th style="width: 20%">Factura</th>
+                                <th class="text-center" style="width: 15%">Fecha</th>
+                                <th class="text-center" style="width: 10%">Fecha Vencimiento</th>
+                                <th class="text-center" style="width: 5%">Atraso</th>
+                                <th class="text-right" style="width: 20%">Monto</th>
+                                <th class="text-right" style="width: 20%">Due</th>
+                                <th class="text-right" style="width: 20%">Paid</th>
+
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr t-foreach="facturas[o.id]" t-as="factura">
+                                <t t-set="dias" t-value="(datetime.datetime.now() - datetime.datetime.strptime(factura.date_due, '%Y-%m-%d')).days" />
+                                <t t-set="dias" t-value="dias if dias > 0 else 0" />
+                                <td><span t-esc="factura.number"/></td>
+                                <td><span t-esc="factura.date_invoice"/></td>
+                                <td><span t-esc="factura.date_due"/></td>
+                                <td>
+                                    <span t-if="dias == 0" class="label label-success"><span t-esc="dias"/> días</span>
+                                    <span t-if="dias > 0 and 15 > dias" class="label label-warning"><span t-esc="dias"/> días</span>
+                                    <span t-if="dias > 15" class="label label-danger"><span t-esc="dias"/> días</span>
+                                </td>
+                                <td><span t-esc="factura.amount_total_company_signed" t-options="{'widget': 'monetary', 'display_currency': moneda}"/></td>
+                                <td><span t-esc="factura.residual_company_signed" t-options="{'widget': 'monetary', 'display_currency': moneda}"/></td>
+                                <td><span t-esc="factura.amount_total_company_signed - factura.residual_company_signed" t-options="{'widget': 'monetary', 'display_currency': moneda}"/></td>
+                            </tr>
+                            <tr>
+                            <td colspan="4"></td>
+                            <td><strong>Saldo :</strong></td>
+                            <td class="text-right"><span t-esc="totales[o.id]['debe']" t-options="{'widget': 'monetary', 'display_currency': moneda}"/></td>
+                            <td class="text-right"><span t-esc="totales[o.id]['pagado']" t-options="{'widget': 'monetary', 'display_currency': moneda}"/></td>
+                        </tr>
+                        <tr>
+                            <td colspan="4"></td>
+                            <td><strong>Saldo Vencido :</strong></td>
+                            <td class="text-right">
+                                <span t-esc="totales[o.id]['vencido']" t-options="{'widget': 'monetary', 'display_currency': moneda}"/>
+                            </td>
+                            <td></td>
+                        </tr>
+                        </tbody>
+                    </table>
+                </t>
+                <p t-if="not facturas[o.id]">
+                    <strong>There is nothing due with this customer.</strong>
+                </p>
+            </div>
+        </div>
+   </t>
+</template>
+
+
+
+
+</odoo>
