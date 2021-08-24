@@ -16,6 +16,7 @@ REGIMENES = [
 class ResPartner(models.Model):
     _inherit = "res.partner"
 
+    vat = fields.Char(index=True)
     commercial_name = fields.Char(string="Nombre comercial")
     phone_code = fields.Char(string="Código de teléfono", default="506")
     state_id = fields.Many2one(comodel_name="res.country.state", string="Provincia")
@@ -54,7 +55,7 @@ class ResPartner(models.Model):
         # here we differentiate between partners (no parent_id) and contacts (with parent_id)
         partner_ids = partner_ids.filtered(lambda p: not p.parent_id)
         partner_ids = partner_ids.filtered(lambda p: p not in self.mapped('parent_id'))
-        if self and partner_ids:
+        if partner_ids:
             message = 'La identificación %s ya se encuentra registrada:\n' % vat
             for p in partner_ids:
                 message += '%s - %s\n' % (p.vat, p.name)
