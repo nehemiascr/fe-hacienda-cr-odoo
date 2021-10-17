@@ -10,7 +10,8 @@ _logger = logging.getLogger(__name__)
 REGIMENES = [
     ('0', 'No tiene'),
     ('1', 'Régimen Tradicional'),
-    ('2', 'Régimen Simplificado')]
+    ('2', 'Régimen Simplificado'),
+    ('3', 'Régimen Especial Agropecuario')]
 
 
 class ResPartner(models.Model):
