@@ -70,7 +70,7 @@ class ResPartner(models.Model):
 
     @api.multi
     def write(self, vals):
-        if vals.get('vat', False):
+        if self and vals.get('vat', False):
             self._check_unique(vals.get('vat'))
         return super(ResPartner, self).write(vals)
 
