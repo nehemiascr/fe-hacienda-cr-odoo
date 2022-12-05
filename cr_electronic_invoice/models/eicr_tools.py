@@ -1829,8 +1829,9 @@ class ElectronicInvoiceCostaRicaTools(models.AbstractModel):
             plazo = 0
             try:
                 plazo = int(re.sub('[^0-9]', '', PlazoCredito.text))
-            except TypeError:
-                _logger.info('%s no es un número' % PlazoCredito.text)
+            except Exception as e:
+                _logger.error('%s no es un número %s' % (PlazoCredito.text, e))
+
             fecha_de_vencimiento = fecha_de_factura + timedelta(days=plazo)
             invoice.date_due = fecha_de_vencimiento.strftime('%Y-%m-%d')
             _logger.info('date_due %s' % invoice.date_due)
@@ -2133,5 +2134,3 @@ class ElectronicInvoiceCostaRicaTools(models.AbstractModel):
             company_id = self.env['res.company'].sudo().search([]).filtered(lambda c: re.sub('[^0-9]', '', c.vat or '') == vat_receptor)
             _logger.info('vat %s company %s' % (vat_receptor, company_id))
             return company_id if company_id else False
-
-
