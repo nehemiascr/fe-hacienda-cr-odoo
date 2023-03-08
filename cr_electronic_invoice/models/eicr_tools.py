@@ -1828,7 +1828,9 @@ class ElectronicInvoiceCostaRicaTools(models.AbstractModel):
             fecha_de_factura = datetime.strptime(invoice.date_invoice, '%Y-%m-%d')
             plazo = 0
             try:
-                plazo = int(re.sub('[^0-9]', '', PlazoCredito.text))
+                plazo_string = re.sub('[^0-9]', '', PlazoCredito.text)
+                if len(plazo_string) > 3:
+                    plazo = int(plazo_string)
             except Exception as e:
                 _logger.error('%s no es un número %s' % (PlazoCredito.text, e))
 
