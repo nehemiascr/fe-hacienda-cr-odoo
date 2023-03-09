@@ -1829,7 +1829,7 @@ class ElectronicInvoiceCostaRicaTools(models.AbstractModel):
             plazo = 0
             try:
                 plazo_string = re.sub('[^0-9]', '', PlazoCredito.text)
-                if len(plazo_string) > 3:
+                if len(plazo_string) <= 3:
                     plazo = int(plazo_string)
             except Exception as e:
                 _logger.error('%s no es un número %s' % (PlazoCredito.text, e))
