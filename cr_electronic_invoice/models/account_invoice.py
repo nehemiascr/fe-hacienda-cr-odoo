@@ -295,3 +295,17 @@ class AccountInvoiceElectronic(models.Model):
                     self._action_in_invoice_open(invoice)
 
         return self
+
+    @api.multi
+    def action_remake_xml(self):
+        self.ensure_one()
+        return {
+            'name': 'Regenerar XML',
+            'type': 'ir.actions.act_window',
+            'view_mode': 'form',
+            'res_model': 'eicr.remake_xml',
+            'target': 'new',
+            'context': {
+                'default_invoice_id': self.id,
+            }
+        }
