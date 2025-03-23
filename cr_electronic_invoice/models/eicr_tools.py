@@ -1525,18 +1525,17 @@ class ElectronicInvoiceCostaRicaTools(models.AbstractModel):
         # ResumenFactura
         ResumenFactura = etree.Element('ResumenFactura')
 
-        if invoice.currency_id.name != 'CRC':
-            CodigoTipoMoneda = etree.Element('CodigoTipoMoneda')
+        CodigoTipoMoneda = etree.Element('CodigoTipoMoneda')
 
-            CodigoMoneda = etree.Element('CodigoMoneda')
-            CodigoMoneda.text = invoice.currency_id.name
-            CodigoTipoMoneda.append(CodigoMoneda)
+        CodigoMoneda = etree.Element('CodigoMoneda')
+        CodigoMoneda.text = invoice.currency_id.name
+        CodigoTipoMoneda.append(CodigoMoneda)
 
-            TipoCambio = etree.Element('TipoCambio')
-            TipoCambio.text = str(round(1.0 / invoice.currency_id.rate, decimales))
-            CodigoTipoMoneda.append(TipoCambio)
+        TipoCambio = etree.Element('TipoCambio')
+        TipoCambio.text = str(round(1.0 / invoice.currency_id.rate, decimales))
+        CodigoTipoMoneda.append(TipoCambio)
 
-            ResumenFactura.append(CodigoTipoMoneda)
+        ResumenFactura.append(CodigoTipoMoneda)
 
         if totalServiciosGravados or totalServExonerado:
             TotalServGravados = etree.Element('TotalServGravados')

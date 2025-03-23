@@ -104,8 +104,12 @@ class ElectronicInvoiceCostaRicaHacienda(models.AbstractModel):
         _logger.info('%s %s' % (response, response.__dict__))
 
         if response.status_code in (200,):
-            _logger.info(response.json())
-            return response.json()
+            try:
+                _logger.info(response.json())
+                return response.json()
+            except Exception as e:
+                _logger.exception(e)
+                return False
         else:
             return False
 

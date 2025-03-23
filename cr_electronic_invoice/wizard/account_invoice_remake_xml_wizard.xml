@@ -1,0 +1,23 @@
+<odoo>
+    <record id="remake_xml_view_wizard_form" model="ir.ui.view">
+        <field name="name">eicr.remake_xml.form</field>
+        <field name="model">eicr.remake_xml</field>
+        <field name="arch" type="xml">
+            <form string="Regenerar XML">
+                <group>
+                    <field name="invoice_id" invisible="1"/>
+                    <field name="keep_clave"/>
+                    <field name="keep_date"/>
+                    <field name="new_date" attrs="{'invisible': [('keep_date', '=', True)], 'required': [('keep_date', '=', False)]}"/>
+                    <field name="eicr_mensaje_hacienda"/>
+                    <field name="eicr_date"/>
+                    <field name="number_electronic"/>
+                </group>
+                <footer>
+                    <button name="action_remake_xml_confirm" string="Regenerar" type="object" class="btn-primary"/>
+                    <button string="Cancelar" class="btn-secondary" special="cancel"/>
+                </footer>
+            </form>
+        </field>
+    </record>
+</odoo>
