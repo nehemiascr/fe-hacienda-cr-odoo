@@ -147,6 +147,7 @@ class AccountInvoiceElectronic(models.Model):
             _logger.info('processing xml')
             self.env['eicr.tools']._process_supplier_invoice(self)
 
+
     @api.multi
     def action_enviar_aceptacion(self, vals):
         _logger.info('action_enviar_mensaje self %s' % self)
@@ -265,6 +266,8 @@ class AccountInvoiceElectronic(models.Model):
     def action_invoice_open(self):
         _logger.info('%s of type %s' % (self, self.type))
         for invoice in self:
+            if invoice.state in ('open', 'paid'):
+                raise UserError(_('Esta factura ya fue validad.'))
             if invoice.payment_methods_id.sequence == '02':
                 iva4 = self.env['account.tax'].search([('tax_code', '=', '01'), ('iva_tax_code', '=', '04'), ('type_tax_use', '=', 'sale')])
                 iva4_devolucion = self.env['account.tax'].search([('tax_code', '=', '01'),('iva_tax_code', '=', '04D'),('type_tax_use', '=', 'sale')])
