@@ -1824,18 +1824,67 @@ class ElectronicInvoiceCostaRicaTools(models.AbstractModel):
         invoice.reference = NumeroConsecutivo.text
 
         if xml.find('CondicionVenta').text == '02':  # crédito
-            fecha_de_factura = datetime.strptime(invoice.date_invoice, '%Y-%m-%d')
-            plazo = 0
+            plazo_dias = 0
+            plazo_text = PlazoCredito.text.strip() if PlazoCredito is not None  and PlazoCredito.text else ''
+            
             try:
-                plazo_string = re.sub('[^0-9]', '', PlazoCredito.text)
-                if len(plazo_string) <= 3:
-                    plazo = int(plazo_string)
-            except Exception as e:
-                _logger.error('%s no es un número %s' % (PlazoCredito.text, e))
+                # Case 1: PlazoCredito is a specific date (YYYY-MM-DD)
+                fecha_de_vencimiento = datetime.strptime(plazo_text, '%Y-%m-%d')
+                fecha_de_factura = datetime.strptime(invoice.date_invoice, '%Y-%m-%d')
+                plazo_dias = (fecha_de_vencimiento - fecha_de_factura).days
+                _logger.info('PlazoCredito is a specific date. Calculated days: %s' % plazo_dias)
 
-            fecha_de_vencimiento = fecha_de_factura + timedelta(days=plazo)
-            invoice.date_due = fecha_de_vencimiento.strftime('%Y-%m-%d')
-            _logger.info('date_due %s' % invoice.date_due)
+            except (ValueError, TypeError):
+                # Case 2: PlazoCredito is a number of days (e.g., "30", "15 dias")
+                try:
+                    plazo_string = re.sub('[^0-9]', '', plazo_text)
+                    if plazo_string and len(plazo_string) <= 3:
+                        plazo_dias = int(plazo_string)
+                    _logger.info('PlazoCredito is a number of days: %s' % plazo_dias)
+                except (ValueError, TypeError):
+                     _logger.warning('Could not parse PlazoCredito: "%s". Assuming immediate payment.' % plazo_text)
+                     plazo_dias = 0
+
+            if plazo_dias > 0:
+                # Find or create a payment term for the calculated number of days
+                candidate_terms = self.env['account.payment.term'].search([
+                    ('company_id', 'in', [company_id.id, False]),
+                    ('line_ids.value', '=', 'balance'),
+                    ('line_ids.days', '=', plazo_dias),
+                ])
+
+                payment_term = None
+                # Now, filter for terms that have ONLY one line to ensure it's not a multi-payment term.
+                for term in candidate_terms:
+                    if len(term.line_ids) == 1:
+                        payment_term = term
+                        _logger.info('Found existing payment term by days: %s (ID: %s)' % (term.name, term.id))
+                        break # Found the best match
+
+                if not payment_term:
+                    term_name = '%s días' % plazo_dias
+                    _logger.info('No suitable payment term found. Creating new one: %s' % term_name)
+                    payment_term = self.env['account.payment.term'].create({
+                        'name': term_name,
+                        'note': term_name,
+                        'company_id': company_id.id,
+                        'line_ids': [(0, 0, {
+                            'value': 'balance',
+                            'days': plazo_dias,
+                        })],
+                    })
+                
+                # Assign the payment term. Odoo will calculate date_due automatically.
+                invoice.payment_term_id = payment_term.id
+                _logger.info('Set payment_term_id to %s (%s)' % (payment_term.id, payment_term.name))
+            else:
+                # Case for 0 days credit or parsing failure
+                invoice.payment_term_id = self.env.ref('account.account_payment_term_immediate').id
+
+        else: # '01' Contado (Cash)
+            invoice.payment_term_id = self.env.ref('account.account_payment_term_immediate').id
+
+        # --- End of CondicionVenta Credito ---
 
         moneda = xml.find('ResumenFactura').find('CodigoTipoMoneda')
         codigo = moneda.find('CodigoMoneda').text if moneda else 'CRC'

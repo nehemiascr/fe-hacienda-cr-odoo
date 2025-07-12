@@ -182,9 +182,12 @@ class AccountInvoiceElectronic(models.Model):
 
     @api.onchange('partner_id', 'company_id')
     def _onchange_partner_id(self):
+        payment_term_id = self.payment_term_id
         super(AccountInvoiceElectronic, self)._onchange_partner_id()
         self.payment_methods_id = self.partner_id.payment_methods_id
         self.payment_methods_id = self.env.ref('cr_electronic_invoice.PaymentMethods_1')
+        if payment_term_id:
+            self.payment_term_id = payment_term_id
 
     @api.onchange('payment_methods_id')
     def _onchange_payment_methods_id(self):
