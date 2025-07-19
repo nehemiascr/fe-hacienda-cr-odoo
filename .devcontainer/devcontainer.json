@@ -2,16 +2,18 @@
   "name": "Factura Electrónica de Costa Rica",
   "image": "mcr.microsoft.com/devcontainers/universal:2",
   "features": {},
-  "extensions": [
-    "dbaeumer.vscode-eslint"
-  ],
   "customizations": {
     "vscode": {
       "settings": {
         "editor.formatOnSave": true
       },
       "extensions": [
-        "esbenp.prettier-vscode"
+        "esbenp.prettier-vscode",
+        "dbaeumer.vscode-eslint",
+        "ms-python.python",
+        "ms-azuretools.vscode-containers",
+        "eamodio.gitlens",
+        "redhat.vscode-xml"
       ]
     }
   }
