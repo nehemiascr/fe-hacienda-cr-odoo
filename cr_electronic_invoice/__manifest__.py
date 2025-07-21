@@ -33,6 +33,7 @@
 		'data/electronic_invoice_version.xml',
 		'data/electronic_invoice_schema_4_2.xml',
 		'data/electronic_invoice_schema_4_3.xml',
+		'data/electronic_invoice_schema_4_4.xml',
 
 		'views/account_tax_views.xml',
 		'views/account_invoice.xml',
