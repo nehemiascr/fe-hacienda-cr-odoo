@@ -89,7 +89,9 @@ class AccountInvoiceMail(models.TransientModel):
             xml = etree.tostring(xml).decode()
             xml = re.sub(' xmlns="[^"]+"', '', xml)
             xml = etree.fromstring(xml)
-            self.env['eicr.tools']._proccess_supplier_invoicev43(invoice, xml)
+            # self.env['eicr.tools']._proccess_supplier_invoicev43(invoice, xml)
+
+            self.env["eicr.tools"]._process_supplier_invoice(invoice)
 
             invoice.compute_taxes()
             invoice.state_invoice_partner = '1'

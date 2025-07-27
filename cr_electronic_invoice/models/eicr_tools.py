@@ -2256,7 +2256,7 @@ class ElectronicInvoiceCostaRicaTools(models.AbstractModel):
             }
             if isinstance(invoice.id, int):
                 line = self.env["account.invoice.line"].sudo().create(vals)
-                invoice.invoice_line_ids += line
+                # invoice.invoice_line_ids += line
             else:
                 line = self.env["account.invoice.line"].new(vals)
                 
