@@ -1,6 +1,9 @@
 # -*- coding: utf-8 -*-
 from odoo import models, fields, api, _
-from odoo.tools import DEFAULT_SERVER_DATE_FORMAT as DATE_FORMAT, DEFAULT_SERVER_DATETIME_FORMAT as DATETIME_FORMAT
+from odoo.tools import (
+    DEFAULT_SERVER_DATE_FORMAT as DATE_FORMAT,
+    DEFAULT_SERVER_DATETIME_FORMAT as DATETIME_FORMAT,
+)
 from odoo.exceptions import UserError
 import requests
 import json
@@ -21,18 +24,18 @@ _logger = logging.getLogger(__name__)
 
 
 class ElectronicInvoiceCostaRicaTools(models.AbstractModel):
-    _name = 'eicr.tools'
+    _name = "eicr.tools"
 
     @api.model
     def module_installed(self, name):
-        module = self.env['ir.module.module'].search([('name', '=', name)], limit=1)
-        return True if module and module.state == 'installed' else False
+        module = self.env["ir.module.module"].search([("name", "=", name)], limit=1)
+        return True if module and module.state == "installed" else False
 
     @api.model
     def datetime_str(self, datetime_obj=None):
         if datetime_obj is None:
-            now_utc = datetime.now(pytz.timezone('UTC'))
-            datetime_obj = now_utc.astimezone(pytz.timezone('America/Costa_Rica'))
+            now_utc = datetime.now(pytz.timezone("UTC"))
+            datetime_obj = now_utc.astimezone(pytz.timezone("America/Costa_Rica"))
         return datetime_obj.strftime(EICR_DATE_FORMAT)
 
     @api.model
@@ -46,90 +49,95 @@ class ElectronicInvoiceCostaRicaTools(models.AbstractModel):
         try:
             xml = base64.b64decode(xml)
             Documento = etree.tostring(etree.fromstring(xml)).decode()
-            Documento = etree.fromstring(re.sub(' xmlns="[^"]+"', '', Documento, count=1))
-            Clave = Documento.find('Clave')
+            Documento = etree.fromstring(re.sub(' xmlns="[^"]+"', "", Documento, count=1))
+            Clave = Documento.find("Clave")
             return Clave.text
         except Exception as e:
-            print('Error con % %' % (xml, e))
+            print("Error con % %" % (xml, e))
             return False
 
     def _get_consecutivo(self, object):
         # tipo de documento
-        if object._name == 'account.invoice':
+        if object._name == "account.invoice":
             receptor_valido = self._validar_receptor(object.partner_id)
             numeracion = object.number
             diario = object.journal_id
-            tipo = '05'
-            if object.type == 'out_invoice':
-                tipo = '01'  # Factura Electrónica
-                if object.company_id.eicr_version_id.name == 'v4.3' and not receptor_valido:
-                    tipo = '04'  # Tiquete Electrónico
-            elif object.type == 'out_refund' and object.amount_total_signed > 0:
-                tipo = '02'  # Nota Débito
-            elif object.type == 'out_refund' and object.amount_total_signed <= 0:
-                tipo = '03'  # Nota Crédito
-            elif object.type in ('in_invoice', 'in_refund'):
-                if object.state_invoice_partner == '1':
-                    tipo = '05'  # Aceptado
-                elif object.state_invoice_partner == '2':
-                    tipo = '06'  # Aceptado Parcialmente
-                elif object.state_invoice_partner == '3':
-                    tipo = '07'  # Rechazado
-        elif object._name == 'pos.order':
+            tipo = "05"
+            if object.type == "out_invoice":
+                tipo = "01"  # Factura Electrónica
+                if object.company_id.eicr_version_id.name == "v4.3" and not receptor_valido:
+                    tipo = "04"  # Tiquete Electrónico
+            elif object.type == "out_refund" and object.amount_total_signed > 0:
+                tipo = "02"  # Nota Débito
+            elif object.type == "out_refund" and object.amount_total_signed <= 0:
+                tipo = "03"  # Nota Crédito
+            elif object.type in ("in_invoice", "in_refund"):
+                if object.state_invoice_partner == "1":
+                    tipo = "05"  # Aceptado
+                elif object.state_invoice_partner == "2":
+                    tipo = "06"  # Aceptado Parcialmente
+                elif object.state_invoice_partner == "3":
+                    tipo = "07"  # Rechazado
+        elif object._name == "pos.order":
             numeracion = object.name
             diario = object.sale_journal
-            tipo = '01' if object.partner_id and self._validar_receptor(object.partner_id) else '04'
-        elif object._name == 'hr.expense':
-            diario = self.env['account.journal'].search([('company_id', '=', object.company_id.id), ('type', '=', 'purchase')])
+            tipo = "01" if object.partner_id and self._validar_receptor(object.partner_id) else "04"
+        elif object._name == "hr.expense":
+            diario = self.env["account.journal"].search(
+                [("company_id", "=", object.company_id.id), ("type", "=", "purchase")]
+            )
             if len(diario) > 1:
                 diario = diario.sorted(key=lambda i: i.id)[0]
             numeracion = object.number or diario.sequence_id.next_by_id()
-            if object.state_invoice_partner == '2':
-                tipo = '06'  # Aceptado Parcialmente
-            elif object.state_invoice_partner == '3':
-                tipo = '07'  # Rechazado
+            if object.state_invoice_partner == "2":
+                tipo = "06"  # Aceptado Parcialmente
+            elif object.state_invoice_partner == "3":
+                tipo = "07"  # Rechazado
             else:
-                tipo = '05'  # Aceptado
+                tipo = "05"  # Aceptado
         else:
             return False
 
         # numeracion
-        numeracion = re.sub('[^0-9]', '', numeracion)
+        numeracion = re.sub("[^0-9]", "", numeracion)
 
         if len(numeracion) == 20:
             return numeracion
         elif len(numeracion) != 10:
-            _logger.info('La numeración debe de tener 10 dígitos, revisar la secuencia de numeración.')
+            _logger.info(
+                "La numeración debe de tener 10 dígitos, revisar la secuencia de numeración."
+            )
             return False
 
         # sucursal
-        sucursal = re.sub('[^0-9]', '', str(diario.sucursal)).zfill(3)
+        sucursal = re.sub("[^0-9]", "", str(diario.sucursal)).zfill(3)
 
         # terminal
-        terminal = re.sub('[^0-9]', '', str(diario.terminal)).zfill(5)
-        if object._name == 'pos.order': terminal = '0000%s' % object.config_id.sequence_id.code
+        terminal = re.sub("[^0-9]", "", str(diario.terminal)).zfill(5)
+        if object._name == "pos.order":
+            terminal = "0000%s" % object.config_id.sequence_id.code
 
         # consecutivo
         consecutivo = sucursal + terminal + tipo + numeracion
 
         if len(consecutivo) != 20:
-            _logger.info('Algo anda mal con el consecutivo :( %s' % consecutivo)
+            _logger.info("Algo anda mal con el consecutivo :( %s" % consecutivo)
             return False
 
-        _logger.info('se genera el consecutivo %s para %s' % (consecutivo, object))
+        _logger.info("se genera el consecutivo %s para %s" % (consecutivo, object))
 
         return consecutivo
 
     def _get_clave(self, object):
-
-        if (object._name == 'account.invoice' and object.type in ('in_invoice', 'in_refund')) \
-                or object._name == 'hr.expense':
+        if (
+            object._name == "account.invoice" and object.type in ("in_invoice", "in_refund")
+        ) or object._name == "hr.expense":
             return self._get_clave_de_xml(object.xml_supplier_approval)
 
-        if object._name == 'account.invoice' and object.type in ('out_invoice', 'out_refund'):
+        if object._name == "account.invoice" and object.type in ("out_invoice", "out_refund"):
             consecutivo = object.number
 
-        if object._name == 'pos.order':
+        if object._name == "pos.order":
             consecutivo = object.name
 
         # f) consecutivo
@@ -137,325 +145,372 @@ class ElectronicInvoiceCostaRicaTools(models.AbstractModel):
             consecutivo = self._get_consecutivo(object)
 
         # a) código de pais
-        codigo_de_pais = '506'
+        codigo_de_pais = "506"
 
         # fecha
-        fecha = datetime.strptime(object.fecha, '%Y-%m-%d %H:%M:%S')
+        fecha = datetime.strptime(object.fecha, "%Y-%m-%d %H:%M:%S")
 
         # b) día
-        dia = fecha.strftime('%d')
+        dia = fecha.strftime("%d")
         # c) mes
-        mes = fecha.strftime('%m')
+        mes = fecha.strftime("%m")
         # d) año
-        anio = fecha.strftime('%y')
+        anio = fecha.strftime("%y")
 
         # identificación
-        identificacion = re.sub('[^0-9]', '', object.company_id.vat or '')
+        identificacion = re.sub("[^0-9]", "", object.company_id.vat or "")
 
         if not object.company_id.identification_id:
-            raise UserError('Seleccione el tipo de identificación del emisor en el perfil de la compañía')
-        if object.company_id.identification_id.code == '01' and len(identificacion) != 9:
-            raise UserError('La Cédula Física del emisor debe de tener 9 dígitos')
-        elif object.company_id.identification_id.code == '02' and len(identificacion) != 10:
-            raise UserError('La Cédula Jurídica del emisor debe de tener 10 dígitos')
-        elif object.company_id.identification_id.code == '03' and not (
-                len(identificacion) == 11 or len(identificacion) == 12):
-            raise UserError('La identificación DIMEX del emisor debe de tener 11 o 12 dígitos')
-        elif object.company_id.identification_id.code == '04' and len(identificacion) != 10:
-            raise UserError('La identificación NITE del emisor debe de tener 10 dígitos')
+            raise UserError(
+                "Seleccione el tipo de identificación del emisor en el perfil de la compañía"
+            )
+        if object.company_id.identification_id.code == "01" and len(identificacion) != 9:
+            raise UserError("La Cédula Física del emisor debe de tener 9 dígitos")
+        elif object.company_id.identification_id.code == "02" and len(identificacion) != 10:
+            raise UserError("La Cédula Jurídica del emisor debe de tener 10 dígitos")
+        elif object.company_id.identification_id.code == "03" and not (
+            len(identificacion) == 11 or len(identificacion) == 12
+        ):
+            raise UserError("La identificación DIMEX del emisor debe de tener 11 o 12 dígitos")
+        elif object.company_id.identification_id.code == "04" and len(identificacion) != 10:
+            raise UserError("La identificación NITE del emisor debe de tener 10 dígitos")
 
         identificacion = identificacion.zfill(12)
 
         # g) situación
-        situacion = '1'
+        situacion = "1"
 
         # h) código de seguridad
         codigo_de_seguridad = str(random.randint(1, 99999999)).zfill(8)
 
         # clave
-        clave = codigo_de_pais + dia + mes + anio + identificacion + consecutivo + situacion + codigo_de_seguridad
+        clave = (
+            codigo_de_pais
+            + dia
+            + mes
+            + anio
+            + identificacion
+            + consecutivo
+            + situacion
+            + codigo_de_seguridad
+        )
 
         if len(clave) != 50:
-            _logger.info('Algo anda mal con la clave :( %s' % clave)
+            _logger.info("Algo anda mal con la clave :( %s" % clave)
             return False
 
-        _logger.info('se genera la clave %s para %s' % (clave, object))
+        _logger.info("se genera la clave %s para %s" % (clave, object))
         return clave
 
     def _validar_receptor(self, partner_id):
-        if partner_id in (None, False): return False
-        if not partner_id.vat: return False
-        identificacion = re.sub('[^0-9]', '', partner_id.vat)
-        if not partner_id.identification_id: partner_id.action_update_info()
-        if not partner_id.identification_id: return False
+        if partner_id in (None, False):
+            return False
+        if not partner_id.vat:
+            return False
+        identificacion = re.sub("[^0-9]", "", partner_id.vat)
+        if not partner_id.identification_id:
+            partner_id.action_update_info()
+        if not partner_id.identification_id:
+            return False
 
-        if partner_id.identification_id.code == '01' and len(identificacion) != 9:
+        if partner_id.identification_id.code == "01" and len(identificacion) != 9:
             return False
-        elif partner_id.identification_id.code == '02' and len(identificacion) != 10:
+        elif partner_id.identification_id.code == "02" and len(identificacion) != 10:
             return False
-        elif partner_id.identification_id.code == '03' and not (len(identificacion) == 11 or len(identificacion) == 12):
+        elif partner_id.identification_id.code == "03" and not (
+            len(identificacion) == 11 or len(identificacion) == 12
+        ):
             return False
-        elif partner_id.identification_id.code == '04' and len(identificacion) != 10:
+        elif partner_id.identification_id.code == "04" and len(identificacion) != 10:
             return False
-        elif partner_id.identification_id.code == '05':
+        elif partner_id.identification_id.code == "05":
             return False
 
         return True
 
     @api.model
     def validar_xml_proveedor(self, xml):
-        _logger.info('validando xml de proveedor')
+        _logger.info("validando xml de proveedor")
 
         xml = base64.b64decode(xml)
         xml = etree.tostring(etree.fromstring(xml)).decode()
-        xml = re.sub(' xmlns="[^"]+"', '', xml)
+        xml = re.sub(' xmlns="[^"]+"', "", xml)
         xml = etree.fromstring(xml)
         document = xml.tag
 
-        if (xml.find('Clave') is None or
-                xml.find('FechaEmision') is None or
-                xml.find('Emisor') is None or
-                xml.find('Emisor').find('Identificacion') is None or
-                xml.find('Emisor').find('Identificacion').find('Tipo') is None or
-                xml.find('Emisor').find('Identificacion').find('Numero') is None or
-                xml.find('Receptor') is None or
-                xml.find('Receptor').find('Identificacion') is None or
-                xml.find('Receptor').find('Identificacion').find('Tipo') is None or
-                xml.find('Receptor').find('Identificacion').find('Numero') is None or
-                xml.find('ResumenFactura') is None or
-                xml.find('ResumenFactura').find('TotalComprobante') is None):
-            _logger.info('xml de proveedor inválido')
+        if (
+            xml.find("Clave") is None
+            or xml.find("FechaEmision") is None
+            or xml.find("Emisor") is None
+            or xml.find("Emisor").find("Identificacion") is None
+            or xml.find("Emisor").find("Identificacion").find("Tipo") is None
+            or xml.find("Emisor").find("Identificacion").find("Numero") is None
+            or xml.find("Receptor") is None
+            or xml.find("Receptor").find("Identificacion") is None
+            or xml.find("Receptor").find("Identificacion").find("Tipo") is None
+            or xml.find("Receptor").find("Identificacion").find("Numero") is None
+            or xml.find("ResumenFactura") is None
+            or xml.find("ResumenFactura").find("TotalComprobante") is None
+        ):
+            _logger.info("xml de proveedor inválido")
             return False
 
         return True
 
     @api.model
     def eicr_habilitado(self, company_id):
-        return False if company_id.eicr_environment == 'disabled' else True
+        return False if company_id.eicr_environment == "disabled" else True
 
     @api.model
     def _es_mensaje_aceptacion(self, object):
-        if object._name == 'account.invoice' and object.type in ('in_invoice', 'in_refund')  or object._name == 'hr.expense':
+        if (
+            object._name == "account.invoice"
+            and object.type in ("in_invoice", "in_refund")
+            or object._name == "hr.expense"
+        ):
             return True
         else:
             return False
 
     @api.model
     def _enviar_email(self, object):
-        if object.state_tributacion != 'aceptado':
-            _logger.info('documento %s estado %s, no vamos a enviar el email' % (object, object.state_tributacion))
+        if object.state_tributacion != "aceptado":
+            _logger.info(
+                "documento %s estado %s, no vamos a enviar el email"
+                % (object, object.state_tributacion)
+            )
             return False
 
         if not object.partner_id:
-            _logger.info('documento %s sin cliente, no vamos a enviar el email' % object)
+            _logger.info("documento %s sin cliente, no vamos a enviar el email" % object)
             return False
 
         if not object.partner_id.email:
-            _logger.info('Cliente %s sin email, no vamos a enviar el email' % object.partner_id)
-            return False
-        
-        if (object._name == 'account.invoice' and object.type != 'out_invoice') or  object._name == 'hr.expense':
+            _logger.info("Cliente %s sin email, no vamos a enviar el email" % object.partner_id)
             return False
 
-        if object._name == 'account.invoice':
-            email_template = self.env.ref('account.email_template_edi_invoice', False)
-        if object._name == 'pos.order':
-            email_template = self.env.ref('cr_pos_electronic_invoice.email_template_pos_invoice', False)
+        if (
+            object._name == "account.invoice" and object.type != "out_invoice"
+        ) or object._name == "hr.expense":
+            return False
 
-        comprobante = self.env['ir.attachment'].search(
-            [('res_model', '=', object._name), ('res_id', '=', object.id),
-             ('res_field', '=', 'xml_comprobante')], limit=1)
+        if object._name == "account.invoice":
+            email_template = self.env.ref("account.email_template_edi_invoice", False)
+        if object._name == "pos.order":
+            email_template = self.env.ref(
+                "cr_pos_electronic_invoice.email_template_pos_invoice", False
+            )
+
+        comprobante = self.env["ir.attachment"].search(
+            [
+                ("res_model", "=", object._name),
+                ("res_id", "=", object.id),
+                ("res_field", "=", "xml_comprobante"),
+            ],
+            limit=1,
+        )
         comprobante.name = object.fname_xml_comprobante
         comprobante.datas_fname = object.fname_xml_comprobante
 
         attachments = comprobante
 
         if object.xml_respuesta_tributacion:
-            respuesta = self.env['ir.attachment'].search(
-                [('res_model', '=', object._name), ('res_id', '=', object.id),
-                 ('res_field', '=', 'xml_respuesta_tributacion')], limit=1)
+            respuesta = self.env["ir.attachment"].search(
+                [
+                    ("res_model", "=", object._name),
+                    ("res_id", "=", object.id),
+                    ("res_field", "=", "xml_respuesta_tributacion"),
+                ],
+                limit=1,
+            )
             respuesta.name = object.fname_xml_respuesta_tributacion
             respuesta.datas_fname = object.fname_xml_respuesta_tributacion
 
             attachments = attachments | respuesta
 
-        email_template.attachment_ids = [(6, 0, attachments.mapped('id'))]
+        email_template.attachment_ids = [(6, 0, attachments.mapped("id"))]
 
         email_to = object.partner_id.email_facturas or object.partner_id.email
-        _logger.info('emailing to %s' % email_to)
+        _logger.info("emailing to %s" % email_to)
 
-        email_template.with_context(type='binary', default_type='binary').send_mail(object.id,
-                                                                                    raise_exception=False,
-                                                                                    force_send=True,
-                                                                                    email_values={
-                                                                                        'email_to': email_to})  # default_type='binary'
+        email_template.with_context(type="binary", default_type="binary").send_mail(
+            object.id, raise_exception=False, force_send=True, email_values={"email_to": email_to}
+        )  # default_type='binary'
 
         email_template.attachment_ids = [(5)]
 
-        if object._name == 'account.invoice': object.sent = True
+        if object._name == "account.invoice":
+            object.sent = True
 
     @api.model
     def enviar_aceptacion(self, object):
-
         if not self._es_mensaje_aceptacion(object):
-            _logger.info('%s no es documento aceptable por hacienda' % object)
-            object.state_tributacion = 'na'
+            _logger.info("%s no es documento aceptable por hacienda" % object)
+            object.state_tributacion = "na"
             return False
 
         if not object.xml_supplier_approval:
-            _logger.info('%s sin xml de proveedor' % object)
-            object.state_tributacion = 'na'
+            _logger.info("%s sin xml de proveedor" % object)
+            object.state_tributacion = "na"
             return False
 
         if not object.xml_comprobante:
             object.xml_comprobante = self.get_xml(object)
             if object.xml_comprobante:
-                object.fname_xml_comprobante = 'MensajeReceptor_' + object.number_electronic + '.xml'
-                object.state_tributacion = 'pendiente'
+                object.fname_xml_comprobante = (
+                    "MensajeReceptor_" + object.number_electronic + ".xml"
+                )
+                object.state_tributacion = "pendiente"
             else:
-                object.state_tributacion = 'na'
+                object.state_tributacion = "na"
 
     @api.model
     def get_xml(self, object):
         object.ensure_one()
-        if object._name == 'account.invoice':
-            if object.type in ('out_invoice', 'out_refund'):
-                if object.company_id.eicr_version_id.name == 'v4.3':
+        if object._name == "account.invoice":
+            if object.type in ("out_invoice", "out_refund"):
+                if object.company_id.eicr_version_id.name == "v4.3":
                     Documento = self._get_xml_FE_NC_ND_43(object)
-            elif object.type in ('in_invoice', 'in_refund'):
+            elif object.type in ("in_invoice", "in_refund"):
                 Documento = self._get_xml_MR_account_invoice(object)
-        elif object._name == 'pos.order':
+        elif object._name == "pos.order":
             Documento = self._get_xml_order(object)
-        elif object._name == 'hr.expense':
+        elif object._name == "hr.expense":
             Documento = self._get_xml_MR_hr_expense(object)
 
         if Documento is None or Documento is False:
             return False
 
-        _logger.info('Documento %s' % Documento)
-        xml = etree.tostring(Documento, encoding='UTF-8', xml_declaration=True, pretty_print=True)
-        xml_base64_encoded = base64.b64encode(xml).decode('utf-8')
+        _logger.info("Documento %s" % Documento)
+        xml = etree.tostring(Documento, encoding="UTF-8", xml_declaration=True, pretty_print=True)
+        xml_base64_encoded = base64.b64encode(xml).decode("utf-8")
         xml_base64_encoded_firmado = self._firmar_xml(xml_base64_encoded, object.company_id)
 
         return xml_base64_encoded_firmado
 
     def _get_xml_MR(self, object, consecutivo):
         xml = base64.b64decode(object.xml_supplier_approval)
-        _logger.info('xml %s' % xml)
+        _logger.info("xml %s" % xml)
 
         factura = etree.tostring(etree.fromstring(xml)).decode()
 
         if not self.validar_xml_proveedor(object.xml_supplier_approval):
             return False
 
-        factura = etree.fromstring(re.sub(' xmlns="[^"]+"', '', factura, count=1))
+        factura = etree.fromstring(re.sub(' xmlns="[^"]+"', "", factura, count=1))
 
-        Emisor = factura.find('Emisor')
-        Receptor = factura.find('Receptor')
-        TotalImpuesto = factura.find('ResumenFactura').find('TotalImpuesto')
-        TotalComprobante = factura.find('ResumenFactura').find('TotalComprobante')
+        Emisor = factura.find("Emisor")
+        Receptor = factura.find("Receptor")
+        TotalImpuesto = factura.find("ResumenFactura").find("TotalImpuesto")
+        TotalComprobante = factura.find("ResumenFactura").find("TotalComprobante")
 
         emisor = object.company_id
 
         # MensajeReceptor 4.3
 
-        documento = 'MensajeReceptor'  # MensajeReceptor
-        xmlns = 'https://cdn.comprobanteselectronicos.go.cr/xml-schemas/v4.3/mensajeReceptor'
-        schemaLocation = 'https://cdn.comprobanteselectronicos.go.cr/xml-schemas/v4.3/mensajeReceptor  https://www.hacienda.go.cr/ATV/ComprobanteElectronico/docs/esquemas/2016/v4.3/MensajeReceptor_V4.3.xsd'
+        documento = "MensajeReceptor"  # MensajeReceptor
+        xmlns = "https://cdn.comprobanteselectronicos.go.cr/xml-schemas/v4.3/mensajeReceptor"
+        schemaLocation = "https://cdn.comprobanteselectronicos.go.cr/xml-schemas/v4.3/mensajeReceptor  https://www.hacienda.go.cr/ATV/ComprobanteElectronico/docs/esquemas/2016/v4.3/MensajeReceptor_V4.3.xsd"
 
-        xsi = 'http://www.w3.org/2001/XMLSchema-instance'
-        xsd = 'http://www.w3.org/2001/XMLSchema'
-        ds = 'http://www.w3.org/2000/09/xmldsig#'
+        xsi = "http://www.w3.org/2001/XMLSchema-instance"
+        xsd = "http://www.w3.org/2001/XMLSchema"
+        ds = "http://www.w3.org/2000/09/xmldsig#"
 
-        nsmap = {None: xmlns, 'xsd': xsd, 'xsi': xsi, 'ds': ds}
-        attrib = {'{' + xsi + '}schemaLocation': schemaLocation}
+        nsmap = {None: xmlns, "xsd": xsd, "xsi": xsi, "ds": ds}
+        attrib = {"{" + xsi + "}schemaLocation": schemaLocation}
 
         Documento = etree.Element(documento, attrib=attrib, nsmap=nsmap)
 
         # Clave
-        Clave = etree.Element('Clave')
-        Clave.text = factura.find('Clave').text
+        Clave = etree.Element("Clave")
+        Clave.text = factura.find("Clave").text
         object.number_electronic = Clave.text
         Documento.append(Clave)
 
         # NumeroCedulaEmisor
-        NumeroCedulaEmisor = etree.Element('NumeroCedulaEmisor')
-        NumeroCedulaEmisor.text = factura.find('Emisor').find('Identificacion').find('Numero').text
+        NumeroCedulaEmisor = etree.Element("NumeroCedulaEmisor")
+        NumeroCedulaEmisor.text = factura.find("Emisor").find("Identificacion").find("Numero").text
         Documento.append(NumeroCedulaEmisor)
 
-        now_utc = datetime.now(pytz.timezone('UTC'))
-        now_cr = now_utc.astimezone(pytz.timezone('America/Costa_Rica'))
+        now_utc = datetime.now(pytz.timezone("UTC"))
+        now_cr = now_utc.astimezone(pytz.timezone("America/Costa_Rica"))
         date_cr = now_cr.strftime("%Y-%m-%dT%H:%M:%S-06:00")
 
         object.date_issuance = date_cr
 
         # FechaEmisionDoc
-        FechaEmisionDoc = etree.Element('FechaEmisionDoc')
+        FechaEmisionDoc = etree.Element("FechaEmisionDoc")
         FechaEmisionDoc.text = date_cr  # date_cr
         Documento.append(FechaEmisionDoc)
 
         # Mensaje
-        Mensaje = etree.Element('Mensaje')
-        Mensaje.text = object.state_invoice_partner or '01'  # state_invoice_partner
+        Mensaje = etree.Element("Mensaje")
+        Mensaje.text = object.state_invoice_partner or "01"  # state_invoice_partner
         Documento.append(Mensaje)
 
         # DetalleMensaje
-        DetalleMensaje = etree.Element('DetalleMensaje')
-        DetalleMensaje.text = 'Mensaje de ' + emisor.name  # emisor.name
+        DetalleMensaje = etree.Element("DetalleMensaje")
+        DetalleMensaje.text = "Mensaje de " + emisor.name  # emisor.name
         Documento.append(DetalleMensaje)
 
         if TotalImpuesto is not None:
             # MontoTotalImpuesto
-            MontoTotalImpuesto = etree.Element('MontoTotalImpuesto')
+            MontoTotalImpuesto = etree.Element("MontoTotalImpuesto")
             MontoTotalImpuesto.text = TotalImpuesto.text  # TotalImpuesto.text
             Documento.append(MontoTotalImpuesto)
 
-            if Mensaje.text != '3':
+            if Mensaje.text != "3":
                 # CodigoActividad
-                CodigoActividad = etree.Element('CodigoActividad')
+                CodigoActividad = etree.Element("CodigoActividad")
                 CodigoActividad.text = object.company_id.eicr_activity_ids[0].code
                 Documento.append(CodigoActividad)
 
                 # CondicionImpuesto
-                if not object.credito_iva_condicion: object.credito_iva_condicion = self.env.ref(
-                    'cr_electronic_invoice.CreditConditions_1')
-                CondicionImpuesto = etree.Element('CondicionImpuesto')
+                if not object.credito_iva_condicion:
+                    object.credito_iva_condicion = self.env.ref(
+                        "cr_electronic_invoice.CreditConditions_1"
+                    )
+                CondicionImpuesto = etree.Element("CondicionImpuesto")
                 CondicionImpuesto.text = object.credito_iva_condicion.sequence
                 Documento.append(CondicionImpuesto)
 
                 # MontoTotalImpuestoAcreditar
                 if not object.credito_iva:
                     object.credito_iva = 100.0
-                MontoTotalImpuestoAcreditar = etree.Element('MontoTotalImpuestoAcreditar')
+                MontoTotalImpuestoAcreditar = etree.Element("MontoTotalImpuestoAcreditar")
                 montoTotalImpuestoAcreditar = float(TotalImpuesto.text) * object.credito_iva / 100.0
                 MontoTotalImpuestoAcreditar.text = str(round(montoTotalImpuestoAcreditar, 2))
                 Documento.append(MontoTotalImpuestoAcreditar)
 
         # TotalFactura
-        TotalFactura = etree.Element('TotalFactura')
+        TotalFactura = etree.Element("TotalFactura")
         TotalFactura.text = TotalComprobante.text  # TotalComprobante.text
         Documento.append(TotalFactura)
 
-        identificacion = re.sub('[^0-9]', '', emisor.vat or '')
+        identificacion = re.sub("[^0-9]", "", emisor.vat or "")
 
         if not emisor.identification_id:
-            raise UserError('Seleccione el tipo de identificación del emisor en el perfil de la compañía')
-        elif emisor.identification_id.code == '01' and len(identificacion) != 9:
-            raise UserError('La Cédula Física del emisor debe de tener 9 dígitos')
-        elif emisor.identification_id.code == '02' and len(identificacion) != 10:
-            raise UserError('La Cédula Jurídica del emisor debe de tener 10 dígitos')
-        elif emisor.identification_id.code == '03' and (len(identificacion) != 11 or len(identificacion) != 12):
-            raise UserError('La identificación DIMEX del emisor debe de tener 11 o 12 dígitos')
-        elif emisor.identification_id.code == '04' and len(identificacion) != 10:
-            raise UserError('La identificación NITE del emisor debe de tener 10 dígitos')
+            raise UserError(
+                "Seleccione el tipo de identificación del emisor en el perfil de la compañía"
+            )
+        elif emisor.identification_id.code == "01" and len(identificacion) != 9:
+            raise UserError("La Cédula Física del emisor debe de tener 9 dígitos")
+        elif emisor.identification_id.code == "02" and len(identificacion) != 10:
+            raise UserError("La Cédula Jurídica del emisor debe de tener 10 dígitos")
+        elif emisor.identification_id.code == "03" and (
+            len(identificacion) != 11 or len(identificacion) != 12
+        ):
+            raise UserError("La identificación DIMEX del emisor debe de tener 11 o 12 dígitos")
+        elif emisor.identification_id.code == "04" and len(identificacion) != 10:
+            raise UserError("La identificación NITE del emisor debe de tener 10 dígitos")
 
         # NumeroCedulaReceptor
-        NumeroCedulaReceptor = etree.Element('NumeroCedulaReceptor')
+        NumeroCedulaReceptor = etree.Element("NumeroCedulaReceptor")
         NumeroCedulaReceptor.text = identificacion
         Documento.append(NumeroCedulaReceptor)
 
         # NumeroConsecutivoReceptor
-        NumeroConsecutivoReceptor = etree.Element('NumeroConsecutivoReceptor')
+        NumeroConsecutivoReceptor = etree.Element("NumeroConsecutivoReceptor")
         NumeroConsecutivoReceptor.text = consecutivo
         Documento.append(NumeroConsecutivoReceptor)
 
@@ -463,17 +518,17 @@ class ElectronicInvoiceCostaRicaTools(models.AbstractModel):
 
     def _get_xml_MR_account_invoice(self, invoice):
         if not invoice.number:
-            _logger.error('Factura sin consecutivo %s', invoice)
+            _logger.error("Factura sin consecutivo %s", invoice)
             return False
 
         if not invoice.number.isdigit():
-            _logger.error('Error de numeración %s', invoice.number)
+            _logger.error("Error de numeración %s", invoice.number)
             return False
 
         if len(invoice.number) != 20:
             consecutivo = self._get_consecutivo(invoice)
             if not consecutivo:
-                _logger.error('Error de consecutivo %s' % invoice.number)
+                _logger.error("Error de consecutivo %s" % invoice.number)
                 return False
 
             invoice.number = consecutivo
@@ -485,15 +540,14 @@ class ElectronicInvoiceCostaRicaTools(models.AbstractModel):
 
     @api.model
     def _get_xml_order(self, order):
-
         if not order.name:
-            _logger.error('Tiquete sin consecutivo %s' % order)
+            _logger.error("Tiquete sin consecutivo %s" % order)
             return False
 
         if len(order.name) != 20:
             consecutivo = self._get_consecutivo(order)
             if not consecutivo:
-                _logger.error('Error de consecutivo %s' % order.name)
+                _logger.error("Error de consecutivo %s" % order.name)
                 return False
 
             order.name = consecutivo
@@ -501,13 +555,13 @@ class ElectronicInvoiceCostaRicaTools(models.AbstractModel):
         if not order.number_electronic:
             clave = self._get_clave(order)
             if not clave:
-                _logger.error('Error de clave %s' % order)
+                _logger.error("Error de clave %s" % order)
                 return False
 
             order.number_electronic = clave
 
         if len(order.number_electronic) != 50:
-            _logger.error('Error de clave %s' % order.number_electronic)
+            _logger.error("Error de clave %s" % order.number_electronic)
             return False
 
         emisor = order.company_id
@@ -519,136 +573,151 @@ class ElectronicInvoiceCostaRicaTools(models.AbstractModel):
         decimales = 2
 
         if receptor_valido:
-            documento = 'FacturaElectronica'  # Factura Electrónica
-            xmlns = 'https://cdn.comprobanteselectronicos.go.cr/xml-schemas/v4.3/facturaElectronica'
-            schemaLocation = 'https://cdn.comprobanteselectronicos.go.cr/xml-schemas/v4.3/facturaElectronica  https://www.hacienda.go.cr/ATV/ComprobanteElectronico/docs/esquemas/2016/v4.3/FacturaElectronica_V4.3.xsd'
+            documento = "FacturaElectronica"  # Factura Electrónica
+            xmlns = "https://cdn.comprobanteselectronicos.go.cr/xml-schemas/v4.3/facturaElectronica"
+            schemaLocation = "https://cdn.comprobanteselectronicos.go.cr/xml-schemas/v4.3/facturaElectronica  https://www.hacienda.go.cr/ATV/ComprobanteElectronico/docs/esquemas/2016/v4.3/FacturaElectronica_V4.3.xsd"
         else:
-            documento = 'TiqueteElectronico'  # Tiquete Electrónico
-            xmlns = 'https://cdn.comprobanteselectronicos.go.cr/xml-schemas/v4.3/tiqueteElectronico'
-            schemaLocation = 'https://cdn.comprobanteselectronicos.go.cr/xml-schemas/v4.3/tiqueteElectronico  https://www.hacienda.go.cr/ATV/ComprobanteElectronico/docs/esquemas/2016/v4.3/TiqueteElectronico_V4.3.xsd'
+            documento = "TiqueteElectronico"  # Tiquete Electrónico
+            xmlns = "https://cdn.comprobanteselectronicos.go.cr/xml-schemas/v4.3/tiqueteElectronico"
+            schemaLocation = "https://cdn.comprobanteselectronicos.go.cr/xml-schemas/v4.3/tiqueteElectronico  https://www.hacienda.go.cr/ATV/ComprobanteElectronico/docs/esquemas/2016/v4.3/TiqueteElectronico_V4.3.xsd"
 
-        xsi = 'http://www.w3.org/2001/XMLSchema-instance'
-        xsd = 'http://www.w3.org/2001/XMLSchema'
-        ds = 'http://www.w3.org/2000/09/xmldsig#'
+        xsi = "http://www.w3.org/2001/XMLSchema-instance"
+        xsd = "http://www.w3.org/2001/XMLSchema"
+        ds = "http://www.w3.org/2000/09/xmldsig#"
 
-        nsmap = {None: xmlns, 'xsd': xsd, 'xsi': xsi, 'ds': ds}
-        attrib = {'{' + xsi + '}schemaLocation': schemaLocation}
+        nsmap = {None: xmlns, "xsd": xsd, "xsi": xsi, "ds": ds}
+        attrib = {"{" + xsi + "}schemaLocation": schemaLocation}
 
         Documento = etree.Element(documento, attrib=attrib, nsmap=nsmap)
 
         # Clave
-        Clave = etree.Element('Clave')
+        Clave = etree.Element("Clave")
         Clave.text = order.number_electronic
         Documento.append(Clave)
 
         # CodigoActividad
-        CodigoActividad = etree.Element('CodigoActividad')
+        CodigoActividad = etree.Element("CodigoActividad")
         CodigoActividad.text = order.company_id.eicr_activity_ids[0].code
         Documento.append(CodigoActividad)
 
         # NumeroConsecutivo
-        NumeroConsecutivo = etree.Element('NumeroConsecutivo')
+        NumeroConsecutivo = etree.Element("NumeroConsecutivo")
         NumeroConsecutivo.text = order.name  # order.name
         Documento.append(NumeroConsecutivo)
 
         # FechaEmision
-        FechaEmision = etree.Element('FechaEmision')
-        FechaEmision.text = datetime.strptime(order.fecha, '%Y-%m-%d %H:%M:%S').strftime("%Y-%m-%dT%H:%M:%S")
+        FechaEmision = etree.Element("FechaEmision")
+        FechaEmision.text = datetime.strptime(order.fecha, "%Y-%m-%d %H:%M:%S").strftime(
+            "%Y-%m-%dT%H:%M:%S"
+        )
         Documento.append(FechaEmision)
 
         # Emisor
-        Emisor = etree.Element('Emisor')
+        Emisor = etree.Element("Emisor")
 
-        Nombre = etree.Element('Nombre')
+        Nombre = etree.Element("Nombre")
         Nombre.text = emisor.name
         Emisor.append(Nombre)
 
-        identificacion = re.sub('[^0-9]', '', emisor.vat or '')
+        identificacion = re.sub("[^0-9]", "", emisor.vat or "")
 
         if not emisor.identification_id:
-            raise UserError('Seleccione el tipo de identificación del emisor en el perfil de la compañía')
-        elif emisor.identification_id.code == '01' and len(identificacion) != 9:
-            raise UserError('La Cédula Física del emisor debe de tener 9 dígitos')
-        elif emisor.identification_id.code == '02' and len(identificacion) != 10:
-            raise UserError('La Cédula Jurídica del emisor debe de tener 10 dígitos')
-        elif emisor.identification_id.code == '03' and not (len(identificacion) == 11 or len(identificacion) == 12):
-            raise UserError('La identificación DIMEX del emisor debe de tener 11 o 12 dígitos')
-        elif emisor.identification_id.code == '04' and len(identificacion) != 10:
-            raise UserError('La identificación NITE del emisor debe de tener 10 dígitos')
+            raise UserError(
+                "Seleccione el tipo de identificación del emisor en el perfil de la compañía"
+            )
+        elif emisor.identification_id.code == "01" and len(identificacion) != 9:
+            raise UserError("La Cédula Física del emisor debe de tener 9 dígitos")
+        elif emisor.identification_id.code == "02" and len(identificacion) != 10:
+            raise UserError("La Cédula Jurídica del emisor debe de tener 10 dígitos")
+        elif emisor.identification_id.code == "03" and not (
+            len(identificacion) == 11 or len(identificacion) == 12
+        ):
+            raise UserError("La identificación DIMEX del emisor debe de tener 11 o 12 dígitos")
+        elif emisor.identification_id.code == "04" and len(identificacion) != 10:
+            raise UserError("La identificación NITE del emisor debe de tener 10 dígitos")
 
-        Identificacion = etree.Element('Identificacion')
+        Identificacion = etree.Element("Identificacion")
 
-        Tipo = etree.Element('Tipo')
+        Tipo = etree.Element("Tipo")
         Tipo.text = emisor.identification_id.code
         Identificacion.append(Tipo)
 
-        Numero = etree.Element('Numero')
+        Numero = etree.Element("Numero")
         Numero.text = identificacion
         Identificacion.append(Numero)
 
         Emisor.append(Identificacion)
 
         if emisor.commercial_name:
-            NombreComercial = etree.Element('NombreComercial')
+            NombreComercial = etree.Element("NombreComercial")
             NombreComercial.text = emisor.commercial_name
             Emisor.append(NombreComercial)
 
         if not emisor.state_id:
-            raise UserError('La dirección del emisor está incompleta, no se ha seleccionado la Provincia')
+            raise UserError(
+                "La dirección del emisor está incompleta, no se ha seleccionado la Provincia"
+            )
         if not emisor.county_id:
-            raise UserError('La dirección del emisor está incompleta, no se ha seleccionado el Cantón')
+            raise UserError(
+                "La dirección del emisor está incompleta, no se ha seleccionado el Cantón"
+            )
         if not emisor.district_id:
-            raise UserError('La dirección del emisor está incompleta, no se ha seleccionado el Distrito')
+            raise UserError(
+                "La dirección del emisor está incompleta, no se ha seleccionado el Distrito"
+            )
         if not emisor.street:
-            raise UserError('La dirección del emisor está incompleta, no se han digitado las señas de la dirección')
+            raise UserError(
+                "La dirección del emisor está incompleta, no se han digitado las señas de la dirección"
+            )
 
-        Ubicacion = etree.Element('Ubicacion')
+        Ubicacion = etree.Element("Ubicacion")
 
-        Provincia = etree.Element('Provincia')
+        Provincia = etree.Element("Provincia")
         Provincia.text = emisor.partner_id.state_id.code  # state_id.code
         Ubicacion.append(Provincia)
 
-        Canton = etree.Element('Canton')
+        Canton = etree.Element("Canton")
         Canton.text = emisor.county_id.code  # county_id.code
         Ubicacion.append(Canton)
 
-        Distrito = etree.Element('Distrito')
+        Distrito = etree.Element("Distrito")
         Distrito.text = emisor.district_id.code  # district_id.code
         Ubicacion.append(Distrito)
 
         if emisor.partner_id.neighborhood_id and emisor.partner_id.neighborhood_id.code:
-            Barrio = etree.Element('Barrio')
+            Barrio = etree.Element("Barrio")
             Barrio.text = emisor.neighborhood_id.code  # neighborhood_id.code
             Ubicacion.append(Barrio)
 
-        OtrasSenas = etree.Element('OtrasSenas')
-        OtrasSenas.text = emisor.street or 'Sin otras señas'  # emisor.street
+        OtrasSenas = etree.Element("OtrasSenas")
+        OtrasSenas.text = emisor.street or "Sin otras señas"  # emisor.street
         Ubicacion.append(OtrasSenas)
 
         Emisor.append(Ubicacion)
 
         telefono = emisor.partner_id.phone or emisor.partner_id.mobile
         if telefono:
-            telefono = re.sub('[^0-9]', '', telefono)
+            telefono = re.sub("[^0-9]", "", telefono)
             if telefono and len(telefono) >= 8 and len(telefono) <= 20:
-                Telefono = etree.Element('Telefono')
+                Telefono = etree.Element("Telefono")
 
-                CodigoPais = etree.Element('CodigoPais')
-                CodigoPais.text = '506'  # '506'
+                CodigoPais = etree.Element("CodigoPais")
+                CodigoPais.text = "506"  # '506'
                 Telefono.append(CodigoPais)
 
-                NumTelefono = etree.Element('NumTelefono')
+                NumTelefono = etree.Element("NumTelefono")
                 NumTelefono.text = telefono[:8]  # telefono
 
                 Telefono.append(NumTelefono)
 
                 Emisor.append(Telefono)
 
-        if not emisor.email or not re.match('^[(a-z0-9\_\-\.)]+@[(a-z0-9\_\-\.)]+\.[(a-z)]{2,15}$',
-                                            emisor.email.lower()):
-            raise UserError('El correo electrónico del emisor es inválido.')
+        if not emisor.email or not re.match(
+            "^[(a-z0-9\_\-\.)]+@[(a-z0-9\_\-\.)]+\.[(a-z)]{2,15}$", emisor.email.lower()
+        ):
+            raise UserError("El correo electrónico del emisor es inválido.")
 
-        CorreoElectronico = etree.Element('CorreoElectronico')
+        CorreoElectronico = etree.Element("CorreoElectronico")
         CorreoElectronico.text = emisor.email.lower()  # emisor.email
         Emisor.append(CorreoElectronico)
 
@@ -656,48 +725,52 @@ class ElectronicInvoiceCostaRicaTools(models.AbstractModel):
 
         # Receptor
         if receptor_valido:
+            Receptor = etree.Element("Receptor")
 
-            Receptor = etree.Element('Receptor')
-
-            Nombre = etree.Element('Nombre')
+            Nombre = etree.Element("Nombre")
             Nombre.text = receptor.name
             Receptor.append(Nombre)
 
-            identificacion = re.sub('[^0-9]', '', receptor.vat)
+            identificacion = re.sub("[^0-9]", "", receptor.vat)
 
-            Identificacion = etree.Element('Identificacion')
+            Identificacion = etree.Element("Identificacion")
 
-            Tipo = etree.Element('Tipo')
+            Tipo = etree.Element("Tipo")
             Tipo.text = receptor.identification_id.code
             Identificacion.append(Tipo)
 
-            Numero = etree.Element('Numero')
+            Numero = etree.Element("Numero")
             Numero.text = identificacion
             Identificacion.append(Numero)
 
             Receptor.append(Identificacion)
 
-            if receptor.state_id and receptor.county_id and receptor.district_id and receptor.street:
-                Ubicacion = etree.Element('Ubicacion')
+            if (
+                receptor.state_id
+                and receptor.county_id
+                and receptor.district_id
+                and receptor.street
+            ):
+                Ubicacion = etree.Element("Ubicacion")
 
-                Provincia = etree.Element('Provincia')
+                Provincia = etree.Element("Provincia")
                 Provincia.text = receptor.state_id.code
                 Ubicacion.append(Provincia)
 
-                Canton = etree.Element('Canton')
+                Canton = etree.Element("Canton")
                 Canton.text = receptor.county_id.code
                 Ubicacion.append(Canton)
 
-                Distrito = etree.Element('Distrito')
+                Distrito = etree.Element("Distrito")
                 Distrito.text = receptor.district_id.code
                 Ubicacion.append(Distrito)
 
                 if receptor.neighborhood_id:
-                    Barrio = etree.Element('Barrio')
+                    Barrio = etree.Element("Barrio")
                     Barrio.text = receptor.neighborhood_id.code
                     Ubicacion.append(Barrio)
 
-                OtrasSenas = etree.Element('OtrasSenas')
+                OtrasSenas = etree.Element("OtrasSenas")
                 OtrasSenas.text = receptor.street
                 Ubicacion.append(OtrasSenas)
 
@@ -705,40 +778,41 @@ class ElectronicInvoiceCostaRicaTools(models.AbstractModel):
 
             telefono = receptor.phone or receptor.mobile
             if telefono:
-                telefono = re.sub('[^0-9]', '', telefono)
+                telefono = re.sub("[^0-9]", "", telefono)
                 if telefono and len(telefono) >= 8 and len(telefono) <= 20:
-                    Telefono = etree.Element('Telefono')
+                    Telefono = etree.Element("Telefono")
 
-                    CodigoPais = etree.Element('CodigoPais')
-                    CodigoPais.text = '506'
+                    CodigoPais = etree.Element("CodigoPais")
+                    CodigoPais.text = "506"
                     Telefono.append(CodigoPais)
 
-                    NumTelefono = etree.Element('NumTelefono')
+                    NumTelefono = etree.Element("NumTelefono")
                     NumTelefono.text = telefono[:8]
                     Telefono.append(NumTelefono)
 
                     Receptor.append(Telefono)
 
-            if receptor.email and re.match('^[(a-z0-9\_\-\.)]+@[(a-z0-9\_\-\.)]+\.[(a-z)]{2,15}$',
-                                           receptor.email.lower()):
-                CorreoElectronico = etree.Element('CorreoElectronico')
+            if receptor.email and re.match(
+                "^[(a-z0-9\_\-\.)]+@[(a-z0-9\_\-\.)]+\.[(a-z)]{2,15}$", receptor.email.lower()
+            ):
+                CorreoElectronico = etree.Element("CorreoElectronico")
                 CorreoElectronico.text = receptor.email
                 Receptor.append(CorreoElectronico)
 
             Documento.append(Receptor)
 
         # Condicion Venta
-        CondicionVenta = etree.Element('CondicionVenta')
-        CondicionVenta.text = '01'
+        CondicionVenta = etree.Element("CondicionVenta")
+        CondicionVenta.text = "01"
         Documento.append(CondicionVenta)
 
         # MedioPago
-        MedioPago = etree.Element('MedioPago')
-        MedioPago.text = '01'
+        MedioPago = etree.Element("MedioPago")
+        MedioPago.text = "01"
         Documento.append(MedioPago)
 
         # DetalleServicio
-        DetalleServicio = etree.Element('DetalleServicio')
+        DetalleServicio = etree.Element("DetalleServicio")
 
         totalServiciosGravados = 0.0
         totalServiciosExentos = 0.0
@@ -752,80 +826,87 @@ class ElectronicInvoiceCostaRicaTools(models.AbstractModel):
 
         totalImpuesto = 0.0
 
-        impuestoServicio = self.env['account.tax'].search([('tax_code', '=', 'service')])
-        servicio = True if impuestoServicio in order.lines.mapped('tax_ids_after_fiscal_position') else False
+        impuestoServicio = self.env["account.tax"].search([("tax_code", "=", "service")])
+        servicio = (
+            True
+            if impuestoServicio in order.lines.mapped("tax_ids_after_fiscal_position")
+            else False
+        )
         totalImpuestoServicio = 0.0
 
         indice = 1
         for linea in order.lines:
+            LineaDetalle = etree.Element("LineaDetalle")
 
-            LineaDetalle = etree.Element('LineaDetalle')
-
-            NumeroLinea = etree.Element('NumeroLinea')
-            NumeroLinea.text = '%s' % indice  # indice + 1
+            NumeroLinea = etree.Element("NumeroLinea")
+            NumeroLinea.text = "%s" % indice  # indice + 1
             LineaDetalle.append(NumeroLinea)
 
-            Codigo = etree.Element('Codigo')
+            Codigo = etree.Element("Codigo")
             if linea.product_id and linea.product_id.cabys_code:
-                Codigo.text = linea.product_id.cabys_code 
+                Codigo.text = linea.product_id.cabys_code
             elif linea.product_id.categ_id and linea.product_id.categ_id.cabys_code:
                 Codigo.text = linea.product_id.categ_id.cabys_code
             elif order.company_id.cabys_product_id:
                 Codigo.text = order.company_id.cabys_product_id.codigo
             else:
-                raise UserError('No se ha seleccionado un código Cabys para [%s]' % linea.name[:200])
+                raise UserError(
+                    "No se ha seleccionado un código Cabys para [%s]" % linea.name[:200]
+                )
             LineaDetalle.append(Codigo)
 
             if linea.product_id.default_code:
-                CodigoComercial = etree.Element('CodigoComercial')
+                CodigoComercial = etree.Element("CodigoComercial")
 
-                Tipo = etree.Element('Tipo')
-                Tipo.text = '04'  # Código de uso interno
+                Tipo = etree.Element("Tipo")
+                Tipo.text = "04"  # Código de uso interno
                 CodigoComercial.append(Tipo)
 
-                Codigo = etree.Element('Codigo')
+                Codigo = etree.Element("Codigo")
                 Codigo.text = linea.product_id.default_code
                 CodigoComercial.append(Codigo)
 
                 LineaDetalle.append(CodigoComercial)
 
-            Cantidad = etree.Element('Cantidad')
+            Cantidad = etree.Element("Cantidad")
             Cantidad.text = str(linea.qty)  # linea.qty
             LineaDetalle.append(Cantidad)
 
-            UnidadMedida = etree.Element('UnidadMedida')
-            UnidadMedida.text = 'Sp' if (linea.product_id and linea.product_id.type == 'service') else 'Unid'
+            UnidadMedida = etree.Element("UnidadMedida")
+            UnidadMedida.text = (
+                "Sp" if (linea.product_id and linea.product_id.type == "service") else "Unid"
+            )
 
             LineaDetalle.append(UnidadMedida)
 
-            Detalle = etree.Element('Detalle')
+            Detalle = etree.Element("Detalle")
             Detalle.text = linea.product_id.product_tmpl_id.name  # product_tmpl_id.name
             LineaDetalle.append(Detalle)
 
             precioUnitario = linea.price_unit
 
-            PrecioUnitario = etree.Element('PrecioUnitario')
+            PrecioUnitario = etree.Element("PrecioUnitario")
             PrecioUnitario.text = str(round(precioUnitario, decimales))
             LineaDetalle.append(PrecioUnitario)
 
-            MontoTotal = etree.Element('MontoTotal')
+            MontoTotal = etree.Element("MontoTotal")
             montoTotal = precioUnitario * linea.qty
             MontoTotal.text = str(round(montoTotal, decimales))
 
             LineaDetalle.append(MontoTotal)
 
             if linea.discount:
-                Descuento = etree.Element('Descuento')
+                Descuento = etree.Element("Descuento")
 
-                MontoDescuento = etree.Element('MontoDescuento')
+                MontoDescuento = etree.Element("MontoDescuento")
                 montoDescuento = montoTotal - linea.price_subtotal
                 if linea.tax_ids_after_fiscal_position:
-                    if linea.product_id and linea.product_id.type == 'service':
+                    if linea.product_id and linea.product_id.type == "service":
                         totalDescuentosServiciosGravados += montoDescuento
                     else:
                         totalDescuentosMercanciasGravadas += montoDescuento
                 else:
-                    if linea.product_id and linea.product_id.type == 'service':
+                    if linea.product_id and linea.product_id.type == "service":
                         totalDescuentosServiciosExentos += montoDescuento
                     else:
                         totalDescuentosMercanciasExentas += montoDescuento
@@ -833,13 +914,13 @@ class ElectronicInvoiceCostaRicaTools(models.AbstractModel):
                 MontoDescuento.text = str(round(montoDescuento, decimales))
                 Descuento.append(MontoDescuento)
 
-                NaturalezaDescuento = etree.Element('NaturalezaDescuento')
-                NaturalezaDescuento.text = 'Descuento Comercial'
+                NaturalezaDescuento = etree.Element("NaturalezaDescuento")
+                NaturalezaDescuento.text = "Descuento Comercial"
                 Descuento.append(NaturalezaDescuento)
 
                 LineaDetalle.append(Descuento)
 
-            SubTotal = etree.Element('SubTotal')
+            SubTotal = etree.Element("SubTotal")
             SubTotal.text = str(round(linea.price_subtotal, decimales))
             LineaDetalle.append(SubTotal)
 
@@ -847,24 +928,23 @@ class ElectronicInvoiceCostaRicaTools(models.AbstractModel):
 
             if impuestos:
                 for impuesto in linea.tax_ids_after_fiscal_position:
+                    if impuesto.tax_code != "service":
+                        Impuesto = etree.Element("Impuesto")
 
-                    if impuesto.tax_code != 'service':
-                        Impuesto = etree.Element('Impuesto')
-
-                        Codigo = etree.Element('Codigo')
+                        Codigo = etree.Element("Codigo")
                         Codigo.text = impuesto.tax_code
                         Impuesto.append(Codigo)
 
-                        if impuesto.tax_code == '01':
-                            CodigoTarifa = etree.Element('CodigoTarifa')
+                        if impuesto.tax_code == "01":
+                            CodigoTarifa = etree.Element("CodigoTarifa")
                             CodigoTarifa.text = impuesto.iva_tax_code
                             Impuesto.append(CodigoTarifa)
 
-                            Tarifa = etree.Element('Tarifa')
+                            Tarifa = etree.Element("Tarifa")
                             Tarifa.text = str(round(impuesto.amount, decimales))
                             Impuesto.append(Tarifa)
 
-                        Monto = etree.Element('Monto')
+                        Monto = etree.Element("Monto")
                         monto = linea.price_subtotal * impuesto.amount / 100.0
                         totalImpuesto += monto
                         Monto.text = str(round(monto, decimales))
@@ -872,25 +952,29 @@ class ElectronicInvoiceCostaRicaTools(models.AbstractModel):
 
                         LineaDetalle.append(Impuesto)
 
-                        if linea.product_id and linea.product_id.type == 'service':
+                        if linea.product_id and linea.product_id.type == "service":
                             totalServiciosGravados += linea.price_subtotal
                         else:
                             totalMercanciasGravadas += linea.price_subtotal
 
             else:
-                if linea.product_id and linea.product_id.type == 'service':
+                if linea.product_id and linea.product_id.type == "service":
                     totalServiciosExentos += linea.price_subtotal
                 else:
                     totalMercanciasExentas += linea.price_subtotal
 
-            MontoTotalLinea = etree.Element('MontoTotalLinea')
+            MontoTotalLinea = etree.Element("MontoTotalLinea")
             montoTotalLinea = linea.price_subtotal_incl
             if impuestoServicio in linea.tax_ids_after_fiscal_position:
-                _logger.info('mndl %s' % montoTotalLinea)
-                deduccion = montoTotalLinea * 10.0 / (100.0 + sum(linea.tax_ids_after_fiscal_position.mapped('amount')))
-                _logger.info('mndl %s' % deduccion)
+                _logger.info("mndl %s" % montoTotalLinea)
+                deduccion = (
+                    montoTotalLinea
+                    * 10.0
+                    / (100.0 + sum(linea.tax_ids_after_fiscal_position.mapped("amount")))
+                )
+                _logger.info("mndl %s" % deduccion)
                 montoTotalLinea -= deduccion
-                _logger.info('mndl %s' % montoTotalLinea)
+                _logger.info("mndl %s" % montoTotalLinea)
                 totalImpuestoServicio += deduccion
             MontoTotalLinea.text = str(round(montoTotalLinea, decimales))
             LineaDetalle.append(MontoTotalLinea)
@@ -902,97 +986,131 @@ class ElectronicInvoiceCostaRicaTools(models.AbstractModel):
 
         if servicio:
             # Otros Cargos
-            OtrosCargos = etree.Element('OtrosCargos')
+            OtrosCargos = etree.Element("OtrosCargos")
 
-            TipoDocumento = etree.Element('TipoDocumento')
-            TipoDocumento.text = '06'
+            TipoDocumento = etree.Element("TipoDocumento")
+            TipoDocumento.text = "06"
             OtrosCargos.append(TipoDocumento)
 
-            Detalle = etree.Element('Detalle')
-            Detalle.text = 'Cargo de Servicio (10%)'
+            Detalle = etree.Element("Detalle")
+            Detalle.text = "Cargo de Servicio (10%)"
             OtrosCargos.append(Detalle)
 
-            Porcentaje = etree.Element('Porcentaje')
-            Porcentaje.text = '10.0'
+            Porcentaje = etree.Element("Porcentaje")
+            Porcentaje.text = "10.0"
             OtrosCargos.append(Porcentaje)
 
-            MontoCargo = etree.Element('MontoCargo')
+            MontoCargo = etree.Element("MontoCargo")
             MontoCargo.text = str(round(totalImpuestoServicio, decimales))
             OtrosCargos.append(MontoCargo)
 
             Documento.append(OtrosCargos)
 
         # ResumenFactura
-        ResumenFactura = etree.Element('ResumenFactura')
+        ResumenFactura = etree.Element("ResumenFactura")
 
         if totalServiciosGravados:
-            TotalServGravados = etree.Element('TotalServGravados')
-            TotalServGravados.text = str(round(totalServiciosGravados + totalDescuentosServiciosGravados, decimales))
+            TotalServGravados = etree.Element("TotalServGravados")
+            TotalServGravados.text = str(
+                round(totalServiciosGravados + totalDescuentosServiciosGravados, decimales)
+            )
             ResumenFactura.append(TotalServGravados)
 
         if totalServiciosExentos:
-            TotalServExentos = etree.Element('TotalServExentos')
-            TotalServExentos.text = str(round(totalServiciosExentos + totalDescuentosServiciosExentos, decimales))
+            TotalServExentos = etree.Element("TotalServExentos")
+            TotalServExentos.text = str(
+                round(totalServiciosExentos + totalDescuentosServiciosExentos, decimales)
+            )
             ResumenFactura.append(TotalServExentos)
 
         if totalMercanciasGravadas:
-            TotalMercanciasGravadas = etree.Element('TotalMercanciasGravadas')
+            TotalMercanciasGravadas = etree.Element("TotalMercanciasGravadas")
             TotalMercanciasGravadas.text = str(
-                round(totalMercanciasGravadas + totalDescuentosMercanciasGravadas, decimales))
+                round(totalMercanciasGravadas + totalDescuentosMercanciasGravadas, decimales)
+            )
             ResumenFactura.append(TotalMercanciasGravadas)
 
         if totalMercanciasExentas:
-            TotalMercanciasExentas = etree.Element('TotalMercanciasExentas')
+            TotalMercanciasExentas = etree.Element("TotalMercanciasExentas")
             TotalMercanciasExentas.text = str(
-                round(totalMercanciasExentas + totalDescuentosMercanciasExentas, decimales))
+                round(totalMercanciasExentas + totalDescuentosMercanciasExentas, decimales)
+            )
             ResumenFactura.append(TotalMercanciasExentas)
 
         if totalServiciosGravados + totalMercanciasGravadas:
-            TotalGravado = etree.Element('TotalGravado')
-            TotalGravado.text = str(round(
-                totalServiciosGravados + totalDescuentosServiciosGravados + totalMercanciasGravadas + totalDescuentosMercanciasGravadas,
-                decimales))
+            TotalGravado = etree.Element("TotalGravado")
+            TotalGravado.text = str(
+                round(
+                    totalServiciosGravados
+                    + totalDescuentosServiciosGravados
+                    + totalMercanciasGravadas
+                    + totalDescuentosMercanciasGravadas,
+                    decimales,
+                )
+            )
             ResumenFactura.append(TotalGravado)
 
         if totalServiciosExentos + totalMercanciasExentas:
-            TotalExento = etree.Element('TotalExento')
-            TotalExento.text = str(round(
-                totalServiciosExentos + totalDescuentosServiciosExentos + totalMercanciasExentas + totalDescuentosMercanciasExentas,
-                decimales))
+            TotalExento = etree.Element("TotalExento")
+            TotalExento.text = str(
+                round(
+                    totalServiciosExentos
+                    + totalDescuentosServiciosExentos
+                    + totalMercanciasExentas
+                    + totalDescuentosMercanciasExentas,
+                    decimales,
+                )
+            )
             ResumenFactura.append(TotalExento)
 
-        TotalVenta = etree.Element('TotalVenta')
-        _logger.info('total %s tax %s' % (order.amount_total, order.amount_tax))
+        TotalVenta = etree.Element("TotalVenta")
+        _logger.info("total %s tax %s" % (order.amount_total, order.amount_tax))
         totalVenta = order.amount_total - order.amount_tax
-        totalVenta += totalDescuentosServiciosGravados + totalDescuentosMercanciasGravadas + totalDescuentosServiciosExentos + totalDescuentosMercanciasExentas
+        totalVenta += (
+            totalDescuentosServiciosGravados
+            + totalDescuentosMercanciasGravadas
+            + totalDescuentosServiciosExentos
+            + totalDescuentosMercanciasExentas
+        )
 
         TotalVenta.text = str(round(totalVenta, decimales))
         ResumenFactura.append(TotalVenta)
 
-        if totalDescuentosServiciosGravados + totalDescuentosMercanciasGravadas + totalDescuentosServiciosExentos + totalDescuentosMercanciasExentas:
-            TotalDescuentos = etree.Element('TotalDescuentos')
-            TotalDescuentos.text = str(round(
-                totalDescuentosServiciosGravados + totalDescuentosMercanciasGravadas + totalDescuentosServiciosExentos + totalDescuentosMercanciasExentas,
-                decimales))
+        if (
+            totalDescuentosServiciosGravados
+            + totalDescuentosMercanciasGravadas
+            + totalDescuentosServiciosExentos
+            + totalDescuentosMercanciasExentas
+        ):
+            TotalDescuentos = etree.Element("TotalDescuentos")
+            TotalDescuentos.text = str(
+                round(
+                    totalDescuentosServiciosGravados
+                    + totalDescuentosMercanciasGravadas
+                    + totalDescuentosServiciosExentos
+                    + totalDescuentosMercanciasExentas,
+                    decimales,
+                )
+            )
             ResumenFactura.append(TotalDescuentos)
 
-        TotalVentaNeta = etree.Element('TotalVentaNeta')
+        TotalVentaNeta = etree.Element("TotalVentaNeta")
         totalVentaNeta = order.amount_total - order.amount_tax
 
         TotalVentaNeta.text = str(round(totalVentaNeta, decimales))
         ResumenFactura.append(TotalVentaNeta)
 
         if order.amount_tax:
-            TotalImpuesto = etree.Element('TotalImpuesto')
+            TotalImpuesto = etree.Element("TotalImpuesto")
             TotalImpuesto.text = str(round(totalImpuesto, decimales))
             ResumenFactura.append(TotalImpuesto)
 
         if servicio:
-            TotalOtrosCargos = etree.Element('TotalOtrosCargos')
+            TotalOtrosCargos = etree.Element("TotalOtrosCargos")
             TotalOtrosCargos.text = str(round(totalImpuestoServicio, decimales))
             ResumenFactura.append(TotalOtrosCargos)
 
-        TotalComprobante = etree.Element('TotalComprobante')
+        TotalComprobante = etree.Element("TotalComprobante")
         TotalComprobante.text = str(round(order.amount_total, decimales))
         ResumenFactura.append(TotalComprobante)
 
@@ -1001,23 +1119,22 @@ class ElectronicInvoiceCostaRicaTools(models.AbstractModel):
         return Documento
 
     def _get_xml_FE_NC_ND_43(self, invoice):
-
-        if invoice.type not in ('out_invoice', 'out_refund'):
-            _logger.error('No es factura de cliente %s', invoice)
+        if invoice.type not in ("out_invoice", "out_refund"):
+            _logger.error("No es factura de cliente %s", invoice)
             return False
 
         if not invoice.number:
-            _logger.error('Factura sin consecutivo %s', invoice)
+            _logger.error("Factura sin consecutivo %s", invoice)
             return False
 
         if not invoice.number.isdigit():
-            _logger.error('Error de numeración %s', invoice.number)
+            _logger.error("Error de numeración %s", invoice.number)
             return False
 
         if len(invoice.number) != 20:
             consecutivo = self._get_consecutivo(invoice)
             if not consecutivo:
-                _logger.error('Error de consecutivo %s' % invoice.number)
+                _logger.error("Error de consecutivo %s" % invoice.number)
                 return False
 
             invoice.number = consecutivo
@@ -1025,13 +1142,13 @@ class ElectronicInvoiceCostaRicaTools(models.AbstractModel):
         if not invoice.number_electronic:
             clave = self._get_clave(invoice)
             if not clave:
-                _logger.error('Error de clave %s' % invoice)
+                _logger.error("Error de clave %s" % invoice)
                 return False
 
             invoice.number_electronic = clave
 
         if len(invoice.number_electronic) != 50:
-            _logger.error('Error de clave %s' % invoice.number_electronic)
+            _logger.error("Error de clave %s" % invoice.number_electronic)
             return False
 
         emisor = invoice.company_id
@@ -1042,146 +1159,167 @@ class ElectronicInvoiceCostaRicaTools(models.AbstractModel):
         # FacturaElectronica 4.3 y Nota de Crédito 4.3
         decimales = 2
 
-        if invoice.type == 'out_invoice':
+        if invoice.type == "out_invoice":
             if receptor_valido:
-                documento = 'FacturaElectronica'  # Factura Electrónica
-                xmlns = 'https://cdn.comprobanteselectronicos.go.cr/xml-schemas/v4.3/facturaElectronica'
-                schemaLocation = 'https://cdn.comprobanteselectronicos.go.cr/xml-schemas/v4.3/facturaElectronica  https://www.hacienda.go.cr/ATV/ComprobanteElectronico/docs/esquemas/2016/v4.3/FacturaElectronica_V4.3.xsd'
+                documento = "FacturaElectronica"  # Factura Electrónica
+                xmlns = (
+                    "https://cdn.comprobanteselectronicos.go.cr/xml-schemas/v4.3/facturaElectronica"
+                )
+                schemaLocation = "https://cdn.comprobanteselectronicos.go.cr/xml-schemas/v4.3/facturaElectronica  https://www.hacienda.go.cr/ATV/ComprobanteElectronico/docs/esquemas/2016/v4.3/FacturaElectronica_V4.3.xsd"
             else:
-                documento = 'TiqueteElectronico'  # Tiquete Electrónico
-                xmlns = 'https://cdn.comprobanteselectronicos.go.cr/xml-schemas/v4.3/tiqueteElectronico'
-                schemaLocation = 'https://cdn.comprobanteselectronicos.go.cr/xml-schemas/v4.3/tiqueteElectronico  https://www.hacienda.go.cr/ATV/ComprobanteElectronico/docs/esquemas/2016/v4.3/TiqueteElectronico_V4.3.xsd'
+                documento = "TiqueteElectronico"  # Tiquete Electrónico
+                xmlns = (
+                    "https://cdn.comprobanteselectronicos.go.cr/xml-schemas/v4.3/tiqueteElectronico"
+                )
+                schemaLocation = "https://cdn.comprobanteselectronicos.go.cr/xml-schemas/v4.3/tiqueteElectronico  https://www.hacienda.go.cr/ATV/ComprobanteElectronico/docs/esquemas/2016/v4.3/TiqueteElectronico_V4.3.xsd"
 
-        elif invoice.type == 'out_refund':
-            documento = 'NotaCreditoElectronica'  # Nota de Crédito
-            xmlns = 'https://cdn.comprobanteselectronicos.go.cr/xml-schemas/v4.3/notaCreditoElectronica'
-            schemaLocation = 'https://cdn.comprobanteselectronicos.go.cr/xml-schemas/v4.3/notaCreditoElectronica  https://www.hacienda.go.cr/ATV/ComprobanteElectronico/docs/esquemas/2016/v4.3/NotaCreditoElectronica_V4.3.xsd'
+        elif invoice.type == "out_refund":
+            documento = "NotaCreditoElectronica"  # Nota de Crédito
+            xmlns = (
+                "https://cdn.comprobanteselectronicos.go.cr/xml-schemas/v4.3/notaCreditoElectronica"
+            )
+            schemaLocation = "https://cdn.comprobanteselectronicos.go.cr/xml-schemas/v4.3/notaCreditoElectronica  https://www.hacienda.go.cr/ATV/ComprobanteElectronico/docs/esquemas/2016/v4.3/NotaCreditoElectronica_V4.3.xsd"
         else:
-            _logger.info('tipo de documento no implementado %s' % invoice.type)
+            _logger.info("tipo de documento no implementado %s" % invoice.type)
             return False
 
-        xsi = 'http://www.w3.org/2001/XMLSchema-instance'
-        xsd = 'http://www.w3.org/2001/XMLSchema'
-        ds = 'http://www.w3.org/2000/09/xmldsig#'
+        xsi = "http://www.w3.org/2001/XMLSchema-instance"
+        xsd = "http://www.w3.org/2001/XMLSchema"
+        ds = "http://www.w3.org/2000/09/xmldsig#"
 
-        nsmap = {None: xmlns, 'xsd': xsd, 'xsi': xsi, 'ds': ds}
-        attrib = {'{' + xsi + '}schemaLocation': schemaLocation}
+        nsmap = {None: xmlns, "xsd": xsd, "xsi": xsi, "ds": ds}
+        attrib = {"{" + xsi + "}schemaLocation": schemaLocation}
 
         Documento = etree.Element(documento, attrib=attrib, nsmap=nsmap)
 
         # Clave
-        Clave = etree.Element('Clave')
+        Clave = etree.Element("Clave")
         Clave.text = invoice.number_electronic
         Documento.append(Clave)
 
         # CodigoActividad
-        CodigoActividad = etree.Element('CodigoActividad')
+        CodigoActividad = etree.Element("CodigoActividad")
         CodigoActividad.text = invoice.company_id.eicr_activity_ids[0].code
         Documento.append(CodigoActividad)
 
         # NumeroConsecutivo
-        NumeroConsecutivo = etree.Element('NumeroConsecutivo')
+        NumeroConsecutivo = etree.Element("NumeroConsecutivo")
         NumeroConsecutivo.text = invoice.number
         Documento.append(NumeroConsecutivo)
 
         # FechaEmision
-        FechaEmision = etree.Element('FechaEmision')
-        FechaEmision.text = datetime.strptime(invoice.fecha, '%Y-%m-%d %H:%M:%S').strftime("%Y-%m-%dT%H:%M:%S")
+        FechaEmision = etree.Element("FechaEmision")
+        FechaEmision.text = datetime.strptime(invoice.fecha, "%Y-%m-%d %H:%M:%S").strftime(
+            "%Y-%m-%dT%H:%M:%S"
+        )
         Documento.append(FechaEmision)
 
         # Emisor
-        Emisor = etree.Element('Emisor')
+        Emisor = etree.Element("Emisor")
 
-        Nombre = etree.Element('Nombre')
+        Nombre = etree.Element("Nombre")
         Nombre.text = emisor.name
         Emisor.append(Nombre)
 
-        identificacion = re.sub('[^0-9]', '', emisor.vat or '')
+        identificacion = re.sub("[^0-9]", "", emisor.vat or "")
 
         if not emisor.identification_id:
-            raise UserError('Seleccione el tipo de identificación del emisor en el perfil de la compañía')
-        elif emisor.identification_id.code == '01' and len(identificacion) != 9:
-            raise UserError('La Cédula Física del emisor debe de tener 9 dígitos')
-        elif emisor.identification_id.code == '02' and len(identificacion) != 10:
-            raise UserError('La Cédula Jurídica del emisor debe de tener 10 dígitos')
-        elif emisor.identification_id.code == '03' and not (len(identificacion) == 11 or len(identificacion) == 12):
-            raise UserError('La identificación DIMEX del emisor debe de tener 11 o 12 dígitos')
-        elif emisor.identification_id.code == '04' and len(identificacion) != 10:
-            raise UserError('La identificación NITE del emisor debe de tener 10 dígitos')
+            raise UserError(
+                "Seleccione el tipo de identificación del emisor en el perfil de la compañía"
+            )
+        elif emisor.identification_id.code == "01" and len(identificacion) != 9:
+            raise UserError("La Cédula Física del emisor debe de tener 9 dígitos")
+        elif emisor.identification_id.code == "02" and len(identificacion) != 10:
+            raise UserError("La Cédula Jurídica del emisor debe de tener 10 dígitos")
+        elif emisor.identification_id.code == "03" and not (
+            len(identificacion) == 11 or len(identificacion) == 12
+        ):
+            raise UserError("La identificación DIMEX del emisor debe de tener 11 o 12 dígitos")
+        elif emisor.identification_id.code == "04" and len(identificacion) != 10:
+            raise UserError("La identificación NITE del emisor debe de tener 10 dígitos")
 
-        Identificacion = etree.Element('Identificacion')
+        Identificacion = etree.Element("Identificacion")
 
-        Tipo = etree.Element('Tipo')
+        Tipo = etree.Element("Tipo")
         Tipo.text = emisor.identification_id.code
         Identificacion.append(Tipo)
 
-        Numero = etree.Element('Numero')
+        Numero = etree.Element("Numero")
         Numero.text = identificacion
         Identificacion.append(Numero)
 
         Emisor.append(Identificacion)
 
         if emisor.commercial_name:
-            NombreComercial = etree.Element('NombreComercial')
+            NombreComercial = etree.Element("NombreComercial")
             NombreComercial.text = emisor.commercial_name
             Emisor.append(NombreComercial)
 
         if not emisor.state_id:
-            raise UserError('La dirección del emisor está incompleta, no se ha seleccionado la Provincia')
+            raise UserError(
+                "La dirección del emisor está incompleta, no se ha seleccionado la Provincia"
+            )
         if not emisor.county_id:
-            raise UserError('La dirección del emisor está incompleta, no se ha seleccionado el Cantón')
+            raise UserError(
+                "La dirección del emisor está incompleta, no se ha seleccionado el Cantón"
+            )
         if not emisor.district_id:
-            raise UserError('La dirección del emisor está incompleta, no se ha seleccionado el Distrito')
+            raise UserError(
+                "La dirección del emisor está incompleta, no se ha seleccionado el Distrito"
+            )
         if not emisor.street:
-            raise UserError('La dirección del emisor está incompleta, no se han digitado las señas de la dirección')
+            raise UserError(
+                "La dirección del emisor está incompleta, no se han digitado las señas de la dirección"
+            )
 
-        Ubicacion = etree.Element('Ubicacion')
+        Ubicacion = etree.Element("Ubicacion")
 
-        Provincia = etree.Element('Provincia')
+        Provincia = etree.Element("Provincia")
         Provincia.text = emisor.partner_id.state_id.code
         Ubicacion.append(Provincia)
 
-        Canton = etree.Element('Canton')
+        Canton = etree.Element("Canton")
         Canton.text = emisor.county_id.code
         Ubicacion.append(Canton)
 
-        Distrito = etree.Element('Distrito')
+        Distrito = etree.Element("Distrito")
         Distrito.text = emisor.district_id.code
         Ubicacion.append(Distrito)
 
         if emisor.partner_id.neighborhood_id:
-            Barrio = etree.Element('Barrio')
+            Barrio = etree.Element("Barrio")
             Barrio.text = emisor.neighborhood_id.code
             Ubicacion.append(Barrio)
 
-        OtrasSenas = etree.Element('OtrasSenas')
-        OtrasSenas.text = emisor.street or 'Sin otras señas'
+        OtrasSenas = etree.Element("OtrasSenas")
+        OtrasSenas.text = emisor.street or "Sin otras señas"
         Ubicacion.append(OtrasSenas)
 
         Emisor.append(Ubicacion)
 
         telefono = emisor.partner_id.phone or emisor.partner_id.mobile
         if telefono:
-            telefono = re.sub('[^0-9]', '', telefono)
+            telefono = re.sub("[^0-9]", "", telefono)
             if telefono and len(telefono) >= 8 and len(telefono) <= 20:
-                Telefono = etree.Element('Telefono')
+                Telefono = etree.Element("Telefono")
 
-                CodigoPais = etree.Element('CodigoPais')
-                CodigoPais.text = '506'
+                CodigoPais = etree.Element("CodigoPais")
+                CodigoPais.text = "506"
                 Telefono.append(CodigoPais)
 
-                NumTelefono = etree.Element('NumTelefono')
+                NumTelefono = etree.Element("NumTelefono")
                 NumTelefono.text = telefono[:8]
 
                 Telefono.append(NumTelefono)
 
                 Emisor.append(Telefono)
 
-        if not emisor.email or not re.match('^[(a-z0-9\_\-\.)]+@[(a-z0-9\_\-\.)]+\.[(a-z)]{2,15}$',
-                                            emisor.email.lower()):
-            raise UserError('El correo electrónico del emisor es inválido.')
+        if not emisor.email or not re.match(
+            "^[(a-z0-9\_\-\.)]+@[(a-z0-9\_\-\.)]+\.[(a-z)]{2,15}$", emisor.email.lower()
+        ):
+            raise UserError("El correo electrónico del emisor es inválido.")
 
-        CorreoElectronico = etree.Element('CorreoElectronico')
+        CorreoElectronico = etree.Element("CorreoElectronico")
         CorreoElectronico.text = emisor.email.lower()
         Emisor.append(CorreoElectronico)
 
@@ -1189,48 +1327,52 @@ class ElectronicInvoiceCostaRicaTools(models.AbstractModel):
 
         # Receptor
         if receptor_valido:
+            Receptor = etree.Element("Receptor")
 
-            Receptor = etree.Element('Receptor')
-
-            Nombre = etree.Element('Nombre')
+            Nombre = etree.Element("Nombre")
             Nombre.text = receptor.name
             Receptor.append(Nombre)
 
-            identificacion = re.sub('[^0-9]', '', receptor.vat)
+            identificacion = re.sub("[^0-9]", "", receptor.vat)
 
-            Identificacion = etree.Element('Identificacion')
+            Identificacion = etree.Element("Identificacion")
 
-            Tipo = etree.Element('Tipo')
+            Tipo = etree.Element("Tipo")
             Tipo.text = receptor.identification_id.code
             Identificacion.append(Tipo)
 
-            Numero = etree.Element('Numero')
+            Numero = etree.Element("Numero")
             Numero.text = identificacion
             Identificacion.append(Numero)
 
             Receptor.append(Identificacion)
 
-            if receptor.state_id and receptor.county_id and receptor.district_id and receptor.street:
-                Ubicacion = etree.Element('Ubicacion')
+            if (
+                receptor.state_id
+                and receptor.county_id
+                and receptor.district_id
+                and receptor.street
+            ):
+                Ubicacion = etree.Element("Ubicacion")
 
-                Provincia = etree.Element('Provincia')
+                Provincia = etree.Element("Provincia")
                 Provincia.text = receptor.state_id.code
                 Ubicacion.append(Provincia)
 
-                Canton = etree.Element('Canton')
+                Canton = etree.Element("Canton")
                 Canton.text = receptor.county_id.code
                 Ubicacion.append(Canton)
 
-                Distrito = etree.Element('Distrito')
+                Distrito = etree.Element("Distrito")
                 Distrito.text = receptor.district_id.code
                 Ubicacion.append(Distrito)
 
                 if receptor.neighborhood_id:
-                    Barrio = etree.Element('Barrio')
+                    Barrio = etree.Element("Barrio")
                     Barrio.text = receptor.neighborhood_id.code
                     Ubicacion.append(Barrio)
 
-                OtrasSenas = etree.Element('OtrasSenas')
+                OtrasSenas = etree.Element("OtrasSenas")
                 OtrasSenas.text = receptor.street
                 Ubicacion.append(OtrasSenas)
 
@@ -1238,51 +1380,52 @@ class ElectronicInvoiceCostaRicaTools(models.AbstractModel):
 
             telefono = receptor.phone or receptor.mobile
             if telefono:
-                telefono = re.sub('[^0-9]', '', telefono)
+                telefono = re.sub("[^0-9]", "", telefono)
                 if telefono and len(telefono) >= 8 and len(telefono) <= 20:
-                    Telefono = etree.Element('Telefono')
+                    Telefono = etree.Element("Telefono")
 
-                    CodigoPais = etree.Element('CodigoPais')
-                    CodigoPais.text = '506'
+                    CodigoPais = etree.Element("CodigoPais")
+                    CodigoPais.text = "506"
                     Telefono.append(CodigoPais)
 
-                    NumTelefono = etree.Element('NumTelefono')
+                    NumTelefono = etree.Element("NumTelefono")
                     NumTelefono.text = telefono[:8]
                     Telefono.append(NumTelefono)
 
                     Receptor.append(Telefono)
 
-            if receptor.email and re.match('^[(a-z0-9\_\-\.)]+@[(a-z0-9\_\-\.)]+\.[(a-z)]{2,15}$',
-                                           receptor.email.lower()):
-                CorreoElectronico = etree.Element('CorreoElectronico')
+            if receptor.email and re.match(
+                "^[(a-z0-9\_\-\.)]+@[(a-z0-9\_\-\.)]+\.[(a-z)]{2,15}$", receptor.email.lower()
+            ):
+                CorreoElectronico = etree.Element("CorreoElectronico")
                 CorreoElectronico.text = receptor.email
                 Receptor.append(CorreoElectronico)
 
             Documento.append(Receptor)
 
         # Condicion Venta
-        CondicionVenta = etree.Element('CondicionVenta')
+        CondicionVenta = etree.Element("CondicionVenta")
         if invoice.payment_term_id:
-            CondicionVenta.text = '02'
+            CondicionVenta.text = "02"
             Documento.append(CondicionVenta)
 
-            PlazoCredito = etree.Element('PlazoCredito')
+            PlazoCredito = etree.Element("PlazoCredito")
             timedelta(7)
-            fecha_de_factura = datetime.strptime(invoice.date_invoice, '%Y-%m-%d')
-            fecha_de_vencimiento = datetime.strptime(invoice.date_due, '%Y-%m-%d')
+            fecha_de_factura = datetime.strptime(invoice.date_invoice, "%Y-%m-%d")
+            fecha_de_vencimiento = datetime.strptime(invoice.date_due, "%Y-%m-%d")
             PlazoCredito.text = str((fecha_de_factura - fecha_de_vencimiento).days)
             Documento.append(PlazoCredito)
         else:
-            CondicionVenta.text = '01'
+            CondicionVenta.text = "01"
             Documento.append(CondicionVenta)
 
         # MedioPago
-        MedioPago = etree.Element('MedioPago')
-        MedioPago.text = invoice.payment_methods_id.sequence if invoice.payment_methods_id else '01'
+        MedioPago = etree.Element("MedioPago")
+        MedioPago.text = invoice.payment_methods_id.sequence if invoice.payment_methods_id else "01"
         Documento.append(MedioPago)
 
         # DetalleServicio
-        DetalleServicio = etree.Element('DetalleServicio')
+        DetalleServicio = etree.Element("DetalleServicio")
 
         totalServiciosGravados = round(0.00, decimales)
         totalServiciosExentos = round(0.00, decimales)
@@ -1299,79 +1442,96 @@ class ElectronicInvoiceCostaRicaTools(models.AbstractModel):
         totalImpuesto = round(0.00, decimales)
         totalExonerado = round(0.00, decimales)
 
-        impuestoIVADevuelto = self.env['account.tax'].search([('tax_code', '=', '01'), ('iva_tax_code', '=', '04'), ('type_tax_use', '=', 'sale'), ('amount', '=', -4)])
+        impuestoIVADevuelto = self.env["account.tax"].search(
+            [
+                ("tax_code", "=", "01"),
+                ("iva_tax_code", "=", "04"),
+                ("type_tax_use", "=", "sale"),
+                ("amount", "=", -4),
+            ]
+        )
         totalIVADevuelto = 0.0
 
-        impuestoServicio = self.env['account.tax'].search([('tax_code', '=', 'service')])
-        servicio = True if impuestoServicio in invoice.invoice_line_ids.mapped('invoice_line_tax_ids') else False
+        impuestoServicio = self.env["account.tax"].search([("tax_code", "=", "service")])
+        servicio = (
+            True
+            if impuestoServicio in invoice.invoice_line_ids.mapped("invoice_line_tax_ids")
+            else False
+        )
         totalImpuestoServicio = 0.0
 
         for indice, linea in enumerate(invoice.invoice_line_ids.sorted(lambda l: l.sequence)):
-            LineaDetalle = etree.Element('LineaDetalle')
+            LineaDetalle = etree.Element("LineaDetalle")
 
-            NumeroLinea = etree.Element('NumeroLinea')
-            NumeroLinea.text = '%s' % (indice + 1)
+            NumeroLinea = etree.Element("NumeroLinea")
+            NumeroLinea.text = "%s" % (indice + 1)
             LineaDetalle.append(NumeroLinea)
 
-            Codigo = etree.Element('Codigo')
+            Codigo = etree.Element("Codigo")
             if linea.product_id and linea.product_id.cabys_code:
-                Codigo.text = linea.product_id.cabys_code 
+                Codigo.text = linea.product_id.cabys_code
             elif linea.product_id.categ_id and linea.product_id.categ_id.cabys_code:
                 Codigo.text = linea.product_id.categ_id.cabys_code
             elif invoice.company_id.cabys_product_id:
                 Codigo.text = invoice.company_id.cabys_product_id.codigo
             else:
-                raise UserError('No se ha seleccionado un código Cabys para [%s]' % linea.name[:200])
+                raise UserError(
+                    "No se ha seleccionado un código Cabys para [%s]" % linea.name[:200]
+                )
             LineaDetalle.append(Codigo)
 
             if linea.product_id.default_code:
-                CodigoComercial = etree.Element('CodigoComercial')
+                CodigoComercial = etree.Element("CodigoComercial")
 
-                Tipo = etree.Element('Tipo')
-                Tipo.text = '04'  # Código de uso interno
+                Tipo = etree.Element("Tipo")
+                Tipo.text = "04"  # Código de uso interno
                 CodigoComercial.append(Tipo)
 
-                Codigo = etree.Element('Codigo')
+                Codigo = etree.Element("Codigo")
                 Codigo.text = linea.product_id.default_code
                 CodigoComercial.append(Codigo)
 
                 LineaDetalle.append(CodigoComercial)
 
-            Cantidad = etree.Element('Cantidad')
+            Cantidad = etree.Element("Cantidad")
             Cantidad.text = str(linea.quantity)
             LineaDetalle.append(Cantidad)
 
-            UnidadMedida = etree.Element('UnidadMedida')
-            UnidadMedida.text = 'Sp' if (linea.product_id and linea.product_id.type == 'service') else 'Unid'
+            UnidadMedida = etree.Element("UnidadMedida")
+            UnidadMedida.text = (
+                "Sp" if (linea.product_id and linea.product_id.type == "service") else "Unid"
+            )
 
             LineaDetalle.append(UnidadMedida)
 
-            Detalle = etree.Element('Detalle')
+            Detalle = etree.Element("Detalle")
             Detalle.text = linea.name[:200]
             LineaDetalle.append(Detalle)
 
-            PrecioUnitario = etree.Element('PrecioUnitario')
+            PrecioUnitario = etree.Element("PrecioUnitario")
             PrecioUnitario.text = str(round(linea.price_unit, decimales))
             LineaDetalle.append(PrecioUnitario)
 
-            MontoTotal = etree.Element('MontoTotal')
+            MontoTotal = etree.Element("MontoTotal")
             montoTotal = round(linea.price_unit, decimales) * round(linea.quantity, decimales)
             MontoTotal.text = str(round(montoTotal, decimales))
 
             LineaDetalle.append(MontoTotal)
 
             if linea.discount:
-                Descuento = etree.Element('Descuento')
+                Descuento = etree.Element("Descuento")
 
-                MontoDescuento = etree.Element('MontoDescuento')
-                montoDescuento = round(round(montoTotal, decimales) - round(linea.price_subtotal, decimales), decimales)
+                MontoDescuento = etree.Element("MontoDescuento")
+                montoDescuento = round(
+                    round(montoTotal, decimales) - round(linea.price_subtotal, decimales), decimales
+                )
                 if linea.invoice_line_tax_ids:
-                    if linea.product_id and linea.product_id.type == 'service':
+                    if linea.product_id and linea.product_id.type == "service":
                         totalDescuentosServiciosGravados += montoDescuento
                     else:
                         totalDescuentosMercanciasGravadas += montoDescuento
                 else:
-                    if linea.product_id and linea.product_id.type == 'service':
+                    if linea.product_id and linea.product_id.type == "service":
                         totalDescuentosServiciosExentos += montoDescuento
                     else:
                         totalDescuentosMercanciasExentas += montoDescuento
@@ -1379,13 +1539,13 @@ class ElectronicInvoiceCostaRicaTools(models.AbstractModel):
                 MontoDescuento.text = str(montoDescuento)
                 Descuento.append(MontoDescuento)
 
-                NaturalezaDescuento = etree.Element('NaturalezaDescuento')
-                NaturalezaDescuento.text = 'Descuento Comercial'
+                NaturalezaDescuento = etree.Element("NaturalezaDescuento")
+                NaturalezaDescuento.text = "Descuento Comercial"
                 Descuento.append(NaturalezaDescuento)
 
                 LineaDetalle.append(Descuento)
 
-            SubTotal = etree.Element('SubTotal')
+            SubTotal = etree.Element("SubTotal")
             SubTotal.text = str(round(linea.price_subtotal, decimales))
             LineaDetalle.append(SubTotal)
 
@@ -1393,54 +1553,60 @@ class ElectronicInvoiceCostaRicaTools(models.AbstractModel):
 
             if impuestos:
                 for impuesto in impuestos:
-
                     monto = round(linea.price_subtotal * impuesto.amount / 100.00, decimales)
-                           
-                    if impuesto.has_exoneration:
-                        
-                        totalExonerado += abs(monto)
-                        Exoneracion = etree.Element('Exoneracion')
 
-                        TipoDocumento = etree.Element('TipoDocumento')
+                    if impuesto.has_exoneration:
+                        totalExonerado += abs(monto)
+                        Exoneracion = etree.Element("Exoneracion")
+
+                        TipoDocumento = etree.Element("TipoDocumento")
                         TipoDocumento.text = linea.exoneration_id.tipo_documento_id.code
                         Exoneracion.append(TipoDocumento)
 
-                        NumeroDocumento = etree.Element('NumeroDocumento')
+                        NumeroDocumento = etree.Element("NumeroDocumento")
                         NumeroDocumento.text = linea.exoneration_id.name
                         Exoneracion.append(NumeroDocumento)
 
-                        NombreInstitucion = etree.Element('NombreInstitucion')
+                        NombreInstitucion = etree.Element("NombreInstitucion")
                         NombreInstitucion.text = linea.exoneration_id.nombre_institucion
                         Exoneracion.append(NombreInstitucion)
 
-                        FechaEmision = etree.Element('FechaEmision')
-                        fecha_emision = datetime.strptime(linea.exoneration_id.fecha_emision, '%Y-%m-%d')
+                        FechaEmision = etree.Element("FechaEmision")
+                        fecha_emision = datetime.strptime(
+                            linea.exoneration_id.fecha_emision, "%Y-%m-%d"
+                        )
                         FechaEmision.text = fecha_emision.strftime("%Y-%m-%dT%H:%M:%S")
                         Exoneracion.append(FechaEmision)
 
-                        PorcentajeExoneracion = etree.Element('PorcentajeExoneracion')
-                        PorcentajeExoneracion.text = str(int(linea.exoneration_id.percentage_exoneration))
+                        PorcentajeExoneracion = etree.Element("PorcentajeExoneracion")
+                        PorcentajeExoneracion.text = str(
+                            int(linea.exoneration_id.percentage_exoneration)
+                        )
                         Exoneracion.append(PorcentajeExoneracion)
 
-                        MontoExoneracion = etree.Element('MontoExoneracion')
+                        MontoExoneracion = etree.Element("MontoExoneracion")
                         MontoExoneracion.text = str(round(abs(monto), decimales))
                         Exoneracion.append(MontoExoneracion)
 
                         totalImpuesto += monto
-                        Impuesto = LineaDetalle.find('Impuesto')
+                        Impuesto = LineaDetalle.find("Impuesto")
                         Impuesto.append(Exoneracion)
                         print(Impuesto)
-                        
-                        # exoneration tax
-                        exonerated_tax_id = linea.invoice_line_tax_ids.filtered(lambda t: t.has_exoneration)
 
-                        ImpuestoNeto = etree.Element('ImpuestoNeto')
-                        monto_exoneracion = round(linea.price_subtotal * exonerated_tax_id.amount / 100.00, decimales)
+                        # exoneration tax
+                        exonerated_tax_id = linea.invoice_line_tax_ids.filtered(
+                            lambda t: t.has_exoneration
+                        )
+
+                        ImpuestoNeto = etree.Element("ImpuestoNeto")
+                        monto_exoneracion = round(
+                            linea.price_subtotal * exonerated_tax_id.amount / 100.00, decimales
+                        )
                         ImpuestoNeto.text = str(round(monto - monto_exoneracion, decimales))
 
                         Impuesto.addnext(ImpuestoNeto)
 
-                        if linea.product_id and linea.product_id.type == 'service':
+                        if linea.product_id and linea.product_id.type == "service":
                             totalServiciosGravados -= linea.price_subtotal
                             totalServExonerado += linea.price_subtotal
                         else:
@@ -1448,22 +1614,22 @@ class ElectronicInvoiceCostaRicaTools(models.AbstractModel):
                             totalMercExonerada += linea.price_subtotal
 
                     else:
-                        Impuesto = etree.Element('Impuesto')
+                        Impuesto = etree.Element("Impuesto")
 
-                        Codigo = etree.Element('Codigo')
+                        Codigo = etree.Element("Codigo")
                         Codigo.text = impuesto.tax_code
                         Impuesto.append(Codigo)
 
-                        if impuesto.tax_code == '01':
-                            CodigoTarifa = etree.Element('CodigoTarifa')
+                        if impuesto.tax_code == "01":
+                            CodigoTarifa = etree.Element("CodigoTarifa")
                             CodigoTarifa.text = impuesto.iva_tax_code
                             Impuesto.append(CodigoTarifa)
 
-                            Tarifa = etree.Element('Tarifa')
+                            Tarifa = etree.Element("Tarifa")
                             Tarifa.text = str(round(impuesto.amount, decimales))
                             Impuesto.append(Tarifa)
 
-                        Monto = etree.Element('Monto')
+                        Monto = etree.Element("Monto")
 
                         totalImpuesto += monto
                         Monto.text = str(round(monto, decimales))
@@ -1471,27 +1637,37 @@ class ElectronicInvoiceCostaRicaTools(models.AbstractModel):
 
                         LineaDetalle.append(Impuesto)
 
-                        if linea.product_id and linea.product_id.type == 'service':
+                        if linea.product_id and linea.product_id.type == "service":
                             totalServiciosGravados += linea.price_subtotal
                         else:
                             totalMercanciasGravadas += linea.price_subtotal
 
             else:
-                if linea.product_id and linea.product_id.type == 'service':
+                if linea.product_id and linea.product_id.type == "service":
                     totalServiciosExentos += linea.price_subtotal
                 else:
                     totalMercanciasExentas += linea.price_subtotal
 
-            ivaDevuelto = abs(sum(linea.invoice_line_tax_ids.filtered(lambda t: t == impuestoIVADevuelto).mapped(lambda t: round(linea.price_subtotal * t.amount / 100.00, decimales))))
-            MontoTotalLinea = etree.Element('MontoTotalLinea')
+            ivaDevuelto = abs(
+                sum(
+                    linea.invoice_line_tax_ids.filtered(lambda t: t == impuestoIVADevuelto).mapped(
+                        lambda t: round(linea.price_subtotal * t.amount / 100.00, decimales)
+                    )
+                )
+            )
+            MontoTotalLinea = etree.Element("MontoTotalLinea")
             montoTotalLinea = linea.price_total + ivaDevuelto
             totalIVADevuelto += ivaDevuelto
             if impuestoServicio in linea.invoice_line_tax_ids:
-                _logger.info('mndl %s' % montoTotalLinea)
-                deduccion = montoTotalLinea * 10.0 / (100.0 + sum(linea.invoice_line_tax_ids.mapped('amount')))
-                _logger.info('mndl %s' % deduccion)
+                _logger.info("mndl %s" % montoTotalLinea)
+                deduccion = (
+                    montoTotalLinea
+                    * 10.0
+                    / (100.0 + sum(linea.invoice_line_tax_ids.mapped("amount")))
+                )
+                _logger.info("mndl %s" % deduccion)
                 montoTotalLinea -= deduccion
-                _logger.info('mndl %s' % montoTotalLinea)
+                _logger.info("mndl %s" % montoTotalLinea)
                 totalImpuestoServicio += deduccion
             MontoTotalLinea.text = str(round(montoTotalLinea, decimales))
             LineaDetalle.append(MontoTotalLinea)
@@ -1502,138 +1678,179 @@ class ElectronicInvoiceCostaRicaTools(models.AbstractModel):
 
         if servicio:
             # Otros Cargos
-            OtrosCargos = etree.Element('OtrosCargos')
+            OtrosCargos = etree.Element("OtrosCargos")
 
-            TipoDocumento = etree.Element('TipoDocumento')
-            TipoDocumento.text = '06'
+            TipoDocumento = etree.Element("TipoDocumento")
+            TipoDocumento.text = "06"
             OtrosCargos.append(TipoDocumento)
 
-            Detalle = etree.Element('Detalle')
-            Detalle.text = 'Cargo de Servicio (10%)'
+            Detalle = etree.Element("Detalle")
+            Detalle.text = "Cargo de Servicio (10%)"
             OtrosCargos.append(Detalle)
 
-            Porcentaje = etree.Element('Porcentaje')
-            Porcentaje.text = '10.0'
+            Porcentaje = etree.Element("Porcentaje")
+            Porcentaje.text = "10.0"
             OtrosCargos.append(Porcentaje)
 
-            MontoCargo = etree.Element('MontoCargo')
+            MontoCargo = etree.Element("MontoCargo")
             MontoCargo.text = str(round(totalImpuestoServicio, decimales))
             OtrosCargos.append(MontoCargo)
 
             Documento.append(OtrosCargos)
 
         # ResumenFactura
-        ResumenFactura = etree.Element('ResumenFactura')
+        ResumenFactura = etree.Element("ResumenFactura")
 
-        CodigoTipoMoneda = etree.Element('CodigoTipoMoneda')
+        CodigoTipoMoneda = etree.Element("CodigoTipoMoneda")
 
-        CodigoMoneda = etree.Element('CodigoMoneda')
+        CodigoMoneda = etree.Element("CodigoMoneda")
         CodigoMoneda.text = invoice.currency_id.name
         CodigoTipoMoneda.append(CodigoMoneda)
 
-        TipoCambio = etree.Element('TipoCambio')
+        TipoCambio = etree.Element("TipoCambio")
         TipoCambio.text = str(round(1.0 / invoice.currency_id.rate, decimales))
         CodigoTipoMoneda.append(TipoCambio)
 
         ResumenFactura.append(CodigoTipoMoneda)
 
         if totalServiciosGravados or totalServExonerado:
-            TotalServGravados = etree.Element('TotalServGravados')
-            TotalServGravados.text = str(round(totalServiciosGravados + totalDescuentosServiciosGravados, decimales))
+            TotalServGravados = etree.Element("TotalServGravados")
+            TotalServGravados.text = str(
+                round(totalServiciosGravados + totalDescuentosServiciosGravados, decimales)
+            )
             ResumenFactura.append(TotalServGravados)
 
         if totalServiciosExentos:
-            TotalServExentos = etree.Element('TotalServExentos')
-            TotalServExentos.text = str(round(totalServiciosExentos + totalDescuentosServiciosExentos, decimales))
+            TotalServExentos = etree.Element("TotalServExentos")
+            TotalServExentos.text = str(
+                round(totalServiciosExentos + totalDescuentosServiciosExentos, decimales)
+            )
             ResumenFactura.append(TotalServExentos)
 
         if totalServExonerado:
-            TotalServExonerado = etree.Element('TotalServExonerado')
+            TotalServExonerado = etree.Element("TotalServExonerado")
             TotalServExonerado.text = str(round(totalServExonerado, decimales))
             ResumenFactura.append(TotalServExonerado)
 
         if totalMercanciasGravadas or totalMercExonerada:
-            TotalMercanciasGravadas = etree.Element('TotalMercanciasGravadas')
+            TotalMercanciasGravadas = etree.Element("TotalMercanciasGravadas")
             TotalMercanciasGravadas.text = str(
-                round(totalMercanciasGravadas + totalDescuentosMercanciasGravadas, decimales))
+                round(totalMercanciasGravadas + totalDescuentosMercanciasGravadas, decimales)
+            )
             ResumenFactura.append(TotalMercanciasGravadas)
 
         if totalMercanciasExentas:
-            TotalMercanciasExentas = etree.Element('TotalMercanciasExentas')
+            TotalMercanciasExentas = etree.Element("TotalMercanciasExentas")
             TotalMercanciasExentas.text = str(
-                round(totalMercanciasExentas + totalDescuentosMercanciasExentas, decimales))
+                round(totalMercanciasExentas + totalDescuentosMercanciasExentas, decimales)
+            )
             ResumenFactura.append(TotalMercanciasExentas)
 
         if totalMercExonerada:
-            TotalMercExonerada = etree.Element('TotalMercExonerada')
+            TotalMercExonerada = etree.Element("TotalMercExonerada")
             TotalMercExonerada.text = str(round(totalMercExonerada, decimales))
             ResumenFactura.append(TotalMercExonerada)
 
-        if totalServiciosGravados or totalMercanciasGravadas or totalServExonerado or totalMercExonerada:
-            TotalGravado = etree.Element('TotalGravado')
-            TotalGravado.text = str(round(
-                totalServiciosGravados + totalDescuentosServiciosGravados + totalMercanciasGravadas + totalDescuentosMercanciasGravadas,
-                decimales))
+        if (
+            totalServiciosGravados
+            or totalMercanciasGravadas
+            or totalServExonerado
+            or totalMercExonerada
+        ):
+            TotalGravado = etree.Element("TotalGravado")
+            TotalGravado.text = str(
+                round(
+                    totalServiciosGravados
+                    + totalDescuentosServiciosGravados
+                    + totalMercanciasGravadas
+                    + totalDescuentosMercanciasGravadas,
+                    decimales,
+                )
+            )
             ResumenFactura.append(TotalGravado)
 
         if totalServiciosExentos + totalMercanciasExentas:
-            TotalExento = etree.Element('TotalExento')
-            TotalExento.text = str(round(
-                totalServiciosExentos + totalDescuentosServiciosExentos + totalMercanciasExentas + totalDescuentosMercanciasExentas,
-                decimales))
+            TotalExento = etree.Element("TotalExento")
+            TotalExento.text = str(
+                round(
+                    totalServiciosExentos
+                    + totalDescuentosServiciosExentos
+                    + totalMercanciasExentas
+                    + totalDescuentosMercanciasExentas,
+                    decimales,
+                )
+            )
             ResumenFactura.append(TotalExento)
 
         if totalServExonerado or totalMercExonerada:
-            TotalExonerado = etree.Element('TotalExonerado')
-            TotalExonerado.text = str(round(totalServExonerado + totalMercExonerada,decimales))
+            TotalExonerado = etree.Element("TotalExonerado")
+            TotalExonerado.text = str(round(totalServExonerado + totalMercExonerada, decimales))
             ResumenFactura.append(TotalExonerado)
 
-        TotalVenta = etree.Element('TotalVenta')
-        TotalVenta.text = str(round(
-            invoice.amount_untaxed + totalDescuentosServiciosGravados + totalDescuentosMercanciasGravadas + totalDescuentosServiciosExentos + totalDescuentosMercanciasExentas,
-            decimales))
+        TotalVenta = etree.Element("TotalVenta")
+        TotalVenta.text = str(
+            round(
+                invoice.amount_untaxed
+                + totalDescuentosServiciosGravados
+                + totalDescuentosMercanciasGravadas
+                + totalDescuentosServiciosExentos
+                + totalDescuentosMercanciasExentas,
+                decimales,
+            )
+        )
         ResumenFactura.append(TotalVenta)
 
-        if totalDescuentosServiciosGravados + totalDescuentosMercanciasGravadas + totalDescuentosServiciosExentos + totalDescuentosMercanciasExentas:
-            TotalDescuentos = etree.Element('TotalDescuentos')
-            TotalDescuentos.text = str(round(
-                totalDescuentosServiciosGravados + totalDescuentosMercanciasGravadas + totalDescuentosServiciosExentos + totalDescuentosMercanciasExentas,
-                decimales))
+        if (
+            totalDescuentosServiciosGravados
+            + totalDescuentosMercanciasGravadas
+            + totalDescuentosServiciosExentos
+            + totalDescuentosMercanciasExentas
+        ):
+            TotalDescuentos = etree.Element("TotalDescuentos")
+            TotalDescuentos.text = str(
+                round(
+                    totalDescuentosServiciosGravados
+                    + totalDescuentosMercanciasGravadas
+                    + totalDescuentosServiciosExentos
+                    + totalDescuentosMercanciasExentas,
+                    decimales,
+                )
+            )
             ResumenFactura.append(TotalDescuentos)
 
-        TotalVentaNeta = etree.Element('TotalVentaNeta')
+        TotalVentaNeta = etree.Element("TotalVentaNeta")
         TotalVentaNeta.text = str(round(invoice.amount_untaxed, decimales))
         ResumenFactura.append(TotalVentaNeta)
 
         if totalImpuesto:
-            TotalImpuesto = etree.Element('TotalImpuesto')
+            TotalImpuesto = etree.Element("TotalImpuesto")
             # TotalImpuesto.text = str(round(invoice.amount_tax, decimales))
             TotalImpuesto.text = str(round(totalImpuesto, decimales))
             ResumenFactura.append(TotalImpuesto)
 
             if totalIVADevuelto:
-                TotalIVADevuelto = etree.Element('TotalIVADevuelto')
+                TotalIVADevuelto = etree.Element("TotalIVADevuelto")
                 TotalIVADevuelto.text = str(round(totalIVADevuelto, decimales))
                 ResumenFactura.append(TotalIVADevuelto)
 
         if servicio:
-            TotalOtrosCargos = etree.Element('TotalOtrosCargos')
+            TotalOtrosCargos = etree.Element("TotalOtrosCargos")
             TotalOtrosCargos.text = str(round(totalImpuestoServicio, decimales))
             ResumenFactura.append(TotalOtrosCargos)
 
-        TotalComprobante = etree.Element('TotalComprobante')
+        TotalComprobante = etree.Element("TotalComprobante")
         TotalComprobante.text = str(round(invoice.amount_total, decimales))
         ResumenFactura.append(TotalComprobante)
 
         Documento.append(ResumenFactura)
-        if invoice.type == 'out_invoice' and invoice.partner_id.extra_node_ids:
+        if invoice.type == "out_invoice" and invoice.partner_id.extra_node_ids:
             for extra_node in invoice.partner_id.extra_node_ids:
                 Nodo = etree.Element(extra_node.node_location.strip())
                 node = extra_node.get_node(invoice)
-                msg = '\n'
+                msg = "\n"
                 for e in node:
                     Nodo.append(e)
-                    msg += '%s %s\n' % (e.tag, e.text)
+                    msg += "%s %s\n" % (e.tag, e.text)
                 if extra_node.show_in_report:
                     if invoice.comment:
                         invoice.comment += msg
@@ -1641,39 +1858,40 @@ class ElectronicInvoiceCostaRicaTools(models.AbstractModel):
                         invoice.comment = msg
             Documento.append(Nodo)
 
-        if invoice.type == 'out_refund':
+        if invoice.type == "out_refund":
+            if invoice.refund_invoice_id.type == "out_invoice":
+                tipo = "01"
+            elif invoice.refund_invoice_id.type == "out_refund":
+                tipo = "03"
 
-            if invoice.refund_invoice_id.type == 'out_invoice':
-                tipo = '01'
-            elif invoice.refund_invoice_id.type == 'out_refund':
-                tipo = '03'
+            InformacionReferencia = etree.Element("InformacionReferencia")
 
-            InformacionReferencia = etree.Element('InformacionReferencia')
-
-            TipoDoc = etree.Element('TipoDoc')
+            TipoDoc = etree.Element("TipoDoc")
             TipoDoc.text = tipo
             InformacionReferencia.append(TipoDoc)
 
-            Numero = etree.Element('Numero')
-            Numero.text = invoice.refund_invoice_id.number_electronic or invoice.refund_invoice_id.number
+            Numero = etree.Element("Numero")
+            Numero.text = (
+                invoice.refund_invoice_id.number_electronic or invoice.refund_invoice_id.number
+            )
             InformacionReferencia.append(Numero)
 
-            FechaEmision = etree.Element('FechaEmision')
+            FechaEmision = etree.Element("FechaEmision")
             if not invoice.refund_invoice_id.date_issuance:
-                now_utc = datetime.now(pytz.timezone('UTC'))
-                now_cr = now_utc.astimezone(pytz.timezone('America/Costa_Rica'))
-                invoice.refund_invoice_id.fecha = now_cr.strftime('%Y-%m-%d %H:%M:%S')
+                now_utc = datetime.now(pytz.timezone("UTC"))
+                now_cr = now_utc.astimezone(pytz.timezone("America/Costa_Rica"))
+                invoice.refund_invoice_id.fecha = now_cr.strftime("%Y-%m-%d %H:%M:%S")
                 invoice.refund_invoice_id.date_issuance = now_cr.strftime("%Y-%m-%dT%H:%M:%S-06:00")
 
             FechaEmision.text = invoice.refund_invoice_id.date_issuance
             InformacionReferencia.append(FechaEmision)
 
-            Codigo = etree.Element('Codigo')
+            Codigo = etree.Element("Codigo")
             Codigo.text = invoice.reference_code_id.code
             InformacionReferencia.append(Codigo)
 
-            Razon = etree.Element('Razon')
-            Razon.text = invoice.name[:180] or 'Error en Factura'
+            Razon = etree.Element("Razon")
+            Razon.text = invoice.name[:180] or "Error en Factura"
             InformacionReferencia.append(Razon)
 
             Documento.append(InformacionReferencia)
@@ -1681,307 +1899,704 @@ class ElectronicInvoiceCostaRicaTools(models.AbstractModel):
         return Documento
 
     def _firmar_xml(self, xml, company_id):
-
-        xml = base64.b64decode(xml).decode('utf-8')
-        _logger.info('xml decoded %s' % xml)
+        xml = base64.b64decode(xml).decode("utf-8")
+        _logger.info("xml decoded %s" % xml)
 
         # directorio donde se encuentra el firmador de johann04 https://github.com/johann04/xades-signer-cr
-        path = os.path.dirname(os.path.realpath(__file__))[:-6] + 'bin/'
+        path = os.path.dirname(os.path.realpath(__file__))[:-6] + "bin/"
         # nombres de archivos
-        signer_filename = 'xadessignercr.jar'
-        firma_filename = 'firma_%s.p12' % company_id.vat
-        factura_filename = 'factura_%s.xml' % company_id.vat
+        signer_filename = "xadessignercr.jar"
+        firma_filename = "firma_%s.p12" % company_id.vat
+        factura_filename = "factura_%s.xml" % company_id.vat
         # El firmador es un ejecutable de java que necesita la firma y la factura en un archivo
         # 1) escribimos el xml de la factura en un archivo
-        with open(path + factura_filename, 'w+') as file:
+        with open(path + factura_filename, "w+") as file:
             file.write(xml)
         # 2) escribimos la firma en un archivo
         if not company_id.eicr_signature:
-            raise UserError('Agregue la firma digital en el perfil de la compañía.')
+            raise UserError("Agregue la firma digital en el perfil de la compañía.")
 
-        with open(path + firma_filename, 'w+b') as file:
+        with open(path + firma_filename, "w+b") as file:
             file.write(base64.b64decode(company_id.eicr_signature))
         # 3) firmamos el archivo con el signer
         subprocess.check_output(
-            ['java', '-jar', path + signer_filename, 'sign', path + firma_filename, company_id.eicr_pin,
-             path + factura_filename, path + factura_filename])
+            [
+                "java",
+                "-jar",
+                path + signer_filename,
+                "sign",
+                path + firma_filename,
+                company_id.eicr_pin,
+                path + factura_filename,
+                path + factura_filename,
+            ]
+        )
         # 4) leemos el archivo firmado
-        with open(path + factura_filename, 'rb') as file:
+        with open(path + factura_filename, "rb") as file:
             xml = file.read()
 
-        xml_encoded = base64.b64encode(xml).decode('utf-8')
+        xml_encoded = base64.b64encode(xml).decode("utf-8")
         return xml_encoded
 
-
     def _process_supplier_invoice(self, invoice):
-        _logger.info('_process_supplier_invoice %s' % invoice)
+        _logger.info("_process_supplier_invoice %s" % invoice)
         xml = etree.fromstring(base64.b64decode(invoice.xml_supplier_approval))
         namespace = xml.nsmap[None]
-        xml = etree.tostring(xml).decode()
-        xml = re.sub(' xmlns="[^"]+"', '', xml)
-        xml = etree.fromstring(xml)
-        document = xml.tag
-        _logger.info('document %s namespace %s' % (document, namespace))
+        xml_string = etree.tostring(xml).decode()
+        xml_string = re.sub(' xmlns="[^"]+"', "", xml_string)
+        xml_no_namespace = etree.fromstring(xml_string)
+        document = xml_no_namespace.tag
+        _logger.info("document %s namespace %s" % (document, namespace))
 
-        v43 = 'https://cdn.comprobanteselectronicos.go.cr/xml-schemas/v4.3/'
+        v43 = "https://cdn.comprobanteselectronicos.go.cr/xml-schemas/v4.3/"
+        v44 = "https://cdn.comprobanteselectronicos.go.cr/xml-schemas/v4.4/"
 
-        if document not in ('FacturaElectronica', 'TiqueteElectronico'):
-            raise UserError(_('Debe de seleccionar una FacturaElectronica o TiqueteElectronico.\nEl documento seleccionado es %s' % document))
+        if document not in ("FacturaElectronica", "TiqueteElectronico"):
+            raise UserError(
+                _(
+                    "Debe de seleccionar una FacturaElectronica o TiqueteElectronico.\nEl documento seleccionado es %s"
+                    % document
+                )
+            )
 
-        if not namespace.startswith(v43):
-            logging.info('invalid namespace %s' % namespace)
-            raise UserError(_('Versión %s de %s no soportada.' % (namespace, document)))
+        if not (namespace.startswith(v43) or namespace.startswith(v44)):
+            logging.info("invalid namespace %s" % namespace)
+            raise UserError(_("Versión %s de %s no soportada." % (namespace, document)))
 
-        if (xml.find('Clave') is None or
-                xml.find('FechaEmision') is None or
-                xml.find('Emisor') is None or
-                xml.find('Emisor').find('Identificacion') is None or
-                xml.find('Emisor').find('Identificacion').find('Tipo') is None or
-                xml.find('Emisor').find('Identificacion').find('Numero') is None or
-                xml.find('Receptor') is None or
-                xml.find('Receptor').find('Identificacion') is None or
-                xml.find('Receptor').find('Identificacion').find('Tipo') is None or
-                xml.find('Receptor').find('Identificacion').find('Numero') is None or
-                xml.find('ResumenFactura') is None or
-                xml.find('ResumenFactura').find('TotalComprobante') is None):
-            logging.info('imcomplete xml document')
-            raise UserError(_('%s parece incompleto' % document))
+        if (
+            xml_no_namespace.find("Clave") is None
+            or xml_no_namespace.find("FechaEmision") is None
+            or xml_no_namespace.find("Emisor") is None
+            or xml_no_namespace.find("Emisor").find("Identificacion") is None
+            or xml_no_namespace.find("Emisor").find("Identificacion").find("Tipo") is None
+            or xml_no_namespace.find("Emisor").find("Identificacion").find("Numero") is None
+            or xml_no_namespace.find("Receptor") is None
+            or xml_no_namespace.find("Receptor").find("Identificacion") is None
+            or xml_no_namespace.find("Receptor").find("Identificacion").find("Tipo") is None
+            or xml_no_namespace.find("Receptor").find("Identificacion").find("Numero") is None
+            or xml_no_namespace.find("ResumenFactura") is None
+            or xml_no_namespace.find("ResumenFactura").find("TotalComprobante") is None
+        ):
+            logging.info("imcomplete xml document")
+            raise UserError(_("%s parece incompleto" % document))
 
-        string = etree.tostring(xml).decode()
-        company_id = self.env['eicr.tools'].get_company_from_xml(string)
+        xml_string = etree.tostring(xml).decode()
+        company_id = self.env["eicr.tools"].get_company_from_xml(xml_string)
 
         if not company_id:
-            raise UserError(_('%s seleccionada no está dirigida a esta compañía.' % document))
+            raise UserError(_("%s seleccionada no está dirigida a esta compañía." % document))
 
         if company_id and company_id != self.env.user.company_id:
-            raise UserError(_('Debe de cambiar a la compañia %s para poder procesar este xml' % company_id.name))
+            raise UserError(
+                _("Debe de cambiar a la compañia %s para poder procesar este xml" % company_id.name)
+            )
 
         if namespace.startswith(v43):
-            return self._proccess_supplier_invoicev43(invoice, xml)
+            return self._proccess_supplier_invoicev43(invoice, xml_no_namespace)
+        elif namespace.startswith(v44):
+            return self._proccess_supplier_invoicev44(invoice, xml_no_namespace)
         else:
-            raise UserError(_('Versión de Factura Electrónica no soportada.\n%s' % namespace))
+            raise UserError(_("Versión de Factura Electrónica no soportada.\n%s" % namespace))
 
-    def _proccess_supplier_invoicev43(self, invoice, xml):
-        _logger.info('_proccess_supplier_invoicev43 %s' % invoice)
+    def _proccess_supplier_invoicev44(self, invoice, xml):
+        """
+        Complete and robust v4.4 supplier invoice processing, mapping all new/changed fields.
+        """
+        _logger.info("_proccess_supplier_invoicev44 %s" % invoice)
 
+        # Extract document type
+        document = xml.tag
+
+        # Validate document type for v4.4
+        if document not in ("FacturaElectronica", "TiqueteElectronico"):
+            raise UserError(
+                _(
+                    "Debe de seleccionar una FacturaElectronica o TiqueteElectronico (v4.4).\nEl documento seleccionado es %s"
+                    % document
+                )
+            )
+
+        # Validate required fields (add v4.4-specific fields)
+        required_fields = [
+            ("Clave",),
+            ("ProveedorSistemas",),
+            ("CodigoActividadEmisor",),
+            ("NumeroConsecutivo",),
+            ("FechaEmision",),
+            ("Emisor",),
+            ("Emisor", "Identificacion"),
+            ("Emisor", "Identificacion", "Tipo"),
+            ("Emisor", "Identificacion", "Numero"),
+            ("Receptor",),
+            ("Receptor", "Identificacion"),
+            ("Receptor", "Identificacion", "Tipo"),
+            ("Receptor", "Identificacion", "Numero"),
+            ("ResumenFactura",),
+            ("ResumenFactura", "TotalComprobante"),
+        ]
+        for path in required_fields:
+            node = xml
+            for tag in path:
+                node = node.find(tag) if node is not None else None
+            if node is None:
+                _logger.info("imcomplete xml document (missing %s)" % "/".join(path))
+                raise UserError(_("%s parece incompleto (falta %s)" % (document, "/".join(path))))
+
+        # Company validation (same as v4.3)
         string = etree.tostring(xml).decode()
-        company_id = self.env['eicr.tools'].get_company_from_xml(string)
-        _logger.info(company_id)
-        if not company_id: return False
-        
-        NumeroConsecutivo = xml.find('NumeroConsecutivo')
-        Emisor = xml.find('Emisor')
+        company_id = self.env["eicr.tools"].get_company_from_xml(string)
+        if not company_id:
+            raise UserError(_("%s seleccionada no está dirigida a esta compañía." % document))
+        if company_id and company_id != self.env.user.company_id:
+            raise UserError(
+                _("Debe de cambiar a la compañia %s para poder procesar este xml" % company_id.name)
+            )
 
-        PlazoCredito = xml.find('PlazoCredito')
+        # --- v4.4-specific logic ---
+        # Parse and map new/changed fields
+        # v4.4-specific fields (store in custom fields if needed)
+        # proveedor_sistemas = xml.find('ProveedorSistemas').text
+        # codigo_actividad_emisor = xml.find('CodigoActividadEmisor').text
+        # codigo_actividad_receptor = xml.find('CodigoActividadReceptor').text if xml.find('CodigoActividadReceptor') is not None else None
+        numero_consecutivo = xml.find("NumeroConsecutivo").text
+        fecha_emision = xml.find("FechaEmision").text
 
-        emisor_vat = Emisor.find('Identificacion').find('Numero').text
-        emisor_tipo = Emisor.find('Identificacion').find('Tipo').text
+        # Emisor and Receptor parsing (structure similar to v4.3, but with possible new fields)
+        emisor = xml.find("Emisor")
 
-        supplier = self.env['res.partner'].search([]).filtered(lambda p: re.sub('[^0-9]', '', p.vat or '') == emisor_vat)
-        # partners with parent are contacts
+        # CondicionVenta and related fields
+        condicion_venta = xml.find("CondicionVenta").text
+        # condicion_venta_otros = xml.find('CondicionVentaOtros').text if xml.find('CondicionVentaOtros') is not None else None
+        plazo_credito = (
+            xml.find("PlazoCredito").text if xml.find("PlazoCredito") is not None else None
+        )
+
+        # DetalleServicio/LineaDetalle (v4.4: CodigoCABYS, new fields)
+        detalle_servicio = xml.find("DetalleServicio")
+        lineas = detalle_servicio.findall("LineaDetalle") if detalle_servicio is not None else []
+
+        # OtrosCargos (v4.4: TipoDocumentoOC, etc.)
+        otros_cargos = xml.findall("OtrosCargos")
+
+        # ResumenFactura (new fields in v4.4)
+        resumen_factura = xml.find("ResumenFactura")
+        codigo_tipo_moneda = resumen_factura.find("CodigoTipoMoneda")
+        codigo_moneda = (
+            codigo_tipo_moneda.find("CodigoMoneda").text
+            if codigo_tipo_moneda is not None
+            and codigo_tipo_moneda.find("CodigoMoneda") is not None
+            else "CRC"
+        )
+
+        # InformacionReferencia (v4.4: new/changed fields)
+        referencias = xml.findall("InformacionReferencia")
+
+        # Partner (supplier) logic (reuse v4.3 logic, but ensure new fields are handled)
+        emisor_vat = emisor.find("Identificacion").find("Numero").text
+        emisor_tipo = emisor.find("Identificacion").find("Tipo").text
+        supplier = (
+            self.env["res.partner"]
+            .search([])
+            .filtered(lambda p: re.sub("[^0-9]", "", p.vat or "") == emisor_vat)
+        )
         supplier = supplier.filtered(lambda p: not p.parent_id)
-        
         if not supplier:
             ctx = self.env.context.copy()
-            ctx.pop('default_type', False)
-            tipo = self.env['identification.type'].search([('code', '=', emisor_tipo)])
+            ctx.pop("default_type", False)
+            tipo = self.env["identification.type"].search([("code", "=", emisor_tipo)])
+            is_company = True if tipo.code == "02" else False
+            phone_code = ""
+            if emisor.find("Telefono") and emisor.find("Telefono").find("CodigoPais"):
+                phone_code = emisor.find("Telefono").find("CodigoPais").text
+            phone = ""
+            if emisor.find("Telefono") and emisor.find("Telefono").find("NumTelefono"):
+                phone = emisor.find("Telefono").find("NumTelefono").text
+            email = (
+                emisor.find("CorreoElectronico").text
+                if emisor.find("CorreoElectronico") is not None
+                else ""
+            )
+            name = emisor.find("Nombre").text
+            supplier = (
+                self.env["res.partner"]
+                .with_context(ctx)
+                .create(
+                    {
+                        "name": name,
+                        "email": email,
+                        "phone_code": phone_code,
+                        "phone": phone,
+                        "vat": emisor_vat,
+                        "identification_id": tipo.id,
+                        "is_company": is_company,
+                        "customer": False,
+                        "supplier": True,
+                    }
+                )
+            )
+            _logger.info("nuevo proveedor %s" % supplier)
+        elif len(supplier) > 1:
+            message = (
+                "Existen %s contactos con la identificación del emisor del comprobante:\n"
+                % len(supplier)
+            )
+            for contact in supplier:
+                message += "%s %s\n" % (contact.name, contact.vat)
+            raise UserError(_(message))
+        invoice.partner_id = supplier
+        invoice.date_invoice = fecha_emision
+        invoice.reference = numero_consecutivo
 
-            is_company = True if tipo.code == '02' else False
+        # Payment term logic (reuse v4.3, but handle new codes)
+        if condicion_venta == "02" and plazo_credito:
+            plazo_dias = 0
+            try:
+                plazo_dias = int(plazo_credito)
+            except Exception:
+                plazo_dias = 0
+            if plazo_dias > 0:
+                candidate_terms = self.env["account.payment.term"].search(
+                    [
+                        ("company_id", "in", [company_id.id, False]),
+                        ("line_ids.value", "=", "balance"),
+                        ("line_ids.days", "=", plazo_dias),
+                    ]
+                )
+                payment_term = None
+                for term in candidate_terms:
+                    if len(term.line_ids) == 1:
+                        payment_term = term
+                        break
+                if not payment_term:
+                    term_name = "%s días" % plazo_dias
+                    payment_term = self.env["account.payment.term"].create(
+                        {
+                            "name": term_name,
+                            "note": term_name,
+                            "company_id": company_id.id,
+                            "line_ids": [
+                                (
+                                    0,
+                                    0,
+                                    {
+                                        "value": "balance",
+                                        "days": plazo_dias,
+                                    },
+                                )
+                            ],
+                        }
+                    )
+                invoice.payment_term_id = payment_term.id
+            else:
+                invoice.payment_term_id = self.env.ref("account.account_payment_term_immediate").id
+        else:
+            invoice.payment_term_id = self.env.ref("account.account_payment_term_immediate").id
 
-            phone_code = ''
-            if Emisor.find('Telefono') and Emisor.find('Telefono').find('CodigoPais'):
-                phone_code = Emisor.find('Telefono').find('CodigoPais').text
+        # Currency
+        invoice.currency_id = self.env["res.currency"].search([("name", "=", codigo_moneda)])
 
-            phone = ''
-            if Emisor.find('Telefono') and Emisor.find('Telefono').find('NumTelefono'):
-                phone = Emisor.find('Telefono').find('NumTelefono').text
+        # Invoice lines (v4.4: CodigoCABYS, new fields)
+        for linea in lineas:
+            cantidad = linea.find("Cantidad").text
+            precio_unitario = linea.find("PrecioUnitario").text
+            descripcion = linea.find("Detalle").text
+            total = linea.find("MontoTotal").text
+            codigo_cabys = (
+                linea.find("CodigoCABYS").text if linea.find("CodigoCABYS") is not None else ""
+            )
+            unidad_medida = (
+                linea.find("UnidadMedida").text
+                if linea.find("UnidadMedida") is not None
+                else "Unid"
+            )
+            descuento = linea.find("Descuento")
+            porcentaje_descuento = 0.0
+            if descuento is not None and descuento.find("MontoDescuento") is not None:
+                monto_descuento = float(descuento.find("MontoDescuento").text)
+                porcentaje_descuento = monto_descuento * 100 / float(total) if float(total) else 0.0
+            # Taxes (Impuesto)
+            impuestos = linea.findall("Impuesto")
+            taxes = self.env["account.tax"]
+            for impuesto in impuestos:
+                codigo = impuesto.find("Codigo").text
+                codigo_tarifa = (
+                    impuesto.find("CodigoTarifaIVA").text
+                    if impuesto.find("CodigoTarifaIVA") is not None
+                    else None
+                )
+                if codigo == "01" and codigo_tarifa:
+                    tax = (
+                        self.env["account.tax"]
+                        .sudo()
+                        .search(
+                            [
+                                ("type_tax_use", "=", "purchase"),
+                                ("tax_code", "=", codigo),
+                                ("iva_tax_code", "=", codigo_tarifa),
+                                ("company_id", "=", company_id.id),
+                            ]
+                        )
+                    )
+                    taxes += tax
+                elif codigo == "02":
+                    tax = self.env.ref("l10n_cr.1_account_tax_template_ISC_0", False)
+                    taxes += tax
+            taxes_ids = [(6, 0, taxes.mapped("id"))] if taxes else False
+            vals = {
+                "quantity": cantidad,
+                "price_unit": precio_unitario,
+                "invoice_id": invoice.id,
+                "name": descripcion,
+                "account_id": invoice.journal_id.default_debit_account_id.id,
+                "invoice_line_tax_ids": taxes_ids,
+                "discount": porcentaje_descuento,
+                "company_id": company_id.id,
+                "cabys_code": codigo_cabys,
+                "unidad_medida": unidad_medida,
+            }
+            if isinstance(invoice.id, int):
+                line = self.env["account.invoice.line"].sudo().create(vals)
+                invoice.invoice_line_ids += line
+            else:
+                line = self.env["account.invoice.line"].new(vals)
+                
 
-            email = Emisor.find('CorreoElectronico').text
-            name = Emisor.find('Nombre').text
+        # OtrosCargos
+        for cargo in otros_cargos:
+            detalle = cargo.find("Detalle").text if cargo.find("Detalle") is not None else ""
+            monto = cargo.find("MontoCargo").text if cargo.find("MontoCargo") is not None else "0.0"
+            vals = {
+                "quantity": 1,
+                "price_unit": monto,
+                "invoice_id": invoice.id,
+                "name": detalle,
+                "account_id": invoice.journal_id.default_debit_account_id.id,
+                "company_id": company_id.id,
+            }
+            if isinstance(invoice.id, int):
+                line = self.env["account.invoice.line"].sudo().create(vals)
+            else:
+                line = self.env["account.invoice.line"].sudo().new(vals)
+            invoice.invoice_line_ids += line
 
-            supplier = self.env['res.partner'].with_context(ctx).create({'name': name,
-                                                                         'email': email,
-                                                                         'phone_code': phone_code,
-                                                                         'phone': phone,
-                                                                         'vat': emisor_vat,
-                                                                         'identification_id': tipo.id,
-                                                                         'is_company': is_company,
-                                                                         'customer': False,
-                                                                         'supplier': True})
-            _logger.info('nuevo proveedor %s' % supplier)
+        # Set invoice account to account payable
+        account_type_id = self.env["account.account.type"].search(
+            [("type", "=", "payable")], limit=1
+        )
+        account_id = (
+            self.env["account.account"]
+            .sudo()
+            .search([("user_type_id", "=", account_type_id.id), ("company_id", "=", company_id.id)])
+        )
+        if len(account_id) > 1:
+            account_id = account_id.filtered(lambda a: a.code == "0-211001")
+        invoice.account_id = account_id
+
+        # InformacionReferencia (for completeness, not always present)
+        for ref in referencias:
+            # You may want to map these to a custom model or log for traceability
+            pass
+
+        if isinstance(invoice.id, int):
+            invoice.invalidate_cache()
+            invoice.compute_taxes()
+
+        # Optionally, store v4.4-specific fields in custom fields or logs
+        # e.g., invoice.x_proveedor_sistemas = proveedor_sistemas
+        #       invoice.x_codigo_actividad_emisor = codigo_actividad_emisor
+        #       invoice.x_codigo_actividad_receptor = codigo_actividad_receptor
+
+        return invoice
+
+    def generate_mensaje_receptor_v44(self, invoice, xml):
+        """
+        Generate MensajeReceptor XML for v4.4. This is a stub for future implementation.
+        """
+        # TODO: Implement MensajeReceptor_V_4_4 generation logic
+        pass
+
+    def _proccess_supplier_invoicev43(self, invoice, xml):
+        _logger.info("_proccess_supplier_invoicev43 %s" % invoice)
+
+        string = etree.tostring(xml).decode()
+        company_id = self.env["eicr.tools"].get_company_from_xml(string)
+        _logger.info(company_id)
+        if not company_id:
+            return False
+
+        NumeroConsecutivo = xml.find("NumeroConsecutivo")
+        Emisor = xml.find("Emisor")
+
+        PlazoCredito = xml.find("PlazoCredito")
+
+        emisor_vat = Emisor.find("Identificacion").find("Numero").text
+        emisor_tipo = Emisor.find("Identificacion").find("Tipo").text
+
+        supplier = (
+            self.env["res.partner"]
+            .search([])
+            .filtered(lambda p: re.sub("[^0-9]", "", p.vat or "") == emisor_vat)
+        )
+        # partners with parent are contacts
+        supplier = supplier.filtered(lambda p: not p.parent_id)
+
+        if not supplier:
+            ctx = self.env.context.copy()
+            ctx.pop("default_type", False)
+            tipo = self.env["identification.type"].search([("code", "=", emisor_tipo)])
+
+            is_company = True if tipo.code == "02" else False
+
+            phone_code = ""
+            if Emisor.find("Telefono") and Emisor.find("Telefono").find("CodigoPais"):
+                phone_code = Emisor.find("Telefono").find("CodigoPais").text
+
+            phone = ""
+            if Emisor.find("Telefono") and Emisor.find("Telefono").find("NumTelefono"):
+                phone = Emisor.find("Telefono").find("NumTelefono").text
+
+            email = Emisor.find("CorreoElectronico").text
+            name = Emisor.find("Nombre").text
+
+            supplier = (
+                self.env["res.partner"]
+                .with_context(ctx)
+                .create(
+                    {
+                        "name": name,
+                        "email": email,
+                        "phone_code": phone_code,
+                        "phone": phone,
+                        "vat": emisor_vat,
+                        "identification_id": tipo.id,
+                        "is_company": is_company,
+                        "customer": False,
+                        "supplier": True,
+                    }
+                )
+            )
+            _logger.info("nuevo proveedor %s" % supplier)
         # if more that two partners, we notify the user
         elif len(supplier) > 1:
-            message = 'Existen %s contactos con la identificación del emisor del comprobante:\n' % len(supplier)
+            message = (
+                "Existen %s contactos con la identificación del emisor del comprobante:\n"
+                % len(supplier)
+            )
             for contact in supplier:
-                message += '%s %s\n' % (contact.name, contact.vat)
+                message += "%s %s\n" % (contact.name, contact.vat)
             raise UserError(_(message))
 
-
-        _logger.info('supplier %s' % supplier)
+        _logger.info("supplier %s" % supplier)
         invoice.partner_id = supplier
-        invoice.date_invoice = xml.find('FechaEmision').text
+        invoice.date_invoice = xml.find("FechaEmision").text
 
         invoice.reference = NumeroConsecutivo.text
 
-        if xml.find('CondicionVenta').text == '02':  # crédito
+        if xml.find("CondicionVenta").text == "02":  # crédito
             plazo_dias = 0
-            plazo_text = PlazoCredito.text.strip() if PlazoCredito is not None  and PlazoCredito.text else ''
-            
+            plazo_text = (
+                PlazoCredito.text.strip() if PlazoCredito is not None and PlazoCredito.text else ""
+            )
+
             try:
                 # Case 1: PlazoCredito is a specific date (YYYY-MM-DD)
-                fecha_de_vencimiento = datetime.strptime(plazo_text, '%Y-%m-%d')
-                fecha_de_factura = datetime.strptime(invoice.date_invoice, '%Y-%m-%d')
+                fecha_de_vencimiento = datetime.strptime(plazo_text, "%Y-%m-%d")
+                fecha_de_factura = datetime.strptime(invoice.date_invoice, "%Y-%m-%d")
                 plazo_dias = (fecha_de_vencimiento - fecha_de_factura).days
-                _logger.info('PlazoCredito is a specific date. Calculated days: %s' % plazo_dias)
+                _logger.info("PlazoCredito is a specific date. Calculated days: %s" % plazo_dias)
 
             except (ValueError, TypeError):
                 # Case 2: PlazoCredito is a number of days (e.g., "30", "15 dias")
                 try:
-                    plazo_string = re.sub('[^0-9]', '', plazo_text)
+                    plazo_string = re.sub("[^0-9]", "", plazo_text)
                     if plazo_string and len(plazo_string) <= 3:
                         plazo_dias = int(plazo_string)
-                    _logger.info('PlazoCredito is a number of days: %s' % plazo_dias)
+                    _logger.info("PlazoCredito is a number of days: %s" % plazo_dias)
                 except (ValueError, TypeError):
-                     _logger.warning('Could not parse PlazoCredito: "%s". Assuming immediate payment.' % plazo_text)
-                     plazo_dias = 0
+                    _logger.warning(
+                        'Could not parse PlazoCredito: "%s". Assuming immediate payment.'
+                        % plazo_text
+                    )
+                    plazo_dias = 0
 
             if plazo_dias > 0:
                 # Find or create a payment term for the calculated number of days
-                candidate_terms = self.env['account.payment.term'].search([
-                    ('company_id', 'in', [company_id.id, False]),
-                    ('line_ids.value', '=', 'balance'),
-                    ('line_ids.days', '=', plazo_dias),
-                ])
+                candidate_terms = self.env["account.payment.term"].search(
+                    [
+                        ("company_id", "in", [company_id.id, False]),
+                        ("line_ids.value", "=", "balance"),
+                        ("line_ids.days", "=", plazo_dias),
+                    ]
+                )
 
                 payment_term = None
                 # Now, filter for terms that have ONLY one line to ensure it's not a multi-payment term.
                 for term in candidate_terms:
                     if len(term.line_ids) == 1:
                         payment_term = term
-                        _logger.info('Found existing payment term by days: %s (ID: %s)' % (term.name, term.id))
-                        break # Found the best match
+                        _logger.info(
+                            "Found existing payment term by days: %s (ID: %s)"
+                            % (term.name, term.id)
+                        )
+                        break  # Found the best match
 
                 if not payment_term:
-                    term_name = '%s días' % plazo_dias
-                    _logger.info('No suitable payment term found. Creating new one: %s' % term_name)
-                    payment_term = self.env['account.payment.term'].create({
-                        'name': term_name,
-                        'note': term_name,
-                        'company_id': company_id.id,
-                        'line_ids': [(0, 0, {
-                            'value': 'balance',
-                            'days': plazo_dias,
-                        })],
-                    })
-                
+                    term_name = "%s días" % plazo_dias
+                    _logger.info("No suitable payment term found. Creating new one: %s" % term_name)
+                    payment_term = self.env["account.payment.term"].create(
+                        {
+                            "name": term_name,
+                            "note": term_name,
+                            "company_id": company_id.id,
+                            "line_ids": [
+                                (
+                                    0,
+                                    0,
+                                    {
+                                        "value": "balance",
+                                        "days": plazo_dias,
+                                    },
+                                )
+                            ],
+                        }
+                    )
+
                 # Assign the payment term. Odoo will calculate date_due automatically.
                 invoice.payment_term_id = payment_term.id
-                _logger.info('Set payment_term_id to %s (%s)' % (payment_term.id, payment_term.name))
+                _logger.info(
+                    "Set payment_term_id to %s (%s)" % (payment_term.id, payment_term.name)
+                )
             else:
                 # Case for 0 days credit or parsing failure
-                invoice.payment_term_id = self.env.ref('account.account_payment_term_immediate').id
+                invoice.payment_term_id = self.env.ref("account.account_payment_term_immediate").id
 
-        else: # '01' Contado (Cash)
-            invoice.payment_term_id = self.env.ref('account.account_payment_term_immediate').id
+        else:  # '01' Contado (Cash)
+            invoice.payment_term_id = self.env.ref("account.account_payment_term_immediate").id
 
         # --- End of CondicionVenta Credito ---
 
-        moneda = xml.find('ResumenFactura').find('CodigoTipoMoneda')
-        codigo = moneda.find('CodigoMoneda').text if moneda else 'CRC'
-        invoice.currency_id = self.env['res.currency'].search([('name', '=', codigo)])
+        moneda = xml.find("ResumenFactura").find("CodigoTipoMoneda")
+        codigo = moneda.find("CodigoMoneda").text if moneda else "CRC"
+        invoice.currency_id = self.env["res.currency"].search([("name", "=", codigo)])
 
-        OtrosCargos = xml.findall('OtrosCargos')
+        OtrosCargos = xml.findall("OtrosCargos")
         print(OtrosCargos)
-        otros_cargos = self.env['account.tax']
+        otros_cargos = self.env["account.tax"]
         for cargo in OtrosCargos:
-            code = cargo.find('TipoDocumento').text
-            if code == '06':
-                tax = self.env['account.tax'].search([('type_tax_use','=','purchase'),('tax_code', '=', 'service'), ('company_id', '=', company_id.id)])
+            code = cargo.find("TipoDocumento").text
+            if code == "06":
+                tax = self.env["account.tax"].search(
+                    [
+                        ("type_tax_use", "=", "purchase"),
+                        ("tax_code", "=", "service"),
+                        ("company_id", "=", company_id.id),
+                    ]
+                )
                 otros_cargos += tax
 
-        lineas = xml.find('DetalleServicio')
+        lineas = xml.find("DetalleServicio")
         for linea in lineas:
-            _logger.info('linea %s de %s %s' % (lineas.index(linea) + 1, len(lineas), linea))
+            _logger.info("linea %s de %s %s" % (lineas.index(linea) + 1, len(lineas), linea))
 
-            impuestos = linea.findall('Impuesto')
-            _logger.info('impuestos %s' % impuestos)
-            taxes = self.env['account.tax']
+            impuestos = linea.findall("Impuesto")
+            _logger.info("impuestos %s" % impuestos)
+            taxes = self.env["account.tax"]
             taxes += otros_cargos
             for impuesto in impuestos:
-                _logger.info('impuesto %s de %s %s' % (impuestos.index(impuesto) + 1, len(impuestos), impuesto))
+                _logger.info(
+                    "impuesto %s de %s %s"
+                    % (impuestos.index(impuesto) + 1, len(impuestos), impuesto)
+                )
 
-                Codigo = impuesto.find('Codigo')
+                Codigo = impuesto.find("Codigo")
 
-                if Codigo.text == '01':  # iva
-                    CodigoTarifa = impuesto.find('CodigoTarifa')
-                    tax = self.env['account.tax'].sudo().search([('type_tax_use','=','purchase'),('tax_code', '=', Codigo.text),('iva_tax_code', '=', CodigoTarifa.text), ('company_id', '=', company_id.id)])
-                    _logger.info('tax %s' % tax)
+                if Codigo.text == "01":  # iva
+                    CodigoTarifa = impuesto.find("CodigoTarifa")
+                    tax = (
+                        self.env["account.tax"]
+                        .sudo()
+                        .search(
+                            [
+                                ("type_tax_use", "=", "purchase"),
+                                ("tax_code", "=", Codigo.text),
+                                ("iva_tax_code", "=", CodigoTarifa.text),
+                                ("company_id", "=", company_id.id),
+                            ]
+                        )
+                    )
+                    _logger.info("tax %s" % tax)
                     taxes += tax
-                elif Codigo.text == '02':  # ISC
-                    tax = self.env.ref('l10n_cr.1_account_tax_template_ISC_0', False)
-                    _logger.info('tax %s' % tax)
+                elif Codigo.text == "02":  # ISC
+                    tax = self.env.ref("l10n_cr.1_account_tax_template_ISC_0", False)
+                    _logger.info("tax %s" % tax)
                     taxes += tax
 
             if taxes:
-                taxes = [(6, 0, taxes.mapped('id'))]
-            _logger.info('taxes %s' % taxes)
+                taxes = [(6, 0, taxes.mapped("id"))]
+            _logger.info("taxes %s" % taxes)
 
-            cantidad = linea.find('Cantidad').text
-            precio_unitario = linea.find('PrecioUnitario').text
-            descripcion = linea.find('Detalle').text
-            total = linea.find('MontoTotal').text
+            cantidad = linea.find("Cantidad").text
+            precio_unitario = linea.find("PrecioUnitario").text
+            descripcion = linea.find("Detalle").text
+            total = linea.find("MontoTotal").text
 
-            _logger.info('%s %s a %s = %s' % (cantidad, descripcion, precio_unitario, total))
+            _logger.info("%s %s a %s = %s" % (cantidad, descripcion, precio_unitario, total))
 
             porcentajeDescuento = 0.0
-            Descuento = linea.find('Descuento')
-            if Descuento is not None and Descuento.find('MontoDescuento') is not None:
-                _logger.info('hay descuento')
-                montoDescuento = float(Descuento.find('MontoDescuento').text)
+            Descuento = linea.find("Descuento")
+            if Descuento is not None and Descuento.find("MontoDescuento") is not None:
+                _logger.info("hay descuento")
+                montoDescuento = float(Descuento.find("MontoDescuento").text)
                 porcentajeDescuento = montoDescuento * 100 / float(total) if float(total) else 0.0
-                _logger.info('descuento de %s %s ' % (porcentajeDescuento, montoDescuento))
+                _logger.info("descuento de %s %s " % (porcentajeDescuento, montoDescuento))
 
             vals = {
-                'quantity': cantidad,
-                'price_unit': precio_unitario,
-                'invoice_id': invoice.id,
-                'name': descripcion,
-                'account_id': invoice.journal_id.default_debit_account_id.id,
-                'invoice_line_tax_ids': taxes,
-                'discount': porcentajeDescuento,
-                'company_id': company_id.id
+                "quantity": cantidad,
+                "price_unit": precio_unitario,
+                "invoice_id": invoice.id,
+                "name": descripcion,
+                "account_id": invoice.journal_id.default_debit_account_id.id,
+                "invoice_line_tax_ids": taxes,
+                "discount": porcentajeDescuento,
+                "company_id": company_id.id,
             }
-            _logger.info('new line for %s with %s' % (invoice, vals))
+            _logger.info("new line for %s with %s" % (invoice, vals))
             # invoice.write({'invoice_line_ids': [4, ]})
             if isinstance(invoice.id, int):
-                line = self.env['account.invoice.line'].sudo().create(vals)
+                line = self.env["account.invoice.line"].sudo().create(vals)
             else:
-                line = self.env['account.invoice.line'].new(vals)
-        
-        _logger.info(':::3 lineas %s' % len(invoice.invoice_line_ids))
+                line = self.env["account.invoice.line"].new(vals)
+
+        _logger.info(":::3 lineas %s" % len(invoice.invoice_line_ids))
 
         # set invoice account to account payable
-        account_type_id = self.env['account.account.type'].search([('type', '=', 'payable')], limit=1)
-        _logger.info('account_type_id %s' % account_type_id)
-        account_id = self.env['account.account'].sudo().search([('user_type_id', '=', account_type_id.id), ('company_id', '=', company_id.id)])
+        account_type_id = self.env["account.account.type"].search(
+            [("type", "=", "payable")], limit=1
+        )
+        _logger.info("account_type_id %s" % account_type_id)
+        account_id = (
+            self.env["account.account"]
+            .sudo()
+            .search([("user_type_id", "=", account_type_id.id), ("company_id", "=", company_id.id)])
+        )
         if len(account_id) > 1:
-            account_id = account_id.filtered(lambda a: a.code == '0-211001')
+            account_id = account_id.filtered(lambda a: a.code == "0-211001")
         invoice.account_id = account_id
 
-        for cargo in xml.findall('OtrosCargos'):
-            tipo = cargo.find('TipoDocumento').text
+        for cargo in xml.findall("OtrosCargos"):
+            tipo = cargo.find("TipoDocumento").text
             vals = {
-                'quantity': 1,
-                'price_unit': cargo.find('MontoCargo').text,
-                'invoice_id': invoice.id,
-                'name': cargo.find('Detalle').text,
-                'account_id': invoice.journal_id.default_debit_account_id.id,
-                'company_id': company_id.id
+                "quantity": 1,
+                "price_unit": cargo.find("MontoCargo").text,
+                "invoice_id": invoice.id,
+                "name": cargo.find("Detalle").text,
+                "account_id": invoice.journal_id.default_debit_account_id.id,
+                "company_id": company_id.id,
             }
             if isinstance(invoice.id, int):
-                line = self.env['account.invoice.line'].sudo().create(vals)
+                line = self.env["account.invoice.line"].sudo().create(vals)
             else:
-                line = self.env['account.invoice.line'].sudo().new(vals)
+                line = self.env["account.invoice.line"].sudo().new(vals)
             invoice.invoice_line_ids += line
 
         if isinstance(invoice.id, int):
@@ -1993,179 +2608,217 @@ class ElectronicInvoiceCostaRicaTools(models.AbstractModel):
         try:
             xml = base64.b64decode(base64_encoded_xml)
             factura = etree.tostring(etree.fromstring(xml)).decode()
-            factura = etree.fromstring(re.sub(' xmlns="[^"]+"', '', factura, count=1))
-            Emisor = factura.find('Emisor')
-            vat = Emisor.find('Identificacion').find('Numero').text
-            all_partners = self.env['res.partner'].search([])
-            return all_partners.filtered(lambda p: re.sub('[^0-9]', '', p.vat or '') == vat)
+            factura = etree.fromstring(re.sub(' xmlns="[^"]+"', "", factura, count=1))
+            Emisor = factura.find("Emisor")
+            vat = Emisor.find("Identificacion").find("Numero").text
+            all_partners = self.env["res.partner"].search([])
+            return all_partners.filtered(lambda p: re.sub("[^0-9]", "", p.vat or "") == vat)
         except Exception as e:
-            _logger.info('algo salió mal con el xml %s' % self)
+            _logger.info("algo salió mal con el xml %s" % self)
             _logger.info(e)
             return None
-
 
     @api.model
     def new_partner_from_xml(self, base64_encoded_xml, supplier=True, customer=False):
         try:
             xml = base64.b64decode(base64_encoded_xml)
             factura = etree.tostring(etree.fromstring(xml)).decode()
-            factura = etree.fromstring(re.sub(' xmlns="[^"]+"', '', factura, count=1))
-            Emisor = factura.find('Emisor')
+            factura = etree.fromstring(re.sub(' xmlns="[^"]+"', "", factura, count=1))
+            Emisor = factura.find("Emisor")
 
             ctx = self.env.context.copy()
-            ctx.pop('default_type', False)
-            tipo = self.env['identification.type'].search([('code', '=', Emisor.find('Identificacion').find('Tipo').text)])
+            ctx.pop("default_type", False)
+            tipo = self.env["identification.type"].search(
+                [("code", "=", Emisor.find("Identificacion").find("Tipo").text)]
+            )
 
-            is_company = True if tipo.code == '02' else False
+            is_company = True if tipo.code == "02" else False
 
-            phone_code = ''
-            if Emisor.find('Telefono') is not None and Emisor.find('Telefono').find('CodigoPais'):
-                phone_code = Emisor.find('Telefono').find('CodigoPais').text
+            phone_code = ""
+            if Emisor.find("Telefono") is not None and Emisor.find("Telefono").find("CodigoPais"):
+                phone_code = Emisor.find("Telefono").find("CodigoPais").text
 
-            phone = ''
-            if Emisor.find('Telefono') is not None and Emisor.find('Telefono').find('NumTelefono'):
-                phone = Emisor.find('Telefono').find('NumTelefono').text
+            phone = ""
+            if Emisor.find("Telefono") is not None and Emisor.find("Telefono").find("NumTelefono"):
+                phone = Emisor.find("Telefono").find("NumTelefono").text
 
-            email = Emisor.find('CorreoElectronico').text
-            name = Emisor.find('Nombre').text
+            email = Emisor.find("CorreoElectronico").text
+            name = Emisor.find("Nombre").text
 
-            proveedor = self.env['res.partner'].with_context(ctx).create({'name': name,
-                                                                          'email': email,
-                                                                          'phone_code': phone_code,
-                                                                          'phone': phone,
-                                                                          'vat': Emisor.find('Identificacion').find('Numero').text,
-                                                                          'identification.type': tipo.id,
-                                                                          'is_company': is_company,
-                                                                          'customer': customer,
-                                                                          'supplier': supplier})
+            proveedor = (
+                self.env["res.partner"]
+                .with_context(ctx)
+                .create(
+                    {
+                        "name": name,
+                        "email": email,
+                        "phone_code": phone_code,
+                        "phone": phone,
+                        "vat": Emisor.find("Identificacion").find("Numero").text,
+                        "identification.type": tipo.id,
+                        "is_company": is_company,
+                        "customer": customer,
+                        "supplier": supplier,
+                    }
+                )
+            )
 
             proveedor.action_update_info()
-            _logger.info('nuevo proveedor %s' % proveedor)
+            _logger.info("nuevo proveedor %s" % proveedor)
             return proveedor
         except Exception as e:
-            _logger.info('algo salió mal creando el contacto del xml de %s' % self)
+            _logger.info("algo salió mal creando el contacto del xml de %s" % self)
             _logger.info(e)
             return None
 
     @api.model
     def actualizar_info(self, partner_id):
-        _logger.info('selff %s name %s' % (partner_id, partner_id.name))
-        info = self.env['eicr.hacienda'].get_info_contribuyente(partner_id.vat)
+        _logger.info("selff %s name %s" % (partner_id, partner_id.name))
+        info = self.env["eicr.hacienda"].get_info_contribuyente(partner_id.vat)
         if info:
             # tipo de identificación
-            partner_id.identification_id = self.env['identification.type'].search([('code', '=', info['tipoIdentificacion'])])
-            if info['tipoIdentificacion'] in ('01', '03', '04'):
+            partner_id.identification_id = self.env["identification.type"].search(
+                [("code", "=", info["tipoIdentificacion"])]
+            )
+            if info["tipoIdentificacion"] in ("01", "03", "04"):
                 partner_id.is_company = False
-            elif info['tipoIdentificacion'] in ('02'):
+            elif info["tipoIdentificacion"] in ("02"):
                 partner_id.is_company = True
             # actividad económica
-            actividades = [a['codigo'] for a in info['actividades'] if a['estado'] == 'A']
-            partner_id.eicr_activity_ids = self.env['economic_activity'].search([('code', 'in', actividades)])
+            actividades = [a["codigo"] for a in info["actividades"] if a["estado"] == "A"]
+            partner_id.eicr_activity_ids = self.env["economic_activity"].search(
+                [("code", "in", actividades)]
+            )
             # nombre
-            if partner_id.name in ('', 'My Company', None, False): partner_id.name = info['nombre']
+            if partner_id.name in ("", "My Company", None, False):
+                partner_id.name = info["nombre"]
             # régimen tributario
-            partner_id.eicr_regimen = str(info['regimen']['codigo'])
+            partner_id.eicr_regimen = str(info["regimen"]["codigo"])
 
     def _get_partner_from_xml(self, xml_encoded, customer=False, supplier=True):
         xml = etree.fromstring(base64.b64decode(xml_encoded))
         xml = etree.tostring(xml).decode()
-        xml = re.sub(' xmlns="[^"]+"', '', xml)
+        xml = re.sub(' xmlns="[^"]+"', "", xml)
         xml = etree.fromstring(xml)
 
-        if (xml.find('Emisor') is None or
-            xml.find('Emisor').find('Identificacion') is None or
-            xml.find('Emisor').find('Identificacion').find('Tipo') is None or
-            xml.find('Emisor').find('Identificacion').find('Numero') is None):
-                return None
+        if (
+            xml.find("Emisor") is None
+            or xml.find("Emisor").find("Identificacion") is None
+            or xml.find("Emisor").find("Identificacion").find("Tipo") is None
+            or xml.find("Emisor").find("Identificacion").find("Numero") is None
+        ):
+            return None
 
-        Emisor = xml.find('Emisor')
-        emisor_vat = Emisor.find('Identificacion').find('Numero').text
-        emisor_tipo = Emisor.find('Identificacion').find('Tipo').text
+        Emisor = xml.find("Emisor")
+        emisor_vat = Emisor.find("Identificacion").find("Numero").text
+        emisor_tipo = Emisor.find("Identificacion").find("Tipo").text
 
-        partner = self.env['res.partner'].search([]).filtered( lambda p: re.sub('[^0-9]', '', p.vat or '') == emisor_vat)
+        partner = (
+            self.env["res.partner"]
+            .search([])
+            .filtered(lambda p: re.sub("[^0-9]", "", p.vat or "") == emisor_vat)
+        )
         # partners with parent are contacts
         partner = partner.filtered(lambda p: not p.parent_id)
 
         if not partner:
             ctx = self.env.context.copy()
-            ctx.pop('default_type', False)
-            tipo = self.env['identification.type'].search([('code', '=', emisor_tipo)])
+            ctx.pop("default_type", False)
+            tipo = self.env["identification.type"].search([("code", "=", emisor_tipo)])
 
-            is_company = True if tipo.code == '02' else False
+            is_company = True if tipo.code == "02" else False
 
-            phone_code = ''
-            if Emisor.find('Telefono') and Emisor.find('Telefono').find('CodigoPais'):
-                phone_code = Emisor.find('Telefono').find('CodigoPais').text
+            phone_code = ""
+            if Emisor.find("Telefono") and Emisor.find("Telefono").find("CodigoPais"):
+                phone_code = Emisor.find("Telefono").find("CodigoPais").text
 
-            phone = ''
-            if Emisor.find('Telefono') and Emisor.find('Telefono').find('NumTelefono'):
-                phone = Emisor.find('Telefono').find('NumTelefono').text
+            phone = ""
+            if Emisor.find("Telefono") and Emisor.find("Telefono").find("NumTelefono"):
+                phone = Emisor.find("Telefono").find("NumTelefono").text
 
-            email = Emisor.find('CorreoElectronico').text
-            name = Emisor.find('Nombre').text
+            email = Emisor.find("CorreoElectronico").text
+            name = Emisor.find("Nombre").text
 
-            partner = self.env['res.partner'].with_context(ctx).create({'name': name,
-                                                                         'email': email,
-                                                                         'phone_code': phone_code,
-                                                                         'phone': phone,
-                                                                         'vat': emisor_vat,
-                                                                         'identification_id': tipo.id,
-                                                                         'is_company': is_company,
-                                                                         'customer': customer,
-                                                                         'supplier': supplier})
-            _logger.info('nuevo proveedor %s' % partner)
+            partner = (
+                self.env["res.partner"]
+                .with_context(ctx)
+                .create(
+                    {
+                        "name": name,
+                        "email": email,
+                        "phone_code": phone_code,
+                        "phone": phone,
+                        "vat": emisor_vat,
+                        "identification_id": tipo.id,
+                        "is_company": is_company,
+                        "customer": customer,
+                        "supplier": supplier,
+                    }
+                )
+            )
+            _logger.info("nuevo proveedor %s" % partner)
         return partner
 
     @api.model
-    def new_invoice_from_xml(self, xml_encoded, xml_filename,type='in_invoice'):
-
+    def new_invoice_from_xml(self, xml_encoded, xml_filename, type="in_invoice"):
         partner_id = self._get_partner_from_xml(xml_encoded)
-        journal = self.env['account.journal'].search([('type', '=', 'purchase')], limit=1)
+        journal = self.env["account.journal"].search([("type", "=", "purchase")], limit=1)
         # 0-211001 0-Cuentas por pagar a proveedores
-        account = self.env.ref('l10n_cr.1_account_account_template_0_211001')
-        invoice = self.env['account.invoice'].create({'type': type,
-                                                      'xml_supplier_approval': xml_encoded,
-                                                      'fname_xml_supplier_approval': xml_filename,
-                                                      'journal_id': journal.id,
-                                                      'account_id': account.id,
-                                                      'partner_id': partner_id.id})
+        account = self.env.ref("l10n_cr.1_account_account_template_0_211001")
+        invoice = self.env["account.invoice"].create(
+            {
+                "type": type,
+                "xml_supplier_approval": xml_encoded,
+                "fname_xml_supplier_approval": xml_filename,
+                "journal_id": journal.id,
+                "account_id": account.id,
+                "partner_id": partner_id.id,
+            }
+        )
 
         self._process_supplier_invoice(invoice)
         invoice.compute_taxes()
         return invoice
 
     def _validar_xml_proveedor(self, xml):
-        _logger.info('validando xml de proveedor')
+        _logger.info("validando xml de proveedor")
         _logger.info(xml)
-        xml = bytes(xml, encoding='utf-8')
+        xml = bytes(xml, encoding="utf-8")
         xml = etree.fromstring(xml)
         xml = etree.tostring(xml)
         xml = xml.decode()
-        xml = re.sub(' xmlns="[^"]+"', '', xml, count=1)
+        xml = re.sub(' xmlns="[^"]+"', "", xml, count=1)
         xml = etree.fromstring(xml)
         document = xml.tag
 
-        if document not in ('FacturaElectronica', 'TiqueteElectronico'):
-            message = 'El archivo xml debe ser una FacturaElectronica o TiqueteElectronico.\n%s es un documento inválido' % document
-            _logger.info('%s' % (message))
+        if document not in ("FacturaElectronica", "TiqueteElectronico"):
+            message = (
+                "El archivo xml debe ser una FacturaElectronica o TiqueteElectronico.\n%s es un documento inválido"
+                % document
+            )
+            _logger.info("%s" % (message))
             return False
             # raise UserError(message)
 
-        if (xml.find('Clave') is None or
-            xml.find('FechaEmision') is None or
-            xml.find('Emisor') is None or
-            xml.find('Emisor').find('Identificacion') is None or
-            xml.find('Emisor').find('Identificacion').find('Tipo') is None or
-            xml.find('Emisor').find('Identificacion').find('Numero') is None or
-            xml.find('Receptor') is None or
-            xml.find('Receptor').find('Identificacion') is None or
-            xml.find('Receptor').find('Identificacion').find('Tipo') is None or
-            xml.find('Receptor').find('Identificacion').find('Numero') is None or
-            xml.find('ResumenFactura') is None or
-            xml.find('ResumenFactura').find('TotalComprobante') is None ):
-
-            message = 'El archivo xml parece estar incompleto, no se puede procesar.\nDocumento %s' % document
-            _logger.info('%s' % (message))
+        if (
+            xml.find("Clave") is None
+            or xml.find("FechaEmision") is None
+            or xml.find("Emisor") is None
+            or xml.find("Emisor").find("Identificacion") is None
+            or xml.find("Emisor").find("Identificacion").find("Tipo") is None
+            or xml.find("Emisor").find("Identificacion").find("Numero") is None
+            or xml.find("Receptor") is None
+            or xml.find("Receptor").find("Identificacion") is None
+            or xml.find("Receptor").find("Identificacion").find("Tipo") is None
+            or xml.find("Receptor").find("Identificacion").find("Numero") is None
+            or xml.find("ResumenFactura") is None
+            or xml.find("ResumenFactura").find("TotalComprobante") is None
+        ):
+            message = (
+                "El archivo xml parece estar incompleto, no se puede procesar.\nDocumento %s"
+                % document
+            )
+            _logger.info("%s" % (message))
             return False
             # raise UserError(message)
 
@@ -2174,13 +2827,18 @@ class ElectronicInvoiceCostaRicaTools(models.AbstractModel):
     def get_company_from_xml(self, xml):
         string = xml
         if self._validar_xml_proveedor(string):
-            xml = bytes(xml, encoding='utf-8')
+            xml = bytes(xml, encoding="utf-8")
             xml = etree.fromstring(xml)
             xml = etree.tostring(xml)
             xml = xml.decode()
-            xml = re.sub(' xmlns="[^"]+"', '', xml, count=1)
+            xml = re.sub(' xmlns="[^"]+"', "", xml, count=1)
             xml = etree.fromstring(xml)
-            vat_receptor = xml.find('Receptor').find('Identificacion').find('Numero').text
-            company_id = self.env['res.company'].sudo().search([]).filtered(lambda c: re.sub('[^0-9]', '', c.vat or '') == vat_receptor)
-            _logger.info('vat %s company %s' % (vat_receptor, company_id))
+            vat_receptor = xml.find("Receptor").find("Identificacion").find("Numero").text
+            company_id = (
+                self.env["res.company"]
+                .sudo()
+                .search([])
+                .filtered(lambda c: re.sub("[^0-9]", "", c.vat or "") == vat_receptor)
+            )
+            _logger.info("vat %s company %s" % (vat_receptor, company_id))
             return company_id if company_id else False
