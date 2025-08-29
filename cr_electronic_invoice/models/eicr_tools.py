@@ -371,6 +371,8 @@ class ElectronicInvoiceCostaRicaTools(models.AbstractModel):
             if object.type in ("out_invoice", "out_refund"):
                 if object.company_id.eicr_version_id.name == "v4.3":
                     Documento = self._get_xml_FE_NC_ND_43(object)
+                elif object.company_id.eicr_version_id.name == "v4.4":
+                    Documento = self._get_xml_FE_NC_ND_44(object)
             elif object.type in ("in_invoice", "in_refund"):
                 Documento = self._get_xml_MR_account_invoice(object)
         elif object._name == "pos.order":
@@ -1837,6 +1839,817 @@ class ElectronicInvoiceCostaRicaTools(models.AbstractModel):
             TotalOtrosCargos = etree.Element("TotalOtrosCargos")
             TotalOtrosCargos.text = str(round(totalImpuestoServicio, decimales))
             ResumenFactura.append(TotalOtrosCargos)
+
+        TotalComprobante = etree.Element("TotalComprobante")
+        TotalComprobante.text = str(round(invoice.amount_total, decimales))
+        ResumenFactura.append(TotalComprobante)
+
+        Documento.append(ResumenFactura)
+        if invoice.type == "out_invoice" and invoice.partner_id.extra_node_ids:
+            for extra_node in invoice.partner_id.extra_node_ids:
+                Nodo = etree.Element(extra_node.node_location.strip())
+                node = extra_node.get_node(invoice)
+                msg = "\n"
+                for e in node:
+                    Nodo.append(e)
+                    msg += "%s %s\n" % (e.tag, e.text)
+                if extra_node.show_in_report:
+                    if invoice.comment:
+                        invoice.comment += msg
+                    else:
+                        invoice.comment = msg
+            Documento.append(Nodo)
+
+        if invoice.type == "out_refund":
+            if invoice.refund_invoice_id.type == "out_invoice":
+                tipo = "01"
+            elif invoice.refund_invoice_id.type == "out_refund":
+                tipo = "03"
+
+            InformacionReferencia = etree.Element("InformacionReferencia")
+
+            TipoDoc = etree.Element("TipoDoc")
+            TipoDoc.text = tipo
+            InformacionReferencia.append(TipoDoc)
+
+            Numero = etree.Element("Numero")
+            Numero.text = (
+                invoice.refund_invoice_id.number_electronic or invoice.refund_invoice_id.number
+            )
+            InformacionReferencia.append(Numero)
+
+            FechaEmision = etree.Element("FechaEmision")
+            if not invoice.refund_invoice_id.date_issuance:
+                now_utc = datetime.now(pytz.timezone("UTC"))
+                now_cr = now_utc.astimezone(pytz.timezone("America/Costa_Rica"))
+                invoice.refund_invoice_id.fecha = now_cr.strftime("%Y-%m-%d %H:%M:%S")
+                invoice.refund_invoice_id.date_issuance = now_cr.strftime("%Y-%m-%dT%H:%M:%S-06:00")
+
+            FechaEmision.text = invoice.refund_invoice_id.date_issuance
+            InformacionReferencia.append(FechaEmision)
+
+            Codigo = etree.Element("Codigo")
+            Codigo.text = invoice.reference_code_id.code
+            InformacionReferencia.append(Codigo)
+
+            Razon = etree.Element("Razon")
+            Razon.text = invoice.name[:180] or "Error en Factura"
+            InformacionReferencia.append(Razon)
+
+            Documento.append(InformacionReferencia)
+
+        return Documento
+
+    def _get_xml_FE_NC_ND_44(self, invoice):
+        if invoice.type not in ("out_invoice", "out_refund"):
+            _logger.error("No es factura de cliente %s", invoice)
+            return False
+
+        if not invoice.number:
+            _logger.error("Factura sin consecutivo %s", invoice)
+            return False
+
+        if not invoice.number.isdigit():
+            _logger.error("Error de numeración %s", invoice.number)
+            return False
+
+        if len(invoice.number) != 20:
+            consecutivo = self._get_consecutivo(invoice)
+            if not consecutivo:
+                _logger.error("Error de consecutivo %s" % invoice.number)
+                return False
+
+            invoice.number = consecutivo
+
+        if not invoice.number_electronic:
+            clave = self._get_clave(invoice)
+            if not clave:
+                _logger.error("Error de clave %s" % invoice)
+                return False
+
+            invoice.number_electronic = clave
+
+        if len(invoice.number_electronic) != 50:
+            _logger.error("Error de clave %s" % invoice.number_electronic)
+            return False
+
+        emisor = invoice.company_id
+        receptor = invoice.partner_id
+
+        receptor_valido = self._validar_receptor(receptor)
+
+        # FacturaElectronica 4.4 y Nota de Crédito 4.4
+        decimales = 2
+
+        if invoice.type == "out_invoice":
+            if receptor_valido:
+                documento = "FacturaElectronica"  # Factura Electrónica
+                xmlns = (
+                    "https://cdn.comprobanteselectronicos.go.cr/xml-schemas/v4.4/facturaElectronica"
+                )
+                schemaLocation = "https://cdn.comprobanteselectronicos.go.cr/xml-schemas/v4.4/facturaElectronica  https://www.hacienda.go.cr/ATV/ComprobanteElectronico/docs/esquemas/2024/v4.4/FacturaElectronica_V4.4.xsd"
+            else:
+                documento = "TiqueteElectronico"  # Tiquete Electrónico
+                xmlns = (
+                    "https://cdn.comprobanteselectronicos.go.cr/xml-schemas/v4.4/tiqueteElectronico"
+                )
+                schemaLocation = "https://cdn.comprobanteselectronicos.go.cr/xml-schemas/v4.4/tiqueteElectronico  https://www.hacienda.go.cr/ATV/ComprobanteElectronico/docs/esquemas/2024/v4.4/TiqueteElectronico_V4.4.xsd"
+
+        elif invoice.type == "out_refund":
+            documento = "NotaCreditoElectronica"  # Nota de Crédito
+            xmlns = (
+                "https://cdn.comprobanteselectronicos.go.cr/xml-schemas/v4.4/notaCreditoElectronica"
+            )
+            schemaLocation = "https://cdn.comprobanteselectronicos.go.cr/xml-schemas/v4.4/notaCreditoElectronica  https://www.hacienda.go.cr/ATV/ComprobanteElectronico/docs/esquemas/2024/v4.4/NotaCreditoElectronica_V4.4.xsd"
+        else:
+            _logger.info("tipo de documento no implementado %s" % invoice.type)
+            return False
+
+        xsi = "http://www.w3.org/2001/XMLSchema-instance"
+        xsd = "http://www.w3.org/2001/XMLSchema"
+        ds = "http://www.w3.org/2000/09/xmldsig#"
+
+        nsmap = {None: xmlns, "xsd": xsd, "xsi": xsi, "ds": ds}
+        attrib = {"{" + xsi + "}schemaLocation": schemaLocation}
+
+        Documento = etree.Element(documento, attrib=attrib, nsmap=nsmap)
+
+        # Clave
+        Clave = etree.Element("Clave")
+        Clave.text = invoice.number_electronic
+        Documento.append(Clave)
+        
+        # ProveedorSistemas
+        ProveedorSistemas = etree.Element("ProveedorSistemas")
+        ProveedorSistemas.text = re.sub("[^0-9]", "", emisor.vat or "")
+        Documento.append(ProveedorSistemas)
+
+        # CodigoActividadEmisor
+        CodigoActividadEmisor = etree.Element("CodigoActividadEmisor")
+        CodigoActividadEmisor.text = invoice.company_id.eicr_activity_ids[0].code
+        Documento.append(CodigoActividadEmisor)
+
+        # NumeroConsecutivo
+        NumeroConsecutivo = etree.Element("NumeroConsecutivo")
+        NumeroConsecutivo.text = invoice.number
+        Documento.append(NumeroConsecutivo)
+
+        # FechaEmision
+        FechaEmision = etree.Element("FechaEmision")
+        FechaEmision.text = datetime.strptime(invoice.fecha, "%Y-%m-%d %H:%M:%S").strftime(
+            "%Y-%m-%dT%H:%M:%S"
+        )
+        Documento.append(FechaEmision)
+
+        # Emisor
+        Emisor = etree.Element("Emisor")
+
+        Nombre = etree.Element("Nombre")
+        Nombre.text = emisor.name
+        Emisor.append(Nombre)
+
+        identificacion = re.sub("[^0-9]", "", emisor.vat or "")
+
+        if not emisor.identification_id:
+            raise UserError(
+                "Seleccione el tipo de identificación del emisor en el perfil de la compañía"
+            )
+        elif emisor.identification_id.code == "01" and len(identificacion) != 9:
+            raise UserError("La Cédula Física del emisor debe de tener 9 dígitos")
+        elif emisor.identification_id.code == "02" and len(identificacion) != 10:
+            raise UserError("La Cédula Jurídica del emisor debe de tener 10 dígitos")
+        elif emisor.identification_id.code == "03" and not (
+            len(identificacion) == 11 or len(identificacion) == 12
+        ):
+            raise UserError("La identificación DIMEX del emisor debe de tener 11 o 12 dígitos")
+        elif emisor.identification_id.code == "04" and len(identificacion) != 10:
+            raise UserError("La identificación NITE del emisor debe de tener 10 dígitos")
+
+        Identificacion = etree.Element("Identificacion")
+
+        Tipo = etree.Element("Tipo")
+        Tipo.text = emisor.identification_id.code
+        Identificacion.append(Tipo)
+
+        Numero = etree.Element("Numero")
+        Numero.text = identificacion
+        Identificacion.append(Numero)
+
+        Emisor.append(Identificacion)
+
+        if emisor.commercial_name:
+            NombreComercial = etree.Element("NombreComercial")
+            NombreComercial.text = emisor.commercial_name
+            Emisor.append(NombreComercial)
+
+        if not emisor.state_id:
+            raise UserError(
+                "La dirección del emisor está incompleta, no se ha seleccionado la Provincia"
+            )
+        if not emisor.county_id:
+            raise UserError(
+                "La dirección del emisor está incompleta, no se ha seleccionado el Cantón"
+            )
+        if not emisor.district_id:
+            raise UserError(
+                "La dirección del emisor está incompleta, no se ha seleccionado el Distrito"
+            )
+        if not emisor.street:
+            raise UserError(
+                "La dirección del emisor está incompleta, no se han digitado las señas de la dirección"
+            )
+
+        Ubicacion = etree.Element("Ubicacion")
+
+        Provincia = etree.Element("Provincia")
+        Provincia.text = emisor.partner_id.state_id.code
+        Ubicacion.append(Provincia)
+
+        Canton = etree.Element("Canton")
+        Canton.text = emisor.county_id.code
+        Ubicacion.append(Canton)
+
+        Distrito = etree.Element("Distrito")
+        Distrito.text = emisor.district_id.code
+        Ubicacion.append(Distrito)
+
+        if emisor.partner_id.neighborhood_id:
+            Barrio = etree.Element("Barrio")
+            Barrio.text = emisor.neighborhood_id.code
+            Ubicacion.append(Barrio)
+
+        OtrasSenas = etree.Element("OtrasSenas")
+        OtrasSenas.text = emisor.street or "Sin otras señas"
+        Ubicacion.append(OtrasSenas)
+
+        Emisor.append(Ubicacion)
+
+        telefono = emisor.partner_id.phone or emisor.partner_id.mobile
+        if telefono:
+            telefono = re.sub("[^0-9]", "", telefono)
+            if telefono and len(telefono) >= 8 and len(telefono) <= 20:
+                Telefono = etree.Element("Telefono")
+
+                CodigoPais = etree.Element("CodigoPais")
+                CodigoPais.text = "506"
+                Telefono.append(CodigoPais)
+
+                NumTelefono = etree.Element("NumTelefono")
+                NumTelefono.text = telefono[:8]
+
+                Telefono.append(NumTelefono)
+
+                Emisor.append(Telefono)
+
+        if not emisor.email or not re.match(
+            "^[(a-z0-9\_\-\.)]+@[(a-z0-9\_\-\.)]+\.[(a-z)]{2,15}$", emisor.email.lower()
+        ):
+            raise UserError("El correo electrónico del emisor es inválido.")
+
+        CorreoElectronico = etree.Element("CorreoElectronico")
+        CorreoElectronico.text = emisor.email.lower()
+        Emisor.append(CorreoElectronico)
+
+        Documento.append(Emisor)
+
+        # Receptor
+        if receptor_valido:
+            Receptor = etree.Element("Receptor")
+
+            Nombre = etree.Element("Nombre")
+            Nombre.text = receptor.name
+            Receptor.append(Nombre)
+
+            identificacion = re.sub("[^0-9]", "", receptor.vat)
+
+            Identificacion = etree.Element("Identificacion")
+
+            Tipo = etree.Element("Tipo")
+            Tipo.text = receptor.identification_id.code
+            Identificacion.append(Tipo)
+
+            Numero = etree.Element("Numero")
+            Numero.text = identificacion
+            Identificacion.append(Numero)
+
+            Receptor.append(Identificacion)
+
+            if (
+                receptor.state_id
+                and receptor.county_id
+                and receptor.district_id
+                and receptor.street
+            ):
+                Ubicacion = etree.Element("Ubicacion")
+
+                Provincia = etree.Element("Provincia")
+                Provincia.text = receptor.state_id.code
+                Ubicacion.append(Provincia)
+
+                Canton = etree.Element("Canton")
+                Canton.text = receptor.county_id.code
+                Ubicacion.append(Canton)
+
+                Distrito = etree.Element("Distrito")
+                Distrito.text = receptor.district_id.code
+                Ubicacion.append(Distrito)
+
+                if receptor.neighborhood_id:
+                    Barrio = etree.Element("Barrio")
+                    Barrio.text = receptor.neighborhood_id.code
+                    Ubicacion.append(Barrio)
+
+                OtrasSenas = etree.Element("OtrasSenas")
+                OtrasSenas.text = receptor.street
+                Ubicacion.append(OtrasSenas)
+
+                Receptor.append(Ubicacion)
+
+            telefono = receptor.phone or receptor.mobile
+            if telefono:
+                telefono = re.sub("[^0-9]", "", telefono)
+                if telefono and len(telefono) >= 8 and len(telefono) <= 20:
+                    Telefono = etree.Element("Telefono")
+
+                    CodigoPais = etree.Element("CodigoPais")
+                    CodigoPais.text = "506"
+                    Telefono.append(CodigoPais)
+
+                    NumTelefono = etree.Element("NumTelefono")
+                    NumTelefono.text = telefono[:8]
+                    Telefono.append(NumTelefono)
+
+                    Receptor.append(Telefono)
+
+            if receptor.email and re.match(
+                "^[(a-z0-9\_\-\.)]+@[(a-z0-9\_\-\.)]+\.[(a-z)]{2,15}$", receptor.email.lower()
+            ):
+                CorreoElectronico = etree.Element("CorreoElectronico")
+                CorreoElectronico.text = receptor.email
+                Receptor.append(CorreoElectronico)
+
+            Documento.append(Receptor)
+
+        # Condicion Venta
+        CondicionVenta = etree.Element("CondicionVenta")
+        if invoice.payment_term_id:
+            CondicionVenta.text = "02"
+            Documento.append(CondicionVenta)
+
+            PlazoCredito = etree.Element("PlazoCredito")
+            timedelta(7)
+            fecha_de_factura = datetime.strptime(invoice.date_invoice, "%Y-%m-%d")
+            fecha_de_vencimiento = datetime.strptime(invoice.date_due, "%Y-%m-%d")
+            PlazoCredito.text = str((fecha_de_factura - fecha_de_vencimiento).days)
+            Documento.append(PlazoCredito)
+        else:
+            CondicionVenta.text = "01"
+            Documento.append(CondicionVenta)
+
+        # DetalleServicio
+        DetalleServicio = etree.Element("DetalleServicio")
+
+        totalServiciosGravados = round(0.00, decimales)
+        totalServiciosExentos = round(0.00, decimales)
+        totalServExonerado = round(0.00, decimales)
+        totalMercanciasGravadas = round(0.00, decimales)
+        totalMercanciasExentas = round(0.00, decimales)
+        totalMercExonerada = round(0.00, decimales)
+
+        totalDescuentosMercanciasExentas = round(0.00, decimales)
+        totalDescuentosMercanciasGravadas = round(0.00, decimales)
+        totalDescuentosServiciosExentos = round(0.00, decimales)
+        totalDescuentosServiciosGravados = round(0.00, decimales)
+
+        totalImpuesto = round(0.00, decimales)
+        totalExonerado = round(0.00, decimales)
+
+        impuestoIVADevuelto = self.env["account.tax"].search(
+            [
+                ("tax_code", "=", "01"),
+                ("iva_tax_code", "=", "04"),
+                ("type_tax_use", "=", "sale"),
+                ("amount", "=", -4),
+            ]
+        )
+        totalIVADevuelto = 0.0
+
+        impuestoServicio = self.env["account.tax"].search([("tax_code", "=", "service")])
+        servicio = (
+            True
+            if impuestoServicio in invoice.invoice_line_ids.mapped("invoice_line_tax_ids")
+            else False
+        )
+        totalImpuestoServicio = 0.0
+
+        for indice, linea in enumerate(invoice.invoice_line_ids.sorted(lambda l: l.sequence)):
+            LineaDetalle = etree.Element("LineaDetalle")
+
+            NumeroLinea = etree.Element("NumeroLinea")
+            NumeroLinea.text = "%s" % (indice + 1)
+            LineaDetalle.append(NumeroLinea)
+
+            Codigo = etree.Element("Codigo")
+            if linea.product_id and linea.product_id.cabys_code:
+                Codigo.text = linea.product_id.cabys_code
+            elif linea.product_id.categ_id and linea.product_id.categ_id.cabys_code:
+                Codigo.text = linea.product_id.categ_id.cabys_code
+            elif invoice.company_id.cabys_product_id:
+                Codigo.text = invoice.company_id.cabys_product_id.codigo
+            else:
+                raise UserError(
+                    "No se ha seleccionado un código Cabys para [%s]" % linea.name[:200]
+                )
+            LineaDetalle.append(Codigo)
+
+            if linea.product_id.default_code:
+                CodigoComercial = etree.Element("CodigoComercial")
+
+                Tipo = etree.Element("Tipo")
+                Tipo.text = "04"  # Código de uso interno
+                CodigoComercial.append(Tipo)
+
+                Codigo = etree.Element("Codigo")
+                Codigo.text = linea.product_id.default_code
+                CodigoComercial.append(Codigo)
+
+                LineaDetalle.append(CodigoComercial)
+
+            Cantidad = etree.Element("Cantidad")
+            Cantidad.text = str(linea.quantity)
+            LineaDetalle.append(Cantidad)
+
+            UnidadMedida = etree.Element("UnidadMedida")
+            UnidadMedida.text = (
+                "Sp" if (linea.product_id and linea.product_id.type == "service") else "Unid"
+            )
+
+            LineaDetalle.append(UnidadMedida)
+
+            Detalle = etree.Element("Detalle")
+            Detalle.text = linea.name[:200]
+            LineaDetalle.append(Detalle)
+
+            PrecioUnitario = etree.Element("PrecioUnitario")
+            PrecioUnitario.text = str(round(linea.price_unit, decimales))
+            LineaDetalle.append(PrecioUnitario)
+
+            MontoTotal = etree.Element("MontoTotal")
+            montoTotal = round(linea.price_unit, decimales) * round(linea.quantity, decimales)
+            MontoTotal.text = str(round(montoTotal, decimales))
+
+            LineaDetalle.append(MontoTotal)
+
+            if linea.discount:
+                Descuento = etree.Element("Descuento")
+
+                MontoDescuento = etree.Element("MontoDescuento")
+                montoDescuento = round(
+                    round(montoTotal, decimales) - round(linea.price_subtotal, decimales), decimales
+                )
+                if linea.invoice_line_tax_ids:
+                    if linea.product_id and linea.product_id.type == "service":
+                        totalDescuentosServiciosGravados += montoDescuento
+                    else:
+                        totalDescuentosMercanciasGravadas += montoDescuento
+                else:
+                    if linea.product_id and linea.product_id.type == "service":
+                        totalDescuentosServiciosExentos += montoDescuento
+                    else:
+                        totalDescuentosMercanciasExentas += montoDescuento
+
+                MontoDescuento.text = str(montoDescuento)
+                Descuento.append(MontoDescuento)
+
+                NaturalezaDescuento = etree.Element("NaturalezaDescuento")
+                NaturalezaDescuento.text = "Descuento Comercial"
+                Descuento.append(NaturalezaDescuento)
+
+                LineaDetalle.append(Descuento)
+
+            SubTotal = etree.Element("SubTotal")
+            SubTotal.text = str(round(linea.price_subtotal, decimales))
+            LineaDetalle.append(SubTotal)
+
+            impuestos = linea.invoice_line_tax_ids - impuestoServicio - impuestoIVADevuelto
+
+            if impuestos:
+                for impuesto in impuestos:
+                    monto = round(linea.price_subtotal * impuesto.amount / 100.00, decimales)
+
+                    if impuesto.has_exoneration:
+                        totalExonerado += abs(monto)
+                        Exoneracion = etree.Element("Exoneracion")
+
+                        TipoDocumento = etree.Element("TipoDocumento")
+                        TipoDocumento.text = linea.exoneration_id.tipo_documento_id.code
+                        Exoneracion.append(TipoDocumento)
+
+                        NumeroDocumento = etree.Element("NumeroDocumento")
+                        NumeroDocumento.text = linea.exoneration_id.name
+                        Exoneracion.append(NumeroDocumento)
+
+                        NombreInstitucion = etree.Element("NombreInstitucion")
+                        NombreInstitucion.text = linea.exoneration_id.nombre_institucion
+                        Exoneracion.append(NombreInstitucion)
+
+                        FechaEmision = etree.Element("FechaEmision")
+                        fecha_emision = datetime.strptime(
+                            linea.exoneration_id.fecha_emision, "%Y-%m-%d"
+                        )
+                        FechaEmision.text = fecha_emision.strftime("%Y-%m-%dT%H:%M:%S")
+                        Exoneracion.append(FechaEmision)
+
+                        PorcentajeExoneracion = etree.Element("PorcentajeExoneracion")
+                        PorcentajeExoneracion.text = str(
+                            int(linea.exoneration_id.percentage_exoneration)
+                        )
+                        Exoneracion.append(PorcentajeExoneracion)
+
+                        MontoExoneracion = etree.Element("MontoExoneracion")
+                        MontoExoneracion.text = str(round(abs(monto), decimales))
+                        Exoneracion.append(MontoExoneracion)
+
+                        totalImpuesto += monto
+                        Impuesto = LineaDetalle.find("Impuesto")
+                        Impuesto.append(Exoneracion)
+                        print(Impuesto)
+
+                        # exoneration tax
+                        exonerated_tax_id = linea.invoice_line_tax_ids.filtered(
+                            lambda t: t.has_exoneration
+                        )
+
+                        ImpuestoNeto = etree.Element("ImpuestoNeto")
+                        monto_exoneracion = round(
+                            linea.price_subtotal * exonerated_tax_id.amount / 100.00, decimales
+                        )
+                        ImpuestoNeto.text = str(round(monto - monto_exoneracion, decimales))
+
+                        Impuesto.addnext(ImpuestoNeto)
+
+                        if linea.product_id and linea.product_id.type == "service":
+                            totalServiciosGravados -= linea.price_subtotal
+                            totalServExonerado += linea.price_subtotal
+                        else:
+                            totalMercanciasGravadas -= linea.price_subtotal
+                            totalMercExonerada += linea.price_subtotal
+
+                    else:
+                        Impuesto = etree.Element("Impuesto")
+
+                        Codigo = etree.Element("Codigo")
+                        Codigo.text = impuesto.tax_code
+                        Impuesto.append(Codigo)
+
+                        if impuesto.tax_code == "01":
+                            CodigoTarifa = etree.Element("CodigoTarifa")
+                            CodigoTarifa.text = impuesto.iva_tax_code
+                            Impuesto.append(CodigoTarifa)
+
+                            Tarifa = etree.Element("Tarifa")
+                            Tarifa.text = str(round(impuesto.amount, decimales))
+                            Impuesto.append(Tarifa)
+
+                        Monto = etree.Element("Monto")
+
+                        totalImpuesto += monto
+                        Monto.text = str(round(monto, decimales))
+                        Impuesto.append(Monto)
+
+                        LineaDetalle.append(Impuesto)
+
+                        if linea.product_id and linea.product_id.type == "service":
+                            totalServiciosGravados += linea.price_subtotal
+                        else:
+                            totalMercanciasGravadas += linea.price_subtotal
+
+            else:
+                if linea.product_id and linea.product_id.type == "service":
+                    totalServiciosExentos += linea.price_subtotal
+                else:
+                    totalMercanciasExentas += linea.price_subtotal
+
+            ivaDevuelto = abs(
+                sum(
+                    linea.invoice_line_tax_ids.filtered(lambda t: t == impuestoIVADevuelto).mapped(
+                        lambda t: round(linea.price_subtotal * t.amount / 100.00, decimales)
+                    )
+                )
+            )
+            MontoTotalLinea = etree.Element("MontoTotalLinea")
+            montoTotalLinea = linea.price_total + ivaDevuelto
+            totalIVADevuelto += ivaDevuelto
+            if impuestoServicio in linea.invoice_line_tax_ids:
+                _logger.info("mndl %s" % montoTotalLinea)
+                deduccion = (
+                    montoTotalLinea
+                    * 10.0
+                    / (100.0 + sum(linea.invoice_line_tax_ids.mapped("amount")))
+                )
+                _logger.info("mndl %s" % deduccion)
+                montoTotalLinea -= deduccion
+                _logger.info("mndl %s" % montoTotalLinea)
+                totalImpuestoServicio += deduccion
+            MontoTotalLinea.text = str(round(montoTotalLinea, decimales))
+            LineaDetalle.append(MontoTotalLinea)
+
+            DetalleServicio.append(LineaDetalle)
+
+        Documento.append(DetalleServicio)
+
+        if servicio:
+            # Otros Cargos
+            OtrosCargos = etree.Element("OtrosCargos")
+
+            TipoDocumento = etree.Element("TipoDocumento")
+            TipoDocumento.text = "06"
+            OtrosCargos.append(TipoDocumento)
+
+            Detalle = etree.Element("Detalle")
+            Detalle.text = "Cargo de Servicio (10%)"
+            OtrosCargos.append(Detalle)
+
+            Porcentaje = etree.Element("Porcentaje")
+            Porcentaje.text = "10.0"
+            OtrosCargos.append(Porcentaje)
+
+            MontoCargo = etree.Element("MontoCargo")
+            MontoCargo.text = str(round(totalImpuestoServicio, decimales))
+            OtrosCargos.append(MontoCargo)
+
+            Documento.append(OtrosCargos)
+
+        # ResumenFactura
+        ResumenFactura = etree.Element("ResumenFactura")
+
+        CodigoTipoMoneda = etree.Element("CodigoTipoMoneda")
+
+        CodigoMoneda = etree.Element("CodigoMoneda")
+        CodigoMoneda.text = invoice.currency_id.name
+        CodigoTipoMoneda.append(CodigoMoneda)
+
+        TipoCambio = etree.Element("TipoCambio")
+        TipoCambio.text = str(round(1.0 / invoice.currency_id.rate, decimales))
+        CodigoTipoMoneda.append(TipoCambio)
+
+        ResumenFactura.append(CodigoTipoMoneda)
+
+        if totalServiciosGravados or totalServExonerado:
+            TotalServGravados = etree.Element("TotalServGravados")
+            TotalServGravados.text = str(
+                round(totalServiciosGravados + totalDescuentosServiciosGravados, decimales)
+            )
+            ResumenFactura.append(TotalServGravados)
+
+        if totalServiciosExentos:
+            TotalServExentos = etree.Element("TotalServExentos")
+            TotalServExentos.text = str(
+                round(totalServiciosExentos + totalDescuentosServiciosExentos, decimales)
+            )
+            ResumenFactura.append(TotalServExentos)
+
+        if totalServExonerado:
+            TotalServExonerado = etree.Element("TotalServExonerado")
+            TotalServExonerado.text = str(round(totalServExonerado, decimales))
+            ResumenFactura.append(TotalServExonerado)
+
+        if totalMercanciasGravadas or totalMercExonerada:
+            TotalMercanciasGravadas = etree.Element("TotalMercanciasGravadas")
+            TotalMercanciasGravadas.text = str(
+                round(totalMercanciasGravadas + totalDescuentosMercanciasGravadas, decimales)
+            )
+            ResumenFactura.append(TotalMercanciasGravadas)
+
+        if totalMercanciasExentas:
+            TotalMercanciasExentas = etree.Element("TotalMercanciasExentas")
+            TotalMercanciasExentas.text = str(
+                round(totalMercanciasExentas + totalDescuentosMercanciasExentas, decimales)
+            )
+            ResumenFactura.append(TotalMercanciasExentas)
+
+        if totalMercExonerada:
+            TotalMercExonerada = etree.Element("TotalMercExonerada")
+            TotalMercExonerada.text = str(round(totalMercExonerada, decimales))
+            ResumenFactura.append(TotalMercExonerada)
+
+        if (
+            totalServiciosGravados
+            or totalMercanciasGravadas
+            or totalServExonerado
+            or totalMercExonerada
+        ):
+            TotalGravado = etree.Element("TotalGravado")
+            TotalGravado.text = str(
+                round(
+                    totalServiciosGravados
+                    + totalDescuentosServiciosGravados
+                    + totalMercanciasGravadas
+                    + totalDescuentosMercanciasGravadas,
+                    decimales,
+                )
+            )
+            ResumenFactura.append(TotalGravado)
+
+        if totalServiciosExentos + totalMercanciasExentas:
+            TotalExento = etree.Element("TotalExento")
+            TotalExento.text = str(
+                round(
+                    totalServiciosExentos
+                    + totalDescuentosServiciosExentos
+                    + totalMercanciasExentas
+                    + totalDescuentosMercanciasExentas,
+                    decimales,
+                )
+            )
+            ResumenFactura.append(TotalExento)
+
+        if totalServExonerado or totalMercExonerada:
+            TotalExonerado = etree.Element("TotalExonerado")
+            TotalExonerado.text = str(round(totalServExonerado + totalMercExonerada, decimales))
+            ResumenFactura.append(TotalExonerado)
+
+        TotalVenta = etree.Element("TotalVenta")
+        TotalVenta.text = str(
+            round(
+                invoice.amount_untaxed
+                + totalDescuentosServiciosGravados
+                + totalDescuentosMercanciasGravadas
+                + totalDescuentosServiciosExentos
+                + totalDescuentosMercanciasExentas,
+                decimales,
+            )
+        )
+        ResumenFactura.append(TotalVenta)
+
+        if (
+            totalDescuentosServiciosGravados
+            + totalDescuentosMercanciasGravadas
+            + totalDescuentosServiciosExentos
+            + totalDescuentosMercanciasExentas
+        ):
+            TotalDescuentos = etree.Element("TotalDescuentos")
+            TotalDescuentos.text = str(
+                round(
+                    totalDescuentosServiciosGravados
+                    + totalDescuentosMercanciasGravadas
+                    + totalDescuentosServiciosExentos
+                    + totalDescuentosMercanciasExentas,
+                    decimales,
+                )
+            )
+            ResumenFactura.append(TotalDescuentos)
+
+        TotalVentaNeta = etree.Element("TotalVentaNeta")
+        TotalVentaNeta.text = str(round(invoice.amount_untaxed, decimales))
+        ResumenFactura.append(TotalVentaNeta)
+
+        if totalImpuesto:
+            TotalImpuesto = etree.Element("TotalImpuesto")
+            # TotalImpuesto.text = str(round(invoice.amount_tax, decimales))
+            TotalImpuesto.text = str(round(totalImpuesto, decimales))
+            ResumenFactura.append(TotalImpuesto)
+
+            if totalIVADevuelto:
+                TotalIVADevuelto = etree.Element("TotalIVADevuelto")
+                TotalIVADevuelto.text = str(round(totalIVADevuelto, decimales))
+                ResumenFactura.append(TotalIVADevuelto)
+
+        if servicio:
+            TotalOtrosCargos = etree.Element("TotalOtrosCargos")
+            TotalOtrosCargos.text = str(round(totalImpuestoServicio, decimales))
+            ResumenFactura.append(TotalOtrosCargos)
+        
+        if not credit:
+            # MedioPago
+            MedioPago = etree.Element("MedioPago")
+
+            # TipoMedioPago -> MedioPago
+            TipoMedioPago = etree.Element("TipoMedioPago")
+            TipoMedioPago.text = "abc"
+            MedioPago.append(TipoMedioPago)
+
+            # MedioPagoOtros -> MedioPago
+            MedioPagoOtros = etree.Element("MedioPagoOtros")
+            MedioPagoOtros.text = "abc"
+            MedioPago.append(MedioPagoOtros)
+
+            # TotalMedioPago -> MedioPago
+            TotalMedioPago = etree.Element("TotalMedioPago")
+            TotalMedioPago.text = "abc"
+            MedioPago.append(TotalMedioPago)
+
+            # MedioPago -> Documento
+            Documento.append(MedioPago)
+
+
+        MedioPago.text = invoice.payment_mode_id.name
+        ResumenFactura.append(MedioPago)
+        
+                # MedioPago
+        MedioPago = etree.Element("MedioPago")
+        MedioPago.text = invoice.payment_methods_id.sequence if invoice.payment_methods_id else "01"
+        Documento.append(MedioPago)
 
         TotalComprobante = etree.Element("TotalComprobante")
         TotalComprobante.text = str(round(invoice.amount_total, decimales))

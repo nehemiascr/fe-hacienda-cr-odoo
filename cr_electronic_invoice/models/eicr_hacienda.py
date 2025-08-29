@@ -144,6 +144,10 @@ class ElectronicInvoiceCostaRicaHacienda(models.AbstractModel):
         _logger.info('Documento %s' % Documento)
 
         if self.env['eicr.tools']._es_mensaje_aceptacion(object):
+            if not object.xml_supplier_approval:
+                _logger.info('%s sin xml de proveedor' % object)
+                object.state_tributacion = 'na'
+                return False
             xml_factura_proveedor = object.xml_supplier_approval
             xml_factura_proveedor = base64.b64decode(xml_factura_proveedor)
             FacturaElectronica = etree.tostring(etree.fromstring(xml_factura_proveedor)).decode()
@@ -251,8 +255,8 @@ class ElectronicInvoiceCostaRicaHacienda(models.AbstractModel):
             return False
 
         if response.status_code in (301, 400, 403, 500, 502, 522, 524):
-            headers_message = response.headers[
-                'x-amzn-errortype'] if response.headers and 'x-amzn-errortype' in response.headers else ''
+            headers_message = response.headers.get('x-amzn-errortype', '')
+            headers_message += " " + response.headers.get('x-error-cause', '')
             payload_message = response.content if response.content else ''
             message = "Error %s: %s %s" % (response.status_code, headers_message, payload_message)
             _logger.info(message)
