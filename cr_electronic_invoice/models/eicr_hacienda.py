@@ -250,18 +250,17 @@ class ElectronicInvoiceCostaRicaHacienda(models.AbstractModel):
             _logger.info('no vamos a continuar, Exception %s' % e)
             return False
 
-        if response.status_code in (301, 400):
-            _logger.info('Error %s %s' % (response.status_code, response.headers['X-Error-Cause']))
-            _logger.info('no vamos a continuar, algo inesperado sucedió %s' % response.__dict__)
+        if response.status_code in (301, 400, 403, 500, 502, 522, 524):
+            headers_message = response.headers[
+                'x-amzn-errortype'] if response.headers and 'x-amzn-errortype' in response.headers else ''
+            payload_message = response.content if response.content else ''
+            message = "Error %s: %s %s" % (response.status_code, headers_message, payload_message)
+            _logger.info(message)
+
             object.state_tributacion = 'error'
-            object.respuesta_tributacion = response.headers[
-                'X-Error-Cause'] if response.headers and 'X-Error-Cause' in response.headers else 'No hay de Conexión con Hacienda'
+            object.respuesta_tributacion = message
             if 'ya fue recibido anteriormente' in object.respuesta_tributacion: object.state_tributacion = 'recibido'
             if 'no ha sido recibido' in object.respuesta_tributacion: object.state_tributacion = 'pendiente'
-            return False
-        if response.status_code in (403, 500, 502, 522, 524):
-            object.state_tributacion = 'error'
-            object.respuesta_tributacion = response.content
             return False
 
         _logger.info('respuesta %s' % response.__dict__)
